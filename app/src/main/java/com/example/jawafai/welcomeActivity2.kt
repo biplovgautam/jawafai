@@ -10,7 +10,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -26,7 +25,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.jawafai.LoginActivity
-import com.example.jawafai.R // Ensure correct import
+import com.example.jawafai.R // Make sure this import points to the correct R file
 
 class WelcomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,85 +42,76 @@ fun WelcomeScreen() {
     val context = LocalContext.current
     val activity = LocalActivity.current
 
-    Box(modifier = Modifier.fillMaxSize()) {
+
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
         // Background Image
         Image(
-            painter = painterResource(id = R.drawable.background),
+            painter = painterResource(id = R.drawable.background), // Your background image
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
 
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
                 .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            item {
-                Image(
-                    painter = painterResource(id = R.drawable.logo),
-                    contentDescription = "Bot Icon",
-                    modifier = Modifier.size(200.dp)
-                )
+            Image(
+                painter = painterResource(id = R.drawable.logo), // Your bot icon
+                contentDescription = "Bot Icon",
+                modifier = Modifier.size(200.dp)
+            )
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            Text(
+                text = "Welcome",
+                fontSize = 75.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF004D40)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Your smart assistant is ready to help.",
+                fontSize = 18.sp,
+                textAlign = TextAlign.Center,
+                color = Color.DarkGray
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Button(
+                onClick = {
+                    context.startActivity(Intent(context, LoginActivity::class.java))
+                },
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF006064)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text(text = "Get Started", color = Color.White, fontSize = 18.sp)
             }
 
-            item { Spacer(modifier = Modifier.height(40.dp)) }
+            Spacer(modifier = Modifier.height(16.dp))
 
-            item {
-                Text(
-                    text = "Welcome",
-                    fontSize = 75.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF004D40)
-                )
-            }
-
-            item { Spacer(modifier = Modifier.height(12.dp)) }
-
-            item {
-                Text(
-                    text = "Your smart assistant is ready to help.",
-                    fontSize = 18.sp,
-                    textAlign = TextAlign.Center,
-                    color = Color.DarkGray
-                )
-            }
-
-            item { Spacer(modifier = Modifier.height(32.dp)) }
-
-            item {
-                Button(
-                    onClick = {
-                        context.startActivity(Intent(context, LoginActivity::class.java))
-                    },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF006064)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                ) {
-                    Text(text = "Get Started", color = Color.White, fontSize = 18.sp)
+            Text(
+                text = "Don't have an account? Signup",
+                color = Color.Blue,
+                fontSize = 14.sp,
+                modifier = Modifier.clickable {
+                    context.startActivity(Intent(context, RegistrationActivity::class.java))
+                    activity?.finish()
                 }
-            }
-
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-
-            item {
-                Text(
-                    text = "Don't have an account? Signup",
-                    color = Color.Blue,
-                    fontSize = 14.sp,
-                    modifier = Modifier.clickable {
-                        context.startActivity(Intent(context, RegistrationActivity::class.java))
-                        activity?.finish()
-                    }
-                )
-            }
-
-            item { Spacer(modifier = Modifier.height(40.dp)) }
+            )
         }
     }
 }
