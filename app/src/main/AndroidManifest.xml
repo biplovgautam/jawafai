@@ -13,6 +13,61 @@
         android:theme="@style/Theme.Jawafai"
         tools:targetApi="31">
         <activity
+            android:name=".profileActivity2"
+            android:exported="true"
+            android:label="@string/title_activity_profile2"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".RegistrattionActivity2"
+            android:exported="true"
+            android:label="@string/title_activity_registrattion2"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".SignupActivity2"
+            android:exported="true"
+            android:label="@string/title_activity_signup2"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".welcomeActivity2"
+            android:exported="true"
+            android:label="@string/title_activity_welcome2"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".LoginActivity"
+            android:exported="true"
+            android:label="@string/title_activity_login"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"

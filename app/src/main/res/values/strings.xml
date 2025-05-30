@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">jawafai</string>
+    <string name="title_activity_login">LoginActivity</string>
+    <string name="title_activity_welcome2">welcomeActivity2</string>
+    <string name="title_activity_signup2">SignupActivity2</string>
+    <string name="title_activity_registrattion2">RegistrattionActivity2</string>
+    <string name="title_activity_profile2">profileActivity2</string>
 </resources>
