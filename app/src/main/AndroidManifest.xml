@@ -14,46 +14,41 @@
         android:theme="@style/Theme.Jawafai"
         tools:targetApi="31">
 
-        <!-- Launcher activity -->
-        <activity
-            android:name=".view.LoginActivity"
-            android:exported="true"
-            android:label="@string/title_activity_login"
-            android:theme="@style/Theme.Jawafai">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-        <activity
-            android:name=".view.ProfileActivity"
-            android:exported="true"
-            android:label="@string/title_activity_login"
-            android:theme="@style/Theme.Jawafai">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
-        <!-- Main activity that handles navigation -->
-        <activity
-            android:name=".jawafaipage.MainActivity"
-            android:exported="true"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.Jawafai" />
-
-        <!-- Optional: other activity if really needed -->
-        <activity
-            android:name=".view.RegistrationActivity"
-            android:exported="true"
-            android:label="@string/title_activity_registrattion2"
-            android:theme="@style/Theme.Jawafai" />
-
+        <!-- ✅ Launcher activity: WelcomeActivity -->
         <activity
             android:name=".view.WelcomeActivity"
             android:exported="true"
             android:label="@string/title_activity_welcome2"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- ✅ Other activities -->
+        <activity
+            android:name=".view.LoginActivity"
+            android:exported="true"
+            android:label="@string/title_activity_login"
+            android:theme="@style/Theme.Jawafai" />
+
+        <activity
+            android:name=".view.ProfileActivity"
+            android:exported="true"
+            android:label="@string/title_activity_login"
+            android:theme="@style/Theme.Jawafai" />
+
+        <activity
+            android:name=".view.MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.Jawafai" />
+
+        <activity
+            android:name=".view.RegistrationActivity"
+            android:exported="true"
+            android:label="@string/title_activity_registrattion2"
             android:theme="@style/Theme.Jawafai" />
 
     </application>
