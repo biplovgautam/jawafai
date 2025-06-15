@@ -13,7 +13,183 @@
         android:theme="@style/Theme.Jawafai"
         tools:targetApi="31">
         <activity
-            android:name=".MainActivity"
+            android:name="jawafaipage.DummyChatScreen"
+            android:exported="true"
+            android:label="@string/title_activity_dummy_chat_screen"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="jawafaipage.SettingScreen"
+            android:exported="true"
+            android:label="@string/title_activity_setting_screen"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="jawafaipage.Homepage"
+            android:exported="true"
+            android:label="@string/title_activity_homepage"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".Nevigation"
+            android:exported="true"
+            android:label="@string/title_activity_nevigation"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="jawafaipage.PorfileScreen"
+            android:exported="true"
+            android:label="@string/title_activity_porfile_screen"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="jawafaipage.ui.theme.Homepage"
+            android:exported="true"
+            android:label="@string/title_activity_homepage"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="jawafaipage.neviagtion2"
+            android:exported="true"
+            android:label="@string/title_activity_neviagtion2"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".SettingsScreen"
+            android:exported="true"
+            android:label="@string/title_activity_settings_screen"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".ProfileScreen"
+            android:exported="true"
+            android:label="@string/title_activity_profile_screen"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".DummyChatScreen"
+            android:exported="true"
+            android:label="@string/title_activity_dummy_chat_screen"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".Homepage"
+            android:exported="true"
+            android:label="@string/title_activity_homepage"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".profileActivity2"
+            android:exported="true"
+            android:label="@string/title_activity_profile2"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".RegistrattionActivity2"
+            android:exported="true"
+            android:label="@string/title_activity_registrattion2"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".SignupActivity2"
+            android:exported="true"
+            android:label="@string/title_activity_signup2"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".welcomeActivity2"
+            android:exported="true"
+            android:label="@string/title_activity_welcome2"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".view.LoginActivity"
+            android:exported="true"
+            android:label="@string/title_activity_login"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".view.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Jawafai">
