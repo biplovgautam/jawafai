@@ -1,4 +1,4 @@
-package com.example.jawafai.view
+package com.example.jawafai.jawafaipage
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity

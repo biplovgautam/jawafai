@@ -1,4 +1,4 @@
-package com.example.mysmartassistant
+package com.example.jawafai.view
 
 import android.content.Intent
 import android.os.Bundle

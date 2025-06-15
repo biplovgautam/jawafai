@@ -1,4 +1,4 @@
-package com.example.mysmartassistant
+package com.example.jawafai.view
 
 import android.app.DatePickerDialog
 import android.content.Context

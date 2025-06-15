@@ -1,4 +1,4 @@
-package com.example.profileactivity.page
+package com.example.jawafai.jawafaipage
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*

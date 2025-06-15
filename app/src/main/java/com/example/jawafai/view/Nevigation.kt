@@ -1,4 +1,5 @@
-package com.example.profileactivity
+package com.example.jawafai.jawafaipage
+
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -18,9 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
-import com.example.profileactivity.page.Homepage
-import com.example.profileactivity.page.ProfileScreen
-import com.example.profileactivity.page.SettingsScreen
+import com.example.jawafai.view.jawafaipage.SettingsScreen
 
 class NavigationActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

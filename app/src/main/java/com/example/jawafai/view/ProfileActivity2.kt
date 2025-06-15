@@ -1,4 +1,4 @@
-package com.example.profilepage
+package com.example.jawafai.view
 
 import android.os.Bundle
 import android.widget.Toast

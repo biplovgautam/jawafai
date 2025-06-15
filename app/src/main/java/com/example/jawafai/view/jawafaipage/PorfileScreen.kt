@@ -1,3 +1,5 @@
+package com.example.jawafai.view.jawafaipage
+
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background

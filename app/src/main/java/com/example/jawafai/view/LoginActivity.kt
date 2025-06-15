@@ -31,8 +31,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import com.example.jawafai.R
-import com.example.mysmartassistant.RegistrationActivity
-import com.example.profilepage.ProfileActivity
+
+
 
 class LoginActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
