@@ -1,4 +1,4 @@
-package com.example.jawafai
+package com.example.jawafai.view
 
 import android.content.Intent
 import android.os.Bundle
@@ -11,9 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -33,8 +30,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import com.example.jawafai.R
 import com.example.mysmartassistant.RegistrationActivity
-import com.example.profilepage.ProfileActivityPreview
+import com.example.profilepage.ProfileActivity
 
 class LoginActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -166,7 +164,7 @@ fun LoginScreen() {
                 Button(
                     onClick = {
                         if (email == "test@example.com" && password == "123456") {
-                            val intent = Intent(context, com.example.profilepage.ProfileActivity::class.java)
+                            val intent = Intent(context, ProfileActivity::class.java)
                             context.startActivity(intent)
                             (context as? ComponentActivity)?.finish()
                         } else {

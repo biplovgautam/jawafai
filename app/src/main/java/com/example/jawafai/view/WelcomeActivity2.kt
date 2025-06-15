@@ -1,6 +1,5 @@
 package com.example.mysmartassistant
 
-import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -24,8 +23,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.jawafai.LoginActivity
-import com.example.jawafai.R // Make sure this import points to the correct R file
+import com.example.jawafai.view.LoginActivity
+import com.example.jawafai.R
 
 class WelcomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,7 +47,7 @@ fun WelcomeScreen() {
     ) {
         // Background Image
         Image(
-            painter = painterResource(id = R.drawable.background), // Your background image
+            painter = painterResource(id = R.drawable.background),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
@@ -63,7 +62,7 @@ fun WelcomeScreen() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Image(
-                painter = painterResource(id = R.drawable.logo), // Your bot icon
+                painter = painterResource(id = R.drawable.logo),
                 contentDescription = "Bot Icon",
                 modifier = Modifier.size(200.dp)
             )

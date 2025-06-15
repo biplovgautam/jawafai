@@ -1,7 +1,6 @@
 package com.example.profileactivity.page
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,7 +36,7 @@ fun Homepage() {
     ) {
         // Background Image with dimmed overlay
         Image(
-            painter = painterResource(id = com.example.jawafai.R.drawable.background),
+            painter = painterResource(id = R.drawable.background),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
