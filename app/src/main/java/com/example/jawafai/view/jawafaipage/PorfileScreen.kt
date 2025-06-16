@@ -49,7 +49,7 @@ import com.example.jawafai.R
 @Composable
 fun ProfileScreen() {
     val context = LocalContext.current
-    val profileImage = painterResource(id = R.drawable.logo)
+    val profileImage = painterResource(id = R.drawable.profile)
     val background = painterResource(id = R.drawable.background)
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -177,7 +177,7 @@ fun ProfileActivityPreview() {
     val dummyPainter = if (LocalInspectionMode.current) {
         painterResource(android.R.drawable.sym_def_app_icon)
     } else {
-        painterResource(id = R.drawable.logo)
+        painterResource(id = R.drawable.profile)
     }
 
     ProfileContent(

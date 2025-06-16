@@ -62,7 +62,7 @@ fun WelcomeScreen() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Image(
-                painter = painterResource(id = R.drawable.logo),
+                painter = painterResource(id = R.drawable.profile),
                 contentDescription = "Bot Icon",
                 modifier = Modifier.size(200.dp)
             )

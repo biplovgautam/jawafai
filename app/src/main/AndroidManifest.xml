@@ -13,44 +13,41 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Jawafai"
         tools:targetApi="31">
-
-        <!-- ✅ Launcher activity: WelcomeActivity -->
         <activity
-            android:name=".view.WelcomeActivity"
+            android:name=".Typography"
             android:exported="true"
-            android:label="@string/title_activity_welcome2"
+            android:label="@string/title_activity_typography"
             android:theme="@style/Theme.Jawafai">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- ✅ Only one launcher activity -->
+        <activity
+            android:name=".view.WelcomeActivity"
+            android:exported="true"
+            android:label="Welcome"
+            android:theme="@style/Theme.Jawafai">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
 
-        <!-- ✅ Other activities -->
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity> <!-- ✅ Other screens (no launcher intent) -->
         <activity
             android:name=".view.LoginActivity"
-            android:exported="true"
-            android:label="@string/title_activity_login"
-            android:theme="@style/Theme.Jawafai" />
-
+            android:exported="true" />
         <activity
             android:name=".view.ProfileActivity"
-            android:exported="true"
-            android:label="@string/title_activity_login"
-            android:theme="@style/Theme.Jawafai" />
-
-        <activity
-            android:name=".view.MainActivity"
-            android:exported="true"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.Jawafai" />
-
+            android:exported="true" />
         <activity
             android:name=".view.RegistrationActivity"
-            android:exported="true"
-            android:label="@string/title_activity_registrattion2"
-            android:theme="@style/Theme.Jawafai" />
-
+            android:exported="true" />
+        <activity
+            android:name=".MainActivity"
+            android:exported="true" />
     </application>
 
 </manifest>

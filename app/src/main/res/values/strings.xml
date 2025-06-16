@@ -13,4 +13,10 @@
     <string name="title_activity_neviagtion2">neviagtion2</string>
     <string name="title_activity_porfile_screen">PorfileScreen</string>
     <string name="title_activity_setting_screen">SettingScreen</string>
+    <string name="title_activity_splash_screen">SplashScreenActivity</string>
+    <string name="title_activity_onboard_screen1">OnboardScreen1</string>
+    <string name="title_activity_onborad_screen2">OnboradScreen2</string>
+    <string name="title_activity_onboard_screen3">OnboardScreen3</string>
+    <string name="title_activity_onboard_screen4">OnboardScreen4</string>
+    <string name="title_activity_typography">Typography</string>
 </resources>
