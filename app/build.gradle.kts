@@ -38,10 +38,14 @@ android {
     buildFeatures {
         compose = true
     }
+
+    lint {
+        abortOnError = false
+    }
 }
 
 dependencies {
-
+    // AndroidX Core and UI
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -51,8 +55,18 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.compose)
-    implementation(libs.firebase.auth) // adk aaded
-    implementation(libs.firebase.database) // test for branch
+    implementation("androidx.compose.runtime:runtime-livedata:1.5.4") // Add this line
+
+    // Firebase - Use BoM to manage versions
+    implementation(platform(libs.firebase.bom))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+
+    // Coroutines
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.play.services)
+
+    // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

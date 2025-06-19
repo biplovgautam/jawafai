@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.example.jawafai">
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
@@ -13,18 +14,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Jawafai"
         tools:targetApi="31">
-        <activity
-            android:name=".Typography"
-            android:exported="true"
-            android:label="@string/title_activity_typography"
-            android:theme="@style/Theme.Jawafai">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-        <!-- ✅ Only one launcher activity -->
+        <!-- Welcome Activity as main launcher -->
         <activity
             android:name=".view.WelcomeActivity"
             android:exported="true"
@@ -32,10 +23,11 @@
             android:theme="@style/Theme.Jawafai">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity> <!-- ✅ Other screens (no launcher intent) -->
+        </activity>
+
+        <!-- Other activities -->
         <activity
             android:name=".view.LoginActivity"
             android:exported="true" />
@@ -43,11 +35,10 @@
             android:name=".view.ProfileActivity"
             android:exported="true" />
         <activity
-            android:name=".view.RegistrationActivity"
+            android:name=".view.RegistrationActivity2"
             android:exported="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true" />
     </application>
-
 </manifest>

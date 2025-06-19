@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.jawafai.view.LoginActivity
 import com.example.jawafai.R
+import com.example.jawafai.view.RegistrationActivity2
 
 class WelcomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -107,7 +108,7 @@ fun WelcomeScreen() {
                 color = Color.Blue,
                 fontSize = 14.sp,
                 modifier = Modifier.clickable {
-                    context.startActivity(Intent(context, RegistrationActivity::class.java))
+                    context.startActivity(Intent(context, RegistrationActivity2::class.java))
                     activity?.finish()
                 }
             )

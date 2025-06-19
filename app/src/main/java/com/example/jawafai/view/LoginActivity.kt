@@ -208,7 +208,7 @@ fun LoginScreen() {
                     "Don't have an account? Sign up",
                     color = Color.Black,
                     modifier = Modifier.clickable {
-                        val intent = Intent(context, RegistrationActivity::class.java)
+                        val intent = Intent(context, RegistrationActivity2::class.java)
                         context.startActivity(intent)
                         (context as? ComponentActivity)?.finish()
                     }

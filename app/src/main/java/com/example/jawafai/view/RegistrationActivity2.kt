@@ -1,7 +1,6 @@
 package com.example.jawafai.view
 
 import android.app.DatePickerDialog
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
@@ -12,10 +11,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,36 +22,77 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.jawafai.view.LoginActivity
+import androidx.lifecycle.ViewModelProvider
 import com.example.jawafai.R
+import com.example.jawafai.model.UserModel
+import com.example.jawafai.repository.UserRepositoryImpl
+import com.example.jawafai.viewmodel.UserViewModel
+import com.example.jawafai.viewmodel.UserViewModelFactory
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import java.util.*
 
-class RegistrationActivity : ComponentActivity() {
+class RegistrationActivity2 : ComponentActivity() {
+    private lateinit var viewModel: UserViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Initialize Firebase components
+        val auth = FirebaseAuth.getInstance()
+        val firestore = FirebaseFirestore.getInstance()
+
+        // Initialize Repository and ViewModel
+        val repository = UserRepositoryImpl(auth, firestore)
+        val factory = UserViewModelFactory(repository, auth)
+
+        viewModel = ViewModelProvider(this, factory)[UserViewModel::class.java]
+
         setContent {
-            RegistrationScreen()
+            RegistrationScreen(viewModel)
         }
     }
 }
 
 @Composable
-fun RegistrationScreen() {
-    val context = LocalContext.current
-    val sharedPreferences = context.getSharedPreferences("User", Context.MODE_PRIVATE)
-    val editor = sharedPreferences.edit()
-
+fun RegistrationScreen(viewModel: UserViewModel) {
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var dob by remember { mutableStateOf("") }
-    var acceptTerms by remember { mutableStateOf(false) }
-    val datePickerDialog = rememberDatePickerDialog { dob = it }
+    var dob by remember {
+        val calendar = Calendar.getInstance()
+        calendar.add(Calendar.YEAR, -20)  // Set default date to 20 years ago
+        mutableStateOf("${calendar.get(Calendar.DAY_OF_MONTH)}/${calendar.get(Calendar.MONTH) + 1}/${calendar.get(Calendar.YEAR)}")
+    }
+    var showError by remember { mutableStateOf<String?>(null) }
+
+    val context = LocalContext.current
+    val userState by viewModel.userState.observeAsState()
+
+    // Handle registration state
+    LaunchedEffect(userState) {
+        when (userState) {
+            is UserViewModel.UserOperationResult.Success -> {
+                Toast.makeText(context, (userState as UserViewModel.UserOperationResult.Success).message, Toast.LENGTH_SHORT).show()
+                context.startActivity(Intent(context, LoginActivity::class.java))
+                (context as? ComponentActivity)?.finish()
+            }
+            is UserViewModel.UserOperationResult.Error -> {
+                showError = (userState as UserViewModel.UserOperationResult.Error).message
+                Toast.makeText(context, showError, Toast.LENGTH_LONG).show()
+            }
+            else -> {}
+        }
+    }
+
+    val datePickerDialog = rememberDatePickerDialog { selectedDate ->
+        dob = selectedDate
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
@@ -65,42 +105,59 @@ fun RegistrationScreen() {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .systemBarsPadding()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            item { Spacer(modifier = Modifier.height(32.dp)) }
+
             item {
-                Image(
-                    painter = painterResource(id = R.drawable.profile),
-                    contentDescription = "App Icon",
-                    modifier = Modifier.size(100.dp)
+                Text(
+                    text = "Create Account",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = Color.White
                 )
             }
 
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Register", fontSize = 32.sp, color = Color(0xFF004D40))
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+            item { Spacer(modifier = Modifier.height(32.dp)) }
 
+            // Form fields
             item {
                 OutlinedTextField(
                     value = firstName,
                     onValueChange = { firstName = it },
                     label = { Text("First Name") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = Color.White,
+                        unfocusedLabelColor = Color.White,
+                        focusedBorderColor = Color.White,
+                        unfocusedBorderColor = Color.White
+                    )
                 )
             }
+
+            item { Spacer(modifier = Modifier.height(8.dp)) }
 
             item {
                 OutlinedTextField(
                     value = lastName,
                     onValueChange = { lastName = it },
                     label = { Text("Last Name") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = Color.White,
+                        unfocusedLabelColor = Color.White,
+                        focusedBorderColor = Color.White,
+                        unfocusedBorderColor = Color.White
+                    )
                 )
             }
+
+            item { Spacer(modifier = Modifier.height(8.dp)) }
 
             item {
                 OutlinedTextField(
@@ -108,19 +165,40 @@ fun RegistrationScreen() {
                     onValueChange = { email = it },
                     label = { Text("Email") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = Color.White,
+                        unfocusedLabelColor = Color.White,
+                        focusedBorderColor = Color.White,
+                        unfocusedBorderColor = Color.White
+                    )
                 )
             }
+
+            item { Spacer(modifier = Modifier.height(8.dp)) }
 
             item {
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
                     label = { Text("Password") },
+                    visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = Color.White,
+                        unfocusedLabelColor = Color.White,
+                        focusedBorderColor = Color.White,
+                        unfocusedBorderColor = Color.White
+                    )
                 )
             }
+
+            item { Spacer(modifier = Modifier.height(8.dp)) }
 
             item {
                 OutlinedTextField(
@@ -130,62 +208,71 @@ fun RegistrationScreen() {
                     readOnly = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { datePickerDialog.show() }
+                        .clickable { datePickerDialog.show() },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = Color.White,
+                        unfocusedLabelColor = Color.White,
+                        focusedBorderColor = Color.White,
+                        unfocusedBorderColor = Color.White
+                    )
                 )
             }
 
-            item {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                ) {
-                    Checkbox(checked = acceptTerms, onCheckedChange = { acceptTerms = it })
-                    Text("Accept Terms & Conditions")
-                }
-            }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
 
             item {
-                Spacer(modifier = Modifier.height(16.dp))
-
                 Button(
                     onClick = {
-                        if (acceptTerms) {
-                            editor.putString("firstName", firstName)
-                            editor.putString("lastName", lastName)
-                            editor.putString("email", email)
-                            editor.putString("password", password)
-                            editor.putString("dob", dob)
-                            editor.apply()
-                            Toast.makeText(context, "Registered!", Toast.LENGTH_SHORT).show()
-                            context.startActivity(Intent(context, LoginActivity::class.java))
-                            if (context is ComponentActivity) context.finish()
+                        if (validateFields(firstName, lastName, email, password, dob)) {
+                            val userModel = UserModel(
+                                firstName = firstName.trim(),
+                                lastName = lastName.trim(),
+                                email = email.trim(),
+                                dateOfBirth = dob
+                            )
+                            viewModel.register(email.trim(), password, userModel)
                         } else {
-                            Toast.makeText(context, "Accept terms to proceed", Toast.LENGTH_SHORT).show()
+                            showError = "Please fill all fields correctly"
                         }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF006064))
+                    enabled = userState !is UserViewModel.UserOperationResult.Loading,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF006064)
+                    )
                 ) {
-                    Text("Register", color = Color.White, fontSize = 18.sp)
+                    if (userState is UserViewModel.UserOperationResult.Loading) {
+                        CircularProgressIndicator(color = Color.White)
+                    } else {
+                        Text("Register", color = Color.White)
+                    }
                 }
             }
 
             item {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "Already have an account? Sign In",
-                    color = Color.Blue,
-                    modifier = Modifier.clickable {
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = {
                         context.startActivity(Intent(context, LoginActivity::class.java))
-                        if (context is ComponentActivity) context.finish()
+                        (context as? ComponentActivity)?.finish()
                     }
-                )
-                Spacer(modifier = Modifier.height(40.dp))
+                ) {
+                    Text("Already have an account? Login", color = Color.White)
+                }
+            }
+
+            showError?.let { error ->
+                item {
+                    Text(
+                        text = error,
+                        color = Color.Red,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
             }
         }
     }
@@ -195,7 +282,9 @@ fun RegistrationScreen() {
 fun rememberDatePickerDialog(onDateSelected: (String) -> Unit): DatePickerDialog {
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
+    calendar.add(Calendar.YEAR, -20)  // Set default date to 20 years ago
 
+    // Create date picker with default date and max date as today
     return DatePickerDialog(
         context,
         { _, year, month, dayOfMonth ->
@@ -204,11 +293,168 @@ fun rememberDatePickerDialog(onDateSelected: (String) -> Unit): DatePickerDialog
         calendar.get(Calendar.YEAR),
         calendar.get(Calendar.MONTH),
         calendar.get(Calendar.DAY_OF_MONTH)
-    )
+    ).apply {
+        // Set max date to today to prevent future dates
+        datePicker.maxDate = Calendar.getInstance().timeInMillis
+    }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
+private fun validateFields(
+    firstName: String,
+    lastName: String,
+    email: String,
+    password: String,
+    dob: String
+): Boolean {
+    if (firstName.isBlank() || lastName.isBlank() ||
+        email.isBlank() || password.isBlank() || dob.isBlank()) {
+        return false
+    }
+
+    if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+        return false
+    }
+
+    if (password.length < 6) {
+        return false
+    }
+
+    return true
+}
+
+@Preview(showBackground = true)
 @Composable
-fun RegistrationScreenPreview() {
-    RegistrationScreen()
+private fun RegistrationScreenPreview() {
+    // UI-only preview without ViewModel
+    Box(modifier = Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(id = R.drawable.background1),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item { Spacer(modifier = Modifier.height(32.dp)) }
+
+            item {
+                Text(
+                    text = "Create Account",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = Color.White
+                )
+            }
+
+            // Preview form fields with sample data
+            item {
+                OutlinedTextField(
+                    value = "John",
+                    onValueChange = {},
+                    label = { Text("First Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = Color.White,
+                        unfocusedLabelColor = Color.White,
+                        focusedBorderColor = Color.White,
+                        unfocusedBorderColor = Color.White
+                    )
+                )
+            }
+
+            item {
+                OutlinedTextField(
+                    value = "Doe",
+                    onValueChange = {},
+                    label = { Text("Last Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = Color.White,
+                        unfocusedLabelColor = Color.White,
+                        focusedBorderColor = Color.White,
+                        unfocusedBorderColor = Color.White
+                    )
+                )
+            }
+
+            item {
+                OutlinedTextField(
+                    value = "john.doe@example.com",
+                    onValueChange = {},
+                    label = { Text("Email") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = Color.White,
+                        unfocusedLabelColor = Color.White,
+                        focusedBorderColor = Color.White,
+                        unfocusedBorderColor = Color.White
+                    )
+                )
+            }
+
+            item {
+                OutlinedTextField(
+                    value = "password",
+                    onValueChange = {},
+                    label = { Text("Password") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = Color.White,
+                        unfocusedLabelColor = Color.White,
+                        focusedBorderColor = Color.White,
+                        unfocusedBorderColor = Color.White
+                    )
+                )
+            }
+
+            item {
+                OutlinedTextField(
+                    value = "01/01/2000",
+                    onValueChange = {},
+                    label = { Text("Date of Birth") },
+                    readOnly = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { /* Do nothing */ },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = Color.White,
+                        unfocusedLabelColor = Color.White,
+                        focusedBorderColor = Color.White,
+                        unfocusedBorderColor = Color.White
+                    )
+                )
+            }
+
+            item {
+                Button(
+                    onClick = { },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF006064)
+                    )
+                ) {
+                    Text("Register", color = Color.White)
+                }
+            }
+        }
+    }
 }
