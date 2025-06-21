@@ -10,6 +10,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -19,12 +22,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.rememberNavController
 import com.example.jawafai.R
 import com.example.jawafai.view.ui.theme.JawafaiTheme
+
 @Composable
 fun Onboard4Screen(navController: NavController) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFE7F6F2)) // light teal background
+            .background(Color(0xFFE7F6F2))
             .padding(24.dp)
     ) {
         // Skip Button
@@ -34,13 +38,15 @@ fun Onboard4Screen(navController: NavController) {
         ) {
             Text(
                 text = "Skip",
-                color = Color(0xFF395B64), // dark teal text
-                fontSize = 17.sp,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = KaiseiDecolFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = Color(0xFF395B64)
+                )
             )
         }
 
-        // Main content
         Column(
             modifier = Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -57,59 +63,63 @@ fun Onboard4Screen(navController: NavController) {
 
             Text(
                 text = "जवाफ.AI",
+                textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.headlineMedium.copy(
-                    color = Color(0xFF395B64), // dark teal
+                    fontFamily = KaiseiDecolFontFamily,
+                    fontWeight = FontWeight.Bold,
                     fontSize = 30.sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                textAlign = TextAlign.Center
+                    color = Color(0xFF395B64)
+                )
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
                 text = "Secured Chats",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF395B64), // dark teal
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                ),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 100.dp)
+                modifier = Modifier.padding(horizontal = 100.dp),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = KaiseiDecolFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = Color(0xFF395B64)
+                )
             )
 
             Spacer(modifier = Modifier.height(40.dp))
 
             Text(
                 text = "Privacy that listens only to you.",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF395B64), // dark teal
-                    fontSize = 16.sp
-                ),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 1.dp)
+                modifier = Modifier.padding(horizontal = 1.dp),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = KaiseiDecolFontFamily,
+                    fontSize = 16.sp,
+                    color = Color(0xFF395B64)
+                )
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(
-                onClick = { navController.navigate("home") },
+                onClick = { navController.navigate("welcome") },
                 shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF395B64) // dark teal button bg
-                ),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF395B64)),
                 modifier = Modifier
                     .height(48.dp)
                     .width(250.dp)
             ) {
                 Text(
                     text = "Next",
-                    color = Color.White // white text
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = KaiseiDecolFontFamily,
+                        fontSize = 16.sp,
+                        color = Color.White
+                    )
                 )
             }
         }
 
-        // Dot Indicator
         Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -132,7 +142,6 @@ fun Onboard4Screen(navController: NavController) {
         }
     }
 }
-
 @Preview(showBackground = true)
 @Composable
 fun Onboard4ScreenPreview() {

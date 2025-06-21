@@ -10,6 +10,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -22,10 +25,12 @@ import com.example.jawafai.view.ui.theme.JawafaiTheme
 
 @Composable
 fun Onboard3Screen(navController: NavController) {
+    val KaiseiDecolFontFamily = FontFamily(Font(R.font.kaiseidecol_medium))
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFE7F6F2))  // light teal background
+            .background(Color(0xFFE7F6F2))
             .padding(24.dp)
     ) {
         // Skip Button
@@ -35,9 +40,12 @@ fun Onboard3Screen(navController: NavController) {
         ) {
             Text(
                 text = "Skip",
-                color = Color(0xFF395B64),  // dark teal text
-                fontSize = 17.sp,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                style = TextStyle(
+                    fontFamily = KaiseiDecolFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = Color(0xFF395B64)
+                )
             )
         }
 
@@ -47,7 +55,7 @@ fun Onboard3Screen(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Image(
-                painter = painterResource(id = R.drawable.profile), // You can replace image as needed
+                painter = painterResource(id = R.drawable.profile),
                 contentDescription = "Onboarding Image",
                 modifier = Modifier
                     .fillMaxWidth()
@@ -58,55 +66,59 @@ fun Onboard3Screen(navController: NavController) {
 
             Text(
                 text = "जवाफ.AI",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    color = Color(0xFF395B64),  // dark teal text
+                textAlign = TextAlign.Center,
+                style = TextStyle(
+                    fontFamily = KaiseiDecolFontFamily,
                     fontSize = 30.sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                textAlign = TextAlign.Center
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF395B64)
+                )
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
                 text = "Start Exploring",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF395B64),  // dark teal text
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                ),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 100.dp)
+                modifier = Modifier.padding(horizontal = 100.dp),
+                style = TextStyle(
+                    fontFamily = KaiseiDecolFontFamily,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF395B64)
+                )
             )
 
             Spacer(modifier = Modifier.height(40.dp))
 
             Text(
                 text = "Let’s get you into the app and begin your smart conversation journey!",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF395B64),  // dark teal text
-                    fontSize = 16.sp
-                ),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 1.dp)
+                modifier = Modifier.padding(horizontal = 1.dp),
+                style = TextStyle(
+                    fontFamily = KaiseiDecolFontFamily,
+                    fontSize = 16.sp,
+                    color = Color(0xFF395B64)
+                )
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Next Button
             Button(
                 onClick = { navController.navigate("onboard4") },
                 shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF395B64) // dark teal button background
-                ),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF395B64)),
                 modifier = Modifier
                     .height(48.dp)
                     .width(250.dp)
             ) {
                 Text(
                     text = "Next",
-                    color = Color.White  // white text on button
+                    style = TextStyle(
+                        fontFamily = KaiseiDecolFontFamily,
+                        fontSize = 16.sp,
+                        color = Color.White
+                    )
                 )
             }
         }
@@ -126,7 +138,7 @@ fun Onboard3Screen(navController: NavController) {
                         .height(10.dp)
                         .padding(horizontal = 4.dp)
                         .background(
-                            color = if (isSelected) Color(0xFF395B64) else Color(0xFFA5C9CA),  // selected dark teal, others light teal
+                            color = if (isSelected) Color(0xFF395B64) else Color(0xFFA5C9CA),
                             shape = RoundedCornerShape(50)
                         )
                 )

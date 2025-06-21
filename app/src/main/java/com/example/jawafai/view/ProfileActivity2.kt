@@ -24,11 +24,13 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.jawafai.R
+
 
 class ProfileActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -94,7 +96,8 @@ fun ProfileContent(
                 text = "Edit Profile",
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF004D40)
+                color = Color(0xFF004D40),
+                fontFamily = KaiseiDecolFontFamily
             )
             Spacer(modifier = Modifier.height(40.dp))
         }
@@ -131,7 +134,12 @@ fun ProfileContent(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Name") },
+                label = {
+                    Text(
+                        "Name",
+                        fontFamily = KaiseiDecolFontFamily
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -142,7 +150,12 @@ fun ProfileContent(
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("Email") },
+                label = {
+                    Text(
+                        "Email",
+                        fontFamily = KaiseiDecolFontFamily
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -155,7 +168,11 @@ fun ProfileContent(
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF006064)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Save Changes", color = Color.White)
+                Text(
+                    "Save Changes",
+                    color = Color.White,
+                    fontFamily = KaiseiDecolFontFamily
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -164,7 +181,10 @@ fun ProfileContent(
                 onClick = onChangePassword,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Change Password")
+                Text(
+                    "Change Password",
+                    fontFamily = KaiseiDecolFontFamily
+                )
             }
         }
 
