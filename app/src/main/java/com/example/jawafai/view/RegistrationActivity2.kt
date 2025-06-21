@@ -2,12 +2,10 @@ package com.example.jawafai.view
 
 import android.app.DatePickerDialog
 import android.content.Context
-import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,27 +19,39 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.fontResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.jawafai.view.LoginActivity
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.jawafai.R
+import com.example.jawafai.ui.theme.JawafaiTheme
 import java.util.*
+
+// Define your custom font family (update font resource name as per your actual font file)
+val KaiseiFontFamily = FontFamily(
+    Font(R.font.kaiseidecol_regular)  // Put your font .ttf in res/font/kaisei_decol.ttf
+)
 
 class RegistrationActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
-            RegistrationScreen()
+            val navController = rememberNavController()
+            JawafaiTheme {
+                RegistrationScreen(navController = navController)
+            }
         }
     }
 }
 
 @Composable
-fun RegistrationScreen() {
+fun RegistrationScreen(navController: NavController) {
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("User", Context.MODE_PRIVATE)
     val editor = sharedPreferences.edit()
@@ -80,7 +90,12 @@ fun RegistrationScreen() {
 
             item {
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Register", fontSize = 32.sp, color = Color(0xFF004D40))
+                Text(
+                    "Register",
+                    fontSize = 32.sp,
+                    color = Color(0xFF004D40),
+                    fontFamily = KaiseiFontFamily
+                )
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
@@ -88,7 +103,7 @@ fun RegistrationScreen() {
                 OutlinedTextField(
                     value = firstName,
                     onValueChange = { firstName = it },
-                    label = { Text("First Name") },
+                    label = { Text("First Name", fontFamily = KaiseiFontFamily) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -97,7 +112,7 @@ fun RegistrationScreen() {
                 OutlinedTextField(
                     value = lastName,
                     onValueChange = { lastName = it },
-                    label = { Text("Last Name") },
+                    label = { Text("Last Name", fontFamily = KaiseiFontFamily) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -106,7 +121,7 @@ fun RegistrationScreen() {
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("Email") },
+                    label = { Text("Email", fontFamily = KaiseiFontFamily) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -116,7 +131,7 @@ fun RegistrationScreen() {
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("Password") },
+                    label = { Text("Password", fontFamily = KaiseiFontFamily) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -126,7 +141,7 @@ fun RegistrationScreen() {
                 OutlinedTextField(
                     value = dob,
                     onValueChange = {},
-                    label = { Text("Date of Birth") },
+                    label = { Text("Date of Birth", fontFamily = KaiseiFontFamily) },
                     readOnly = true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -142,7 +157,7 @@ fun RegistrationScreen() {
                         .padding(top = 8.dp)
                 ) {
                     Checkbox(checked = acceptTerms, onCheckedChange = { acceptTerms = it })
-                    Text("Accept Terms & Conditions")
+                    Text("Accept Terms & Conditions", fontFamily = KaiseiFontFamily)
                 }
             }
 
@@ -159,7 +174,6 @@ fun RegistrationScreen() {
                             editor.putString("dob", dob)
                             editor.apply()
                             Toast.makeText(context, "Registered!", Toast.LENGTH_SHORT).show()
-                            context.startActivity(Intent(context, LoginActivity::class.java))
                             if (context is ComponentActivity) context.finish()
                         } else {
                             Toast.makeText(context, "Accept terms to proceed", Toast.LENGTH_SHORT).show()
@@ -171,7 +185,7 @@ fun RegistrationScreen() {
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF006064))
                 ) {
-                    Text("Register", color = Color.White, fontSize = 18.sp)
+                    Text("Register", color = Color.White, fontSize = 18.sp, fontFamily = KaiseiFontFamily)
                 }
             }
 
@@ -180,8 +194,8 @@ fun RegistrationScreen() {
                 Text(
                     text = "Already have an account? Sign In",
                     color = Color.Blue,
+                    fontFamily = KaiseiFontFamily,
                     modifier = Modifier.clickable {
-                        context.startActivity(Intent(context, LoginActivity::class.java))
                         if (context is ComponentActivity) context.finish()
                     }
                 )
@@ -210,5 +224,8 @@ fun rememberDatePickerDialog(onDateSelected: (String) -> Unit): DatePickerDialog
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun RegistrationScreenPreview() {
-    RegistrationScreen()
+    val navController = rememberNavController()
+    JawafaiTheme {
+        RegistrationScreen(navController = navController)
+    }
 }

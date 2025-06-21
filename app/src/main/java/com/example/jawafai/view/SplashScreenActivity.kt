@@ -11,17 +11,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.jawafai.R
-import com.example.jawafai.view.ui.theme.JawafaiTheme
+//import com.example.jawafai.ui.theme.KaiseiDecolFontFamily
 import kotlinx.coroutines.delay
 
-// UI content only (no nav logic) — reusable for preview or composable calls
 @Composable
-fun SplashScreenContent() {
+fun SplashScreen(navController: NavController) {
+    LaunchedEffect(Unit) {
+        delay(3000)
+        navController.navigate("onboard1") {
+            popUpTo("splash") { inclusive = true }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -33,7 +38,7 @@ fun SplashScreenContent() {
                 .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.weight(1f)) // Push content downward
+            Spacer(modifier = Modifier.weight(1f))
 
             Icon(
                 painter = painterResource(id = R.drawable.logo),
@@ -42,44 +47,25 @@ fun SplashScreenContent() {
                 modifier = Modifier.size(150.dp)
             )
 
-            Spacer(modifier = Modifier.height(200.dp)) // Gap between logo and text
+            Spacer(modifier = Modifier.height(200.dp))
 
             Text(
                 text = "जवाफ.AI",
-                style = MaterialTheme.typography.headlineMedium,
+                fontSize = 30.sp,
+                fontFamily = KaiseiDecolFontFamily,
                 color = Color.White
             )
+
             Spacer(modifier = Modifier.height(9.dp))
+
             Text(
                 text = "Your AI Wingman for Every Reply.",
-                style = MaterialTheme.typography.bodyMedium,
                 fontSize = 18.sp,
+                fontFamily = KaiseiDecolFontFamily,
                 color = Color.White
             )
 
-            Spacer(modifier = Modifier.weight(1f)) // Push text closer to bottom
+            Spacer(modifier = Modifier.weight(1f))
         }
-    }
-}
-
-// Actual Splash Screen composable with navigation logic
-@Composable
-fun SplashScreen(navController: NavController) {
-    LaunchedEffect(Unit) {
-        println("SplashScreen LaunchedEffect triggered")  // debug log
-        delay(5000)
-        navController.navigate("onboard1") {
-            popUpTo("splash") { inclusive = true }
-        }
-    }
-    SplashScreenContent()
-}
-
-// Preview only for UI in Android Studio
-@Preview(showBackground = true)
-@Composable
-fun SplashScreenPreview() {
-    JawafaiTheme {
-        SplashScreenContent()
     }
 }

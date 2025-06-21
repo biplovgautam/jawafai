@@ -10,6 +10,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -20,12 +23,15 @@ import androidx.navigation.compose.rememberNavController
 import com.example.jawafai.R
 import com.example.jawafai.view.ui.theme.JawafaiTheme
 
+// Custom font family
+val KaiseiDecolFontFamily = FontFamily(Font(R.font.kaiseidecol_medium))
+
 @Composable
 fun Onboard2Screen(navController: NavController) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFE7F6F2))  // light teal background like Onboard1
+            .background(Color(0xFFE7F6F2))
             .padding(24.dp)
     ) {
         // Skip Button
@@ -35,9 +41,12 @@ fun Onboard2Screen(navController: NavController) {
         ) {
             Text(
                 text = "Skip",
-                color = Color(0xFF395B64),  // dark teal text like Onboard1
-                fontSize = 17.sp,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                style = TextStyle(
+                    fontFamily = KaiseiDecolFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = Color(0xFF395B64)
+                )
             )
         }
 
@@ -47,7 +56,7 @@ fun Onboard2Screen(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Image(
-                painter = painterResource(id = R.drawable.profile),
+                painter = painterResource(id = R.drawable.logo2),
                 contentDescription = "Onboarding Image",
                 modifier = Modifier
                     .fillMaxWidth()
@@ -58,24 +67,26 @@ fun Onboard2Screen(navController: NavController) {
 
             Text(
                 text = "जवाफ.AI",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    color = Color(0xFF395B64),  // dark teal text
+                style = TextStyle(
+                    fontFamily = KaiseiDecolFontFamily,
                     fontSize = 30.sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                textAlign = TextAlign.Center
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF395B64),
+                    textAlign = TextAlign.Center
+                )
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
                 text = "Cross-Platform",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF395B64),  // dark teal text
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
+                style = TextStyle(
+                    fontFamily = KaiseiDecolFontFamily,
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF395B64),
+                    textAlign = TextAlign.Center
                 ),
-                textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 100.dp)
             )
 
@@ -83,11 +94,12 @@ fun Onboard2Screen(navController: NavController) {
 
             Text(
                 text = "From DMs to emails — Jawaf's got it.",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF395B64),  // dark teal text
-                    fontSize = 16.sp
+                style = TextStyle(
+                    fontFamily = KaiseiDecolFontFamily,
+                    fontSize = 16.sp,
+                    color = Color(0xFF395B64),
+                    textAlign = TextAlign.Center
                 ),
-                textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 1.dp)
             )
 
@@ -98,7 +110,7 @@ fun Onboard2Screen(navController: NavController) {
                 onClick = { navController.navigate("onboard3") },
                 shape = RoundedCornerShape(50),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF395B64) // dark teal button bg
+                    containerColor = Color(0xFF395B64)
                 ),
                 modifier = Modifier
                     .height(48.dp)
@@ -106,7 +118,11 @@ fun Onboard2Screen(navController: NavController) {
             ) {
                 Text(
                     text = "Next",
-                    color = Color.White  // white text on button
+                    style = TextStyle(
+                        fontFamily = KaiseiDecolFontFamily,
+                        fontSize = 16.sp,
+                        color = Color.White
+                    )
                 )
             }
         }
@@ -119,7 +135,7 @@ fun Onboard2Screen(navController: NavController) {
             horizontalArrangement = Arrangement.Center
         ) {
             repeat(4) { index ->
-                val isSelected = index == 1 // highlight second dot
+                val isSelected = index == 1
                 Box(
                     modifier = Modifier
                         .width(20.dp)
@@ -134,7 +150,6 @@ fun Onboard2Screen(navController: NavController) {
         }
     }
 }
-
 
 @Preview(showBackground = true)
 @Composable
