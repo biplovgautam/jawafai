@@ -3,7 +3,6 @@ package com.example.jawafai
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -17,10 +16,7 @@ class MainActivity : ComponentActivity() {
             JawafaiTheme {
                 val navController = rememberNavController()
 
-                NavHost(
-                    navController = navController,
-                    startDestination = "splash"
-                ) {
+                NavHost(navController = navController, startDestination = "splash") {
                     composable("splash") { SplashScreen(navController) }
                     composable("onboard1") { Onboard1Screen(navController) }
                     composable("onboard2") { Onboard2Screen(navController) }
@@ -29,6 +25,7 @@ class MainActivity : ComponentActivity() {
                     composable("welcome") { WelcomeScreen(navController) }
                     composable("login") { LoginScreen(navController) }
                     composable("registration") { RegistrationScreen(navController) }
+                    //composable("profile") { ProfileScreen(navController) }
                 }
             }
         }

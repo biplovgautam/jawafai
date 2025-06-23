@@ -1,11 +1,5 @@
 package com.example.jawafai.view
 
-import android.content.Intent
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.LocalActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,32 +10,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.jawafai.view.LoginActivity
+import androidx.navigation.NavController
 import com.example.jawafai.R
 
-class WelcomeActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            WelcomeScreen()
-        }
-    }
-}
-
 @Composable
-fun WelcomeScreen() {
-    val context = LocalContext.current
-    val activity = LocalActivity.current
-
-
+fun WelcomeScreen(navController: NavController) {
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -89,7 +68,9 @@ fun WelcomeScreen() {
 
             Button(
                 onClick = {
-                    context.startActivity(Intent(context, LoginActivity::class.java))
+                    navController.navigate("login") {
+                        popUpTo("welcome") { inclusive = true }
+                    }
                 },
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF006064)),
@@ -107,8 +88,9 @@ fun WelcomeScreen() {
                 color = Color.Blue,
                 fontSize = 14.sp,
                 modifier = Modifier.clickable {
-                    context.startActivity(Intent(context, RegistrationActivity::class.java))
-                    activity?.finish()
+                    navController.navigate("registration") {
+                        popUpTo("welcome") { inclusive = true }
+                    }
                 }
             )
         }
@@ -118,5 +100,5 @@ fun WelcomeScreen() {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun WelcomeScreenPreview() {
-    WelcomeScreen()
+    //WelcomeScreen()
 }

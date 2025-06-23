@@ -1,11 +1,5 @@
 package com.example.jawafai.view
 
-import android.content.Intent
-import android.os.Bundle
-import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,38 +20,21 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.*
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
+import androidx.navigation.NavController
 import com.example.jawafai.R
 
-
-
-class LoginActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            LoginScreen()
-        }
-    }
-}
-
 @Composable
-fun LoginScreen() {
+fun LoginScreen(navController: NavController) {
     val PrimaryColor = Color(0xFF395B64)
-    val TextColor = Color(0xFFFAFAFA)
+    val Textcolour = Color(0xFFFAFAFA)
     val AccentColor = Color(0xFF98C1D9)
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
-    val context = LocalContext.current
-
     Box(modifier = Modifier.fillMaxSize()) {
-        // Background Image
         Image(
             painter = painterResource(id = R.drawable.background),
             contentDescription = null,
@@ -65,7 +42,6 @@ fun LoginScreen() {
             modifier = Modifier.fillMaxSize()
         )
 
-        // Dark Overlay
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -79,11 +55,9 @@ fun LoginScreen() {
                 )
         )
 
-        // LazyColumn Scrollable Content
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(WindowInsets.systemBars.asPaddingValues())
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -153,7 +127,7 @@ fun LoginScreen() {
                         "Forgot Password?",
                         color = Color.White,
                         modifier = Modifier.clickable {
-                            Toast.makeText(context, "Forgot password clicked", Toast.LENGTH_SHORT).show()
+                            // You can show a dialog/snackbar here
                         }
                     )
                 }
@@ -164,11 +138,9 @@ fun LoginScreen() {
                 Button(
                     onClick = {
                         if (email == "test@example.com" && password == "123456") {
-                            val intent = Intent(context, ProfileActivity::class.java)
-                            context.startActivity(intent)
-                            (context as? ComponentActivity)?.finish()
+                            navController.navigate("profile")
                         } else {
-                            Toast.makeText(context, "Invalid email or password", Toast.LENGTH_SHORT).show()
+                            // Show error dialog/snackbar
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -187,7 +159,7 @@ fun LoginScreen() {
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Button(
-                    onClick = { },
+                    onClick = { /* handle Google login */ },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(40.dp),
@@ -208,19 +180,11 @@ fun LoginScreen() {
                     "Don't have an account? Sign up",
                     color = Color.Black,
                     modifier = Modifier.clickable {
-                        val intent = Intent(context, RegistrationActivity2::class.java)
-                        context.startActivity(intent)
-                        (context as? ComponentActivity)?.finish()
+                        navController.navigate("registration")
                     }
                 )
                 Spacer(modifier = Modifier.height(40.dp))
             }
         }
     }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun LoginScreenPreview() {
-    LoginScreen()
 }
