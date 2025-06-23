@@ -37,13 +37,13 @@ class ProfileActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            ProfileScreen()
+            ProfileScreenStandalone()
         }
     }
 }
 
 @Composable
-fun ProfileScreen() {
+fun ProfileScreenStandalone() {
     val context = LocalContext.current
     val profileImage = painterResource(id = R.drawable.profile)
     val background = painterResource(id = R.drawable.background)
@@ -197,5 +197,5 @@ fun ProfileContent(
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun ProfileActivityPreview() {
-    ProfileScreen()
+    ProfileScreenStandalone()
 }

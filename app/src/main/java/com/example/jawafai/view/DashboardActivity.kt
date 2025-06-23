@@ -9,13 +9,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -92,9 +95,9 @@ sealed class BottomNavItem(
 
     object Search : BottomNavItem(
         route = "search",
-        selectedIcon = Icons.Filled.Search,
-        unselectedIcon = Icons.Outlined.Search,
-        contentDescription = "Search"
+        selectedIcon = Icons.Filled.Chat,
+        unselectedIcon = Icons.Outlined.Chat,
+        contentDescription = "Chat"
     )
 
     object Notifications : BottomNavItem(
@@ -110,6 +113,13 @@ sealed class BottomNavItem(
         unselectedIcon = Icons.Outlined.Settings,
         contentDescription = "Settings"
     )
+
+    object Profile : BottomNavItem(
+        route = "profile",
+        selectedIcon = Icons.Filled.AccountCircle,
+        unselectedIcon = Icons.Outlined.AccountCircle,
+        contentDescription = "Profile"
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -117,8 +127,9 @@ sealed class BottomNavItem(
 fun DashboardScreen(onLogout: () -> Unit) {
     val navController = rememberNavController()
     val items = listOf(
-        BottomNavItem.Home,
+        BottomNavItem.Profile,
         BottomNavItem.Search,
+        BottomNavItem.Home,
         BottomNavItem.Notifications,
         BottomNavItem.Settings
     )
@@ -196,11 +207,14 @@ fun DashboardScreen(onLogout: () -> Unit) {
             startDestination = BottomNavItem.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(BottomNavItem.Home.route) {
-                HomeScreen()
+            composable(BottomNavItem.Profile.route) {
+                ProfileScreen()
             }
             composable(BottomNavItem.Search.route) {
-                SearchScreen()
+                ChatScreen()
+            }
+            composable(BottomNavItem.Home.route) {
+                HomeScreen()
             }
             composable(BottomNavItem.Notifications.route) {
                 NotificationsScreen()
@@ -210,4 +224,10 @@ fun DashboardScreen(onLogout: () -> Unit) {
             }
         }
     }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun DashboardScreenPreview() {
+    DashboardScreen(onLogout = {})
 }
