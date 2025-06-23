@@ -2,7 +2,9 @@ package com.example.jawafai.view
 
 import android.app.DatePickerDialog
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,10 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.fontResource
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,23 +35,22 @@ import com.example.jawafai.R
 import com.example.jawafai.model.UserModel
 import com.example.jawafai.repository.UserRepositoryImpl
 import com.example.jawafai.ui.theme.JawafaiTheme
+import com.example.jawafai.ui.theme.AppFonts
 import com.example.jawafai.viewmodel.UserViewModel
 import com.example.jawafai.viewmodel.UserViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.*
 import java.text.SimpleDateFormat
-
-// Define your custom font family (update font resource name as per your actual font file)
-val KaiseiFontFamily = FontFamily(
-    Font(R.font.kaiseidecol_regular)  // Put your font .ttf in res/font/kaisei_decol.ttf
-)
+import kotlinx.coroutines.delay
 
 class RegistrationActivity : ComponentActivity() {
     private lateinit var viewModel: UserViewModel
+    private val TAG = "RegistrationActivity"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d(TAG, "onCreate: Activity created")
 
         // Initialize Firebase components
         val auth = FirebaseAuth.getInstance()
@@ -61,13 +59,21 @@ class RegistrationActivity : ComponentActivity() {
 
         // Initialize ViewModel
         viewModel = UserViewModelFactory(repository, auth).create(UserViewModel::class.java)
+        Log.d(TAG, "onCreate: ViewModel initialized")
 
         setContent {
             val navController = rememberNavController()
             JawafaiTheme {
                 RegistrationScreen(
                     navController = navController,
-                    viewModel = viewModel
+                    viewModel = viewModel,
+                    onSuccessfulRegistration = {
+                        // Navigate to login screen after successful registration
+                        Log.d(TAG, "onSuccessfulRegistration: Navigating to login screen")
+                        val intent = Intent(this, LoginActivity::class.java)
+                        startActivity(intent)
+                        finish() // Close registration activity
+                    }
                 )
             }
         }
@@ -77,8 +83,10 @@ class RegistrationActivity : ComponentActivity() {
 @Composable
 fun RegistrationScreen(
     navController: NavController,
-    viewModel: UserViewModel = viewModel()
+    viewModel: UserViewModel = viewModel(),
+    onSuccessfulRegistration: () -> Unit = {}
 ) {
+    val TAG = "RegistrationScreen"
     val context = LocalContext.current
 
     // State variables for form fields
@@ -93,6 +101,52 @@ fun RegistrationScreen(
     // State for showing loading indicator
     var isLoading by remember { mutableStateOf(false) }
 
+    // Observe ViewModel state using observeAsState from runtime-livedata
+    val userOperationState = viewModel.userState.observeAsState(initial = UserViewModel.UserOperationResult.Initial)
+
+    // State to track if registration was successful
+    var registrationSuccess by remember { mutableStateOf(false) }
+
+    // Display current state for debugging
+    val currentState = userOperationState.value.toString()
+    Log.d(TAG, "Current state: $currentState")
+
+    // Fixed: Add one-time effect to handle successful registration
+    if (!registrationSuccess && userOperationState.value is UserViewModel.UserOperationResult.Success) {
+        Log.d(TAG, "Registration successful detected!")
+        registrationSuccess = true
+
+        LaunchedEffect(Unit) {
+            val successMessage = (userOperationState.value as UserViewModel.UserOperationResult.Success).message
+            Log.d(TAG, "Showing success toast: $successMessage")
+            Toast.makeText(context, successMessage, Toast.LENGTH_LONG).show()
+
+            // Add delay for toast to be visible
+            delay(1500)
+
+            Log.d(TAG, "Calling onSuccessfulRegistration")
+            onSuccessfulRegistration()
+        }
+    }
+
+    // Handle loading state changes
+    LaunchedEffect(userOperationState.value) {
+        when (val state = userOperationState.value) {
+            is UserViewModel.UserOperationResult.Loading -> {
+                Log.d(TAG, "State changed to Loading")
+                isLoading = true
+            }
+            is UserViewModel.UserOperationResult.Error -> {
+                Log.d(TAG, "State changed to Error: ${state.message}")
+                isLoading = false
+                Toast.makeText(context, "Error: ${state.message}", Toast.LENGTH_LONG).show()
+            }
+            else -> {
+                // Other states handled separately
+            }
+        }
+    }
+
     // Date picker setup with improved handling
     val calendar = remember { Calendar.getInstance() }
     // Default to 18 years ago
@@ -106,31 +160,6 @@ fun RegistrationScreen(
 
     // Dialog control
     var showDatePicker by remember { mutableStateOf(false) }
-
-    // Observe ViewModel state using observeAsState from runtime-livedata
-    val userOperationState = viewModel.userState.observeAsState(initial = UserViewModel.UserOperationResult.Initial)
-
-    // Handle state changes
-    LaunchedEffect(userOperationState.value) {
-        when (val state = userOperationState.value) {
-            is UserViewModel.UserOperationResult.Initial -> {
-                // Initial state, do nothing
-            }
-            is UserViewModel.UserOperationResult.Loading -> {
-                isLoading = true
-            }
-            is UserViewModel.UserOperationResult.Success -> {
-                isLoading = false
-                Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
-                // Navigate to next screen or finish activity
-                if (context is ComponentActivity) context.finish()
-            }
-            is UserViewModel.UserOperationResult.Error -> {
-                isLoading = false
-                Toast.makeText(context, "Error: ${state.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
 
     // Date picker dialog
     if (showDatePicker) {
@@ -168,6 +197,7 @@ fun RegistrationScreen(
         }
     }
 
+    // Main UI
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
             painter = painterResource(id = R.drawable.background1),
@@ -205,7 +235,7 @@ fun RegistrationScreen(
                     "Register",
                     fontSize = 32.sp,
                     color = Color(0xFF004D40),
-                    fontFamily = KaiseiFontFamily
+                    fontFamily = AppFonts.KaiseiRegularFontFamily // Use the centralized font
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -214,8 +244,9 @@ fun RegistrationScreen(
                 OutlinedTextField(
                     value = firstName,
                     onValueChange = { firstName = it },
-                    label = { Text("First Name", fontFamily = KaiseiFontFamily) },
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text("First Name", fontFamily = AppFonts.KaiseiRegularFontFamily) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
                 )
             }
 
@@ -223,8 +254,9 @@ fun RegistrationScreen(
                 OutlinedTextField(
                     value = lastName,
                     onValueChange = { lastName = it },
-                    label = { Text("Last Name", fontFamily = KaiseiFontFamily) },
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text("Last Name", fontFamily = AppFonts.KaiseiRegularFontFamily) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
                 )
             }
 
@@ -232,8 +264,9 @@ fun RegistrationScreen(
                 OutlinedTextField(
                     value = username,
                     onValueChange = { username = it },
-                    label = { Text("Username", fontFamily = KaiseiFontFamily) },
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text("Username", fontFamily = AppFonts.KaiseiRegularFontFamily) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
                 )
             }
 
@@ -241,9 +274,10 @@ fun RegistrationScreen(
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("Email", fontFamily = KaiseiFontFamily) },
+                    label = { Text("Email", fontFamily = AppFonts.KaiseiRegularFontFamily) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
                 )
             }
 
@@ -251,32 +285,37 @@ fun RegistrationScreen(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("Password", fontFamily = KaiseiFontFamily) },
+                    label = { Text("Password", fontFamily = AppFonts.KaiseiRegularFontFamily) },
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
                 )
             }
 
             item {
-                // Enhanced Date of Birth field with better visual cues
                 OutlinedTextField(
                     value = dob,
                     onValueChange = { /* Read only, handled by dialog */ },
-                    label = { Text("Date of Birth", fontFamily = KaiseiFontFamily) },
+                    label = { Text("Date of Birth", fontFamily = AppFonts.KaiseiRegularFontFamily) },
                     placeholder = { Text("Select your birth date") },
                     trailingIcon = {
                         Icon(
                             painter = painterResource(id = android.R.drawable.ic_menu_my_calendar),
                             contentDescription = "Select date",
-                            modifier = Modifier.clickable { showDatePicker = true }
+                            modifier = Modifier.clickable(enabled = !isLoading) {
+                                if (!isLoading) showDatePicker = true
+                            }
                         )
                     },
                     readOnly = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showDatePicker = true },
+                        .clickable(enabled = !isLoading) {
+                            if (!isLoading) showDatePicker = true
+                        },
                     supportingText = { Text("Age must be at least 13 years") },
+                    enabled = !isLoading
                 )
             }
 
@@ -287,8 +326,12 @@ fun RegistrationScreen(
                         .fillMaxWidth()
                         .padding(top = 8.dp)
                 ) {
-                    Checkbox(checked = acceptTerms, onCheckedChange = { acceptTerms = it })
-                    Text("Accept Terms & Conditions", fontFamily = KaiseiFontFamily)
+                    Checkbox(
+                        checked = acceptTerms,
+                        onCheckedChange = { if (!isLoading) acceptTerms = it },
+                        enabled = !isLoading
+                    )
+                    Text("Accept Terms & Conditions", fontFamily = AppFonts.KaiseiRegularFontFamily)
                 }
             }
 
@@ -297,6 +340,8 @@ fun RegistrationScreen(
 
                 Button(
                     onClick = {
+                        if (isLoading) return@Button
+
                         if (!acceptTerms) {
                             Toast.makeText(context, "Accept terms to proceed", Toast.LENGTH_SHORT).show()
                             return@Button
@@ -322,6 +367,12 @@ fun RegistrationScreen(
                                     dateOfBirth = dob
                                 )
 
+                                // Reset any previous states
+                                viewModel.resetState()
+
+                                // Log the registration attempt
+                                Log.d("RegistrationScreen", "Attempting to register user: $email")
+
                                 // Register the user via ViewModel
                                 viewModel.register(email, password, userModel)
                             }
@@ -331,9 +382,18 @@ fun RegistrationScreen(
                         .fillMaxWidth()
                         .height(50.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF006064))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF006064)),
+                    enabled = !isLoading
                 ) {
-                    Text("Register", color = Color.White, fontSize = 18.sp, fontFamily = KaiseiFontFamily)
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Register", color = Color.White, fontSize = 18.sp, fontFamily = AppFonts.KaiseiRegularFontFamily)
+                    }
                 }
             }
 
@@ -342,9 +402,15 @@ fun RegistrationScreen(
                 Text(
                     text = "Already have an account? Sign In",
                     color = Color.Blue,
-                    fontFamily = KaiseiFontFamily,
-                    modifier = Modifier.clickable {
-                        if (context is ComponentActivity) context.finish()
+                    fontFamily = AppFonts.KaiseiRegularFontFamily,
+                    modifier = Modifier.clickable(enabled = !isLoading) {
+                        if (!isLoading) {
+                            val intent = Intent(context, LoginActivity::class.java)
+                            context.startActivity(intent)
+                            if (context is ComponentActivity) {
+                                context.finish() // Close registration activity
+                            }
+                        }
                     }
                 )
                 Spacer(modifier = Modifier.height(40.dp))

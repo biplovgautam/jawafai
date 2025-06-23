@@ -15,16 +15,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.jawafai.R
-//import com.example.jawafai.ui.theme.KaiseiDecolFontFamily
+import com.example.jawafai.ui.theme.AppFonts
 import kotlinx.coroutines.delay
 
 @Composable
-fun SplashScreen(navController: NavController) {
+fun SplashScreen(
+    onNavigate: (String) -> Unit,
+    checkUserState: () -> String
+) {
     LaunchedEffect(Unit) {
-        delay(3000)
-        navController.navigate("onboard1") {
-            popUpTo("splash") { inclusive = true }
-        }
+        delay(3000) // 3-second delay for splash screen
+        val destination = checkUserState()
+        onNavigate(destination)
     }
 
     Box(
@@ -52,7 +54,7 @@ fun SplashScreen(navController: NavController) {
             Text(
                 text = "जवाफ.AI",
                 fontSize = 30.sp,
-                fontFamily = KaiseiDecolFontFamily,
+                fontFamily = AppFonts.KaiseiRegularFontFamily,
                 color = Color.White
             )
 
@@ -61,7 +63,7 @@ fun SplashScreen(navController: NavController) {
             Text(
                 text = "Your AI Wingman for Every Reply.",
                 fontSize = 18.sp,
-                fontFamily = KaiseiDecolFontFamily,
+                fontFamily = AppFonts.KaiseiRegularFontFamily,
                 color = Color.White
             )
 

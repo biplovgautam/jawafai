@@ -10,9 +10,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -22,9 +19,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.rememberNavController
 import com.example.jawafai.R
 import com.example.jawafai.view.ui.theme.JawafaiTheme
+import com.example.jawafai.ui.theme.AppFonts
 
 @Composable
-fun Onboard4Screen(navController: NavController) {
+fun Onboard4Screen(
+    navController: NavController? = null,
+    onFinishOnboarding: (() -> Unit)? = null
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -33,13 +34,15 @@ fun Onboard4Screen(navController: NavController) {
     ) {
         // Skip Button
         TextButton(
-            onClick = { navController.navigate("home") },
+            onClick = {
+                onFinishOnboarding?.invoke() ?: navController?.navigate("welcome")
+            },
             modifier = Modifier.align(Alignment.TopEnd)
         ) {
             Text(
                 text = "Skip",
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = KaiseiDecolFontFamily,
+                    fontFamily = AppFonts.KaiseiDecolFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
                     color = Color(0xFF395B64)
@@ -65,7 +68,7 @@ fun Onboard4Screen(navController: NavController) {
                 text = "जवाफ.AI",
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.headlineMedium.copy(
-                    fontFamily = KaiseiDecolFontFamily,
+                    fontFamily = AppFonts.KaiseiDecolFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 30.sp,
                     color = Color(0xFF395B64)
@@ -79,7 +82,7 @@ fun Onboard4Screen(navController: NavController) {
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 100.dp),
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = KaiseiDecolFontFamily,
+                    fontFamily = AppFonts.KaiseiDecolFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
                     color = Color(0xFF395B64)
@@ -93,7 +96,7 @@ fun Onboard4Screen(navController: NavController) {
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 1.dp),
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = KaiseiDecolFontFamily,
+                    fontFamily = AppFonts.KaiseiDecolFontFamily,
                     fontSize = 16.sp,
                     color = Color(0xFF395B64)
                 )
@@ -102,7 +105,9 @@ fun Onboard4Screen(navController: NavController) {
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(
-                onClick = { navController.navigate("welcome") },
+                onClick = {
+                    onFinishOnboarding?.invoke() ?: navController?.navigate("welcome")
+                },
                 shape = RoundedCornerShape(50),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF395B64)),
                 modifier = Modifier
@@ -110,10 +115,9 @@ fun Onboard4Screen(navController: NavController) {
                     .width(250.dp)
             ) {
                 Text(
-                    text = "Next",
+                    text = "Get Started",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = KaiseiDecolFontFamily,
-                        fontSize = 16.sp,
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
                         color = Color.White
                     )
                 )
@@ -142,11 +146,11 @@ fun Onboard4Screen(navController: NavController) {
         }
     }
 }
+
 @Preview(showBackground = true)
 @Composable
 fun Onboard4ScreenPreview() {
     JawafaiTheme {
-        val navController = rememberNavController()
-        Onboard4Screen(navController)
+        Onboard4Screen()
     }
 }

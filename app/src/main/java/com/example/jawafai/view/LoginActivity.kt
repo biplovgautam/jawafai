@@ -18,6 +18,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -32,6 +34,11 @@ import com.example.jawafai.viewmodel.UserViewModel
 import com.example.jawafai.viewmodel.UserViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+
+// Define the font family directly in this file
+val KaiseiFontFamily = FontFamily(
+    Font(R.font.kaiseidecol_regular)
+)
 
 class LoginActivity : ComponentActivity() {
     private lateinit var viewModel: UserViewModel

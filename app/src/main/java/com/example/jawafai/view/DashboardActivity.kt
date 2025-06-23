@@ -1,7 +1,9 @@
 package com.example.jawafai.view
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,6 +24,15 @@ import com.google.firebase.auth.FirebaseAuth
 class DashboardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Handle back press to move app to background instead of navigating back
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                // Move task to back which sends app to background (like pressing home button)
+                moveTaskToBack(true)
+            }
+        })
+
         setContent {
             JawafaiTheme {
                 Surface(
@@ -30,13 +41,30 @@ class DashboardActivity : ComponentActivity() {
                 ) {
                     DashboardScreen(
                         onLogout = {
+                            // Sign out from Firebase
                             FirebaseAuth.getInstance().signOut()
-                            finish()
+
+                            // Navigate directly to login screen instead of MainActivity/splash
+                            val intent = Intent(this@DashboardActivity, LoginActivity::class.java)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            startActivity(intent)
+                            finish() // Close dashboard activity
                         }
                     )
                 }
             }
         }
+    }
+
+    // Override the default back button behavior as a fallback for older Android versions
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        // First call super (required to satisfy the Android lint warning)
+        super.onBackPressed()
+
+        // The OnBackPressedDispatcher should handle this on newer Android versions,
+        // but in case it doesn't (on older versions), also move task to back
+        moveTaskToBack(true)
     }
 }
 
