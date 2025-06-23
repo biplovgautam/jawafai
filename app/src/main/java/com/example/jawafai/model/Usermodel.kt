@@ -4,6 +4,7 @@ data class UserModel(
     val id: String = "", // Firebase UID
     val firstName: String = "",
     val lastName: String = "",
+    val username: String = "", // Added username field
     val email: String = "",
     val password: String = "", // Note: This won't be stored in Firestore
     val dateOfBirth: String = "",
@@ -16,6 +17,7 @@ data class UserModel(
             "id" to id,
             "firstName" to firstName,
             "lastName" to lastName,
+            "username" to username, // Added username to map
             "email" to email,
             "dateOfBirth" to dateOfBirth,
             "imageUrl" to imageUrl,
@@ -30,6 +32,7 @@ data class UserModel(
                 id = map["id"] as? String ?: "",
                 firstName = map["firstName"] as? String ?: "",
                 lastName = map["lastName"] as? String ?: "",
+                username = map["username"] as? String ?: "", // Added username to fromMap
                 email = map["email"] as? String ?: "",
                 dateOfBirth = map["dateOfBirth"] as? String ?: "",
                 imageUrl = map["imageUrl"] as? String,

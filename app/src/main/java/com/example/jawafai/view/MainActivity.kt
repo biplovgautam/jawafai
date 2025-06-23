@@ -1,13 +1,15 @@
-package com.example.jawafai
+package com.example.jawafai.view
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.jawafai.ui.theme.JawafaiTheme
-import com.example.jawafai.view.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -24,10 +26,25 @@ class MainActivity : ComponentActivity() {
                     composable("onboard4") { Onboard4Screen(navController) }
                     composable("welcome") { WelcomeScreen(navController) }
                     composable("login") { LoginScreen(navController) }
-                    composable("registration") { RegistrationScreen(navController) }
-                    //composable("profile") { ProfileScreen(navController) }
+                    composable("registration") {
+                        RegistrationNavigation(navController = navController, onRegister = {
+                            val intent = Intent(this@MainActivity, RegistrationActivity::class.java)
+                            startActivity(intent)
+                        })
+                    }
                 }
             }
+        }
+    }
+}
+
+@androidx.compose.runtime.Composable
+fun RegistrationNavigation(navController: androidx.navigation.NavController, onRegister: () -> Unit) {
+    androidx.compose.foundation.layout.Box(
+        modifier = androidx.compose.ui.Modifier. fillMaxSize()
+    ) {
+        androidx.compose.runtime.LaunchedEffect(key1 = true) {
+            onRegister()
         }
     }
 }

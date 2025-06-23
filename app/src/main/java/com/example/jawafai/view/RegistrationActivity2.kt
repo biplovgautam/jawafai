@@ -24,14 +24,24 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.jawafai.R
+import com.example.jawafai.model.UserModel
+import com.example.jawafai.repository.UserRepositoryImpl
 import com.example.jawafai.ui.theme.JawafaiTheme
+import com.example.jawafai.viewmodel.UserViewModel
+import com.example.jawafai.viewmodel.UserViewModelFactory
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import java.util.*
+import java.text.SimpleDateFormat
 
 // Define your custom font family (update font resource name as per your actual font file)
 val KaiseiFontFamily = FontFamily(
@@ -39,30 +49,124 @@ val KaiseiFontFamily = FontFamily(
 )
 
 class RegistrationActivity : ComponentActivity() {
+    private lateinit var viewModel: UserViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize Firebase components
+        val auth = FirebaseAuth.getInstance()
+        val firestore = FirebaseFirestore.getInstance()
+        val repository = UserRepositoryImpl(auth, firestore)
+
+        // Initialize ViewModel
+        viewModel = UserViewModelFactory(repository, auth).create(UserViewModel::class.java)
+
         setContent {
             val navController = rememberNavController()
             JawafaiTheme {
-                RegistrationScreen(navController = navController)
+                RegistrationScreen(
+                    navController = navController,
+                    viewModel = viewModel
+                )
             }
         }
     }
 }
 
 @Composable
-fun RegistrationScreen(navController: NavController) {
+fun RegistrationScreen(
+    navController: NavController,
+    viewModel: UserViewModel = viewModel()
+) {
     val context = LocalContext.current
-    val sharedPreferences = context.getSharedPreferences("User", Context.MODE_PRIVATE)
-    val editor = sharedPreferences.edit()
 
+    // State variables for form fields
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var dob by remember { mutableStateOf("") }
     var acceptTerms by remember { mutableStateOf(false) }
-    val datePickerDialog = rememberDatePickerDialog { dob = it }
+
+    // State for showing loading indicator
+    var isLoading by remember { mutableStateOf(false) }
+
+    // Date picker setup with improved handling
+    val calendar = remember { Calendar.getInstance() }
+    // Default to 18 years ago
+    calendar.add(Calendar.YEAR, -18)
+    val dateFormatter = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
+
+    // Calculated states for date picker
+    val year = remember { mutableStateOf(calendar.get(Calendar.YEAR)) }
+    val month = remember { mutableStateOf(calendar.get(Calendar.MONTH)) }
+    val day = remember { mutableStateOf(calendar.get(Calendar.DAY_OF_MONTH)) }
+
+    // Dialog control
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    // Observe ViewModel state using observeAsState from runtime-livedata
+    val userOperationState = viewModel.userState.observeAsState(initial = UserViewModel.UserOperationResult.Initial)
+
+    // Handle state changes
+    LaunchedEffect(userOperationState.value) {
+        when (val state = userOperationState.value) {
+            is UserViewModel.UserOperationResult.Initial -> {
+                // Initial state, do nothing
+            }
+            is UserViewModel.UserOperationResult.Loading -> {
+                isLoading = true
+            }
+            is UserViewModel.UserOperationResult.Success -> {
+                isLoading = false
+                Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
+                // Navigate to next screen or finish activity
+                if (context is ComponentActivity) context.finish()
+            }
+            is UserViewModel.UserOperationResult.Error -> {
+                isLoading = false
+                Toast.makeText(context, "Error: ${state.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    // Date picker dialog
+    if (showDatePicker) {
+        DatePickerDialog(
+            context,
+            { _, selectedYear, selectedMonth, selectedDay ->
+                year.value = selectedYear
+                month.value = selectedMonth
+                day.value = selectedDay
+
+                // Update the calendar with selected date
+                val selectedCalendar = Calendar.getInstance()
+                selectedCalendar.set(selectedYear, selectedMonth, selectedDay)
+
+                // Format the date and update dob
+                dob = dateFormatter.format(selectedCalendar.time)
+
+                // Close dialog
+                showDatePicker = false
+            },
+            year.value,
+            month.value,
+            day.value
+        ).apply {
+            // Set date constraints - minimum age 13, maximum age 100
+            val minAgeCalendar = Calendar.getInstance()
+            minAgeCalendar.add(Calendar.YEAR, -13)
+            datePicker.maxDate = minAgeCalendar.timeInMillis
+
+            val maxAgeCalendar = Calendar.getInstance()
+            maxAgeCalendar.add(Calendar.YEAR, -100)
+            datePicker.minDate = maxAgeCalendar.timeInMillis
+
+            show()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
@@ -71,6 +175,13 @@ fun RegistrationScreen(navController: NavController) {
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
+
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center),
+                color = Color(0xFF006064)
+            )
+        }
 
         LazyColumn(
             modifier = Modifier
@@ -119,6 +230,15 @@ fun RegistrationScreen(navController: NavController) {
 
             item {
                 OutlinedTextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    label = { Text("Username", fontFamily = KaiseiFontFamily) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            item {
+                OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
                     label = { Text("Email", fontFamily = KaiseiFontFamily) },
@@ -132,20 +252,31 @@ fun RegistrationScreen(navController: NavController) {
                     value = password,
                     onValueChange = { password = it },
                     label = { Text("Password", fontFamily = KaiseiFontFamily) },
+                    visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
 
             item {
+                // Enhanced Date of Birth field with better visual cues
                 OutlinedTextField(
                     value = dob,
-                    onValueChange = {},
+                    onValueChange = { /* Read only, handled by dialog */ },
                     label = { Text("Date of Birth", fontFamily = KaiseiFontFamily) },
+                    placeholder = { Text("Select your birth date") },
+                    trailingIcon = {
+                        Icon(
+                            painter = painterResource(id = android.R.drawable.ic_menu_my_calendar),
+                            contentDescription = "Select date",
+                            modifier = Modifier.clickable { showDatePicker = true }
+                        )
+                    },
                     readOnly = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { datePickerDialog.show() }
+                        .clickable { showDatePicker = true },
+                    supportingText = { Text("Age must be at least 13 years") },
                 )
             }
 
@@ -166,17 +297,34 @@ fun RegistrationScreen(navController: NavController) {
 
                 Button(
                     onClick = {
-                        if (acceptTerms) {
-                            editor.putString("firstName", firstName)
-                            editor.putString("lastName", lastName)
-                            editor.putString("email", email)
-                            editor.putString("password", password)
-                            editor.putString("dob", dob)
-                            editor.apply()
-                            Toast.makeText(context, "Registered!", Toast.LENGTH_SHORT).show()
-                            if (context is ComponentActivity) context.finish()
-                        } else {
+                        if (!acceptTerms) {
                             Toast.makeText(context, "Accept terms to proceed", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+
+                        // Field validation
+                        when {
+                            firstName.isBlank() -> Toast.makeText(context, "First name is required", Toast.LENGTH_SHORT).show()
+                            lastName.isBlank() -> Toast.makeText(context, "Last name is required", Toast.LENGTH_SHORT).show()
+                            username.isBlank() -> Toast.makeText(context, "Username is required", Toast.LENGTH_SHORT).show()
+                            email.isBlank() -> Toast.makeText(context, "Email is required", Toast.LENGTH_SHORT).show()
+                            !email.contains('@') -> Toast.makeText(context, "Enter a valid email address", Toast.LENGTH_SHORT).show()
+                            password.length < 6 -> Toast.makeText(context, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show()
+                            dob.isBlank() -> Toast.makeText(context, "Date of birth is required", Toast.LENGTH_SHORT).show()
+                            else -> {
+                                // Create user model and register
+                                val userModel = UserModel(
+                                    firstName = firstName,
+                                    lastName = lastName,
+                                    username = username,
+                                    email = email,
+                                    password = password, // This won't be stored in Firestore
+                                    dateOfBirth = dob
+                                )
+
+                                // Register the user via ViewModel
+                                viewModel.register(email, password, userModel)
+                            }
                         }
                     },
                     modifier = Modifier
@@ -203,22 +351,6 @@ fun RegistrationScreen(navController: NavController) {
             }
         }
     }
-}
-
-@Composable
-fun rememberDatePickerDialog(onDateSelected: (String) -> Unit): DatePickerDialog {
-    val context = LocalContext.current
-    val calendar = Calendar.getInstance()
-
-    return DatePickerDialog(
-        context,
-        { _, year, month, dayOfMonth ->
-            onDateSelected("$dayOfMonth/${month + 1}/$year")
-        },
-        calendar.get(Calendar.YEAR),
-        calendar.get(Calendar.MONTH),
-        calendar.get(Calendar.DAY_OF_MONTH)
-    )
 }
 
 @Preview(showBackground = true, showSystemUi = true)
