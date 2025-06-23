@@ -5,22 +5,25 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -28,7 +31,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.jawafai.R
 import com.example.jawafai.ui.theme.JawafaiTheme
 import com.google.firebase.auth.FirebaseAuth
 
@@ -77,36 +79,36 @@ class DashboardActivity : ComponentActivity() {
 // Define navigation items for bottom navigation
 sealed class BottomNavItem(
     val route: String,
-    val title: String,
     val selectedIcon: ImageVector,
-    val unselectedIcon: ImageVector
+    val unselectedIcon: ImageVector,
+    val contentDescription: String
 ) {
     object Home : BottomNavItem(
         route = "home",
-        title = "Home",
         selectedIcon = Icons.Filled.Home,
-        unselectedIcon = Icons.Outlined.Home
+        unselectedIcon = Icons.Outlined.Home,
+        contentDescription = "Home"
     )
 
     object Search : BottomNavItem(
         route = "search",
-        title = "Search",
         selectedIcon = Icons.Filled.Search,
-        unselectedIcon = Icons.Outlined.Search
+        unselectedIcon = Icons.Outlined.Search,
+        contentDescription = "Search"
     )
 
     object Notifications : BottomNavItem(
         route = "notifications",
-        title = "Notifications",
         selectedIcon = Icons.Filled.Notifications,
-        unselectedIcon = Icons.Outlined.Notifications
+        unselectedIcon = Icons.Outlined.Notifications,
+        contentDescription = "Notifications"
     )
 
     object Settings : BottomNavItem(
         route = "settings",
-        title = "Settings",
-        selectedIcon = Icons.Filled.Person,
-        unselectedIcon = Icons.Outlined.Person
+        selectedIcon = Icons.Filled.Settings,
+        unselectedIcon = Icons.Outlined.Settings,
+        contentDescription = "Settings"
     )
 }
 
@@ -121,9 +123,15 @@ fun DashboardScreen(onLogout: () -> Unit) {
         BottomNavItem.Settings
     )
 
+    // Dark teal color for the bottom navigation bar (#365A61)
+    val bottomNavBackgroundColor = Color(0xFF365A61)
+
     Scaffold(
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                containerColor = bottomNavBackgroundColor,
+                contentColor = Color.White
+            ) {5
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
 
@@ -132,12 +140,30 @@ fun DashboardScreen(onLogout: () -> Unit) {
 
                     NavigationBarItem(
                         icon = {
-                            Icon(
-                                imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
-                                contentDescription = item.title
-                            )
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
+                                    contentDescription = item.contentDescription,
+                                    tint = Color.White
+                                )
+
+                                // Small indicator dot below the icon when selected
+                                if (selected) {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(top = 3.dp)
+                                            .size(4.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White)
+                                    )
+                                } else {
+                                    // Empty spacer with the same height to maintain layout consistency
+                                    Spacer(modifier = Modifier.height(7.dp))
+                                }
+                            }
                         },
-                        label = { Text(text = item.title) },
                         selected = selected,
                         onClick = {
                             navController.navigate(item.route) {
@@ -152,7 +178,14 @@ fun DashboardScreen(onLogout: () -> Unit) {
                                 // Restore state when reselecting a previously selected item
                                 restoreState = true
                             }
-                        }
+                        },
+                        // Custom colors with transparent indicator (since we're using our own)
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Color.White,
+                            unselectedIconColor = Color.White.copy(alpha = 0.6f),
+                            indicatorColor = Color.Transparent // Make the default indicator transparent
+                        ),
+                        alwaysShowLabel = false
                     )
                 }
             }
