@@ -15,6 +15,18 @@
         android:theme="@style/Theme.Jawafai"
         tools:targetApi="31">
 
+        <!-- Dashboard Activity -->
+        <activity
+            android:name=".view.DashboardActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Jawafai" />
+
+        <!-- Login Activity -->
+        <activity
+            android:name=".view.LoginActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Jawafai" />
+
         <!-- Registration Activity -->
         <activity
             android:name=".view.RegistrationActivity"

@@ -1,189 +1,248 @@
 package com.example.jawafai.view
 
+import android.content.Intent
+import android.os.Bundle
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.input.*
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.livedata.observeAsState
 import com.example.jawafai.R
+import com.example.jawafai.repository.UserRepositoryImpl
+import com.example.jawafai.ui.theme.JawafaiTheme
+import com.example.jawafai.viewmodel.UserViewModel
+import com.example.jawafai.viewmodel.UserViewModelFactory
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+
+class LoginActivity : ComponentActivity() {
+    private lateinit var viewModel: UserViewModel
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // Initialize Firebase components
+        val auth = FirebaseAuth.getInstance()
+        val firestore = FirebaseFirestore.getInstance()
+        val repository = UserRepositoryImpl(auth, firestore)
+
+        // Initialize ViewModel
+        viewModel = UserViewModelFactory(repository, auth).create(UserViewModel::class.java)
+
+        setContent {
+            JawafaiTheme {
+                LoginScreen(viewModel = viewModel)
+            }
+        }
+    }
+}
 
 @Composable
-fun LoginScreen(navController: NavController) {
-    val PrimaryColor = Color(0xFF395B64)
-    val Textcolour = Color(0xFFFAFAFA)
-    val AccentColor = Color(0xFF98C1D9)
+fun LoginScreen(viewModel: UserViewModel) {
+    val context = LocalContext.current
 
+    // State variables
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
 
+    // Observe ViewModel state
+    val userOperationState = viewModel.userState.observeAsState(initial = UserViewModel.UserOperationResult.Initial)
+
+    // Handle state changes
+    LaunchedEffect(userOperationState.value) {
+        when (val state = userOperationState.value) {
+            is UserViewModel.UserOperationResult.Initial -> {
+                // Initial state, do nothing
+            }
+            is UserViewModel.UserOperationResult.Loading -> {
+                isLoading = true
+            }
+            is UserViewModel.UserOperationResult.Success -> {
+                isLoading = false
+                Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
+
+                // Navigate to Dashboard/Profile/Main screen
+                val intent = Intent(context, DashboardActivity::class.java)
+                context.startActivity(intent)
+                if (context is ComponentActivity) {
+                    context.finish() // Close login activity
+                }
+            }
+            is UserViewModel.UserOperationResult.Error -> {
+                isLoading = false
+                Toast.makeText(context, "Login failed: ${state.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    // UI elements
     Box(modifier = Modifier.fillMaxSize()) {
+        // Background image
         Image(
-            painter = painterResource(id = R.drawable.background),
+            painter = painterResource(id = R.drawable.background1),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.Black.copy(alpha = 0.1f),
-                            Color.Black.copy(alpha = 0.0f)
-                        )
-                    )
-                )
-        )
+        // Loading indicator
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center),
+                color = Color(0xFF006064)
+            )
+        }
 
-        LazyColumn(
+        // Login form
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .systemBarsPadding()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            item { Spacer(modifier = Modifier.height(60.dp)) }
+            // App Logo
+            Image(
+                painter = painterResource(id = R.drawable.profile),
+                contentDescription = "App Logo",
+                modifier = Modifier.size(100.dp)
+            )
 
-            item {
-                Image(
-                    painter = painterResource(id = R.drawable.profile),
-                    contentDescription = "Logo",
-                    modifier = Modifier.size(200.dp)
-                )
-            }
+            Spacer(modifier = Modifier.height(16.dp))
 
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Namaste!", style = MaterialTheme.typography.headlineMedium, color = Color.White)
-                Spacer(modifier = Modifier.height(32.dp))
-            }
+            // Login Title
+            Text(
+                "Login",
+                fontSize = 32.sp,
+                color = Color(0xFF004D40),
+                fontFamily = KaiseiFontFamily
+            )
 
-            item {
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("Email") },
-                    placeholder = { Text("example@gmail.com") },
-                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-            }
+            Spacer(modifier = Modifier.height(32.dp))
 
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Password") },
-                    placeholder = { Text("********") },
-                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                    trailingIcon = {
-                        val iconRes = if (passwordVisible) R.drawable.baseline_visibility_off_24
-                        else R.drawable.baseline_visibility_24
+            // Email field
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Email", fontFamily = KaiseiFontFamily) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
 
-                        Icon(
-                            painter = painterResource(id = iconRes),
-                            contentDescription = null,
-                            modifier = Modifier.clickable { passwordVisible = !passwordVisible }
-                        )
-                    },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-            }
+            Spacer(modifier = Modifier.height(16.dp))
 
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Text(
-                        "Forgot Password?",
-                        color = Color.White,
+            // Password field with visibility toggle
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Password", fontFamily = KaiseiFontFamily) },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                trailingIcon = {
+                    val icon = if (passwordVisible)
+                        painterResource(id = R.drawable.baseline_visibility_off_24)
+                    else
+                        painterResource(id = R.drawable.baseline_visibility_24)
+
+                    Icon(
+                        painter = icon,
+                        contentDescription = "Toggle password visibility",
                         modifier = Modifier.clickable {
-                            // You can show a dialog/snackbar here
+                            passwordVisible = !passwordVisible
                         }
                     )
-                }
-            }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
 
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = {
-                        if (email == "test@example.com" && password == "123456") {
-                            navController.navigate("profile")
-                        } else {
-                            // Show error dialog/snackbar
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = PrimaryColor,
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text("Log In")
-                }
-            }
+            Spacer(modifier = Modifier.height(8.dp))
 
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Or log in with", color = Color.Black)
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = { /* handle Google login */ },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(40.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Black,
-                        contentColor = Color.White
-                    )
-                ) {
-                    Icon(painterResource(id = R.drawable.google), contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Continue with Google")
-                }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
+            // Forgot Password link
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
                 Text(
-                    "Don't have an account? Sign up",
-                    color = Color.Black,
+                    "Forgot Password?",
+                    color = Color.Blue,
+                    fontFamily = KaiseiFontFamily,
                     modifier = Modifier.clickable {
-                        navController.navigate("registration")
+                        // Handle forgot password (could navigate to password reset screen)
+                        Toast.makeText(context, "Password reset not implemented yet", Toast.LENGTH_SHORT).show()
                     }
                 )
-                Spacer(modifier = Modifier.height(40.dp))
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Login Button
+            Button(
+                onClick = {
+                    // Validate fields
+                    when {
+                        email.isBlank() -> Toast.makeText(context, "Email is required", Toast.LENGTH_SHORT).show()
+                        !email.contains('@') -> Toast.makeText(context, "Enter a valid email address", Toast.LENGTH_SHORT).show()
+                        password.isBlank() -> Toast.makeText(context, "Password is required", Toast.LENGTH_SHORT).show()
+                        else -> {
+                            // Trigger login in ViewModel
+                            viewModel.login(email, password)
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF006064))
+            ) {
+                Text("Login", color = Color.White, fontSize = 18.sp, fontFamily = KaiseiFontFamily)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Register link
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    "Don't have an account? ",
+                    color = Color.DarkGray,
+                    fontFamily = KaiseiFontFamily
+                )
+                Text(
+                    "Register",
+                    color = Color.Blue,
+                    fontFamily = KaiseiFontFamily,
+                    modifier = Modifier.clickable {
+                        // Navigate to registration
+                        val intent = Intent(context, RegistrationActivity::class.java)
+                        context.startActivity(intent)
+                    }
+                )
             }
         }
     }

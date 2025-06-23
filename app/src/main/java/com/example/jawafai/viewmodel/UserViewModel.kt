@@ -9,6 +9,10 @@ import com.example.jawafai.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 class UserViewModel(
     private val repository: UserRepository,
@@ -27,6 +31,34 @@ class UserViewModel(
         object Loading : UserOperationResult()
         data class Success(val message: String = "") : UserOperationResult()
         data class Error(val message: String) : UserOperationResult()
+    }
+
+    // Added login function for Firebase authentication
+    fun login(email: String, password: String) {
+        viewModelScope.launch {
+            try {
+                _userState.value = UserOperationResult.Loading
+
+                // Use suspendCoroutine to handle the Firebase callback-based auth
+                val user = suspendCoroutine<FirebaseUser?> { continuation ->
+                    auth.signInWithEmailAndPassword(email, password)
+                        .addOnSuccessListener { authResult ->
+                            continuation.resume(authResult.user)
+                        }
+                        .addOnFailureListener { e ->
+                            continuation.resumeWithException(e)
+                        }
+                }
+
+                if (user != null) {
+                    _userState.value = UserOperationResult.Success("Login successful")
+                } else {
+                    _userState.value = UserOperationResult.Error("Login failed: Unknown error")
+                }
+            } catch (e: Exception) {
+                _userState.value = UserOperationResult.Error("Login failed: ${e.message}")
+            }
+        }
     }
 
     fun register(email: String, password: String, user: UserModel) {
