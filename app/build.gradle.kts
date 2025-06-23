@@ -56,6 +56,10 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.compose)
     implementation("androidx.compose.runtime:runtime-livedata:1.5.4") // Add this line
+    implementation("androidx.compose.material:material-icons-extended")
+
+    // Coil for image loading in Compose
+    implementation("io.coil-kt:coil-compose:2.4.0")
 
     // Firebase - Use BoM to manage versions
     implementation(platform(libs.firebase.bom))
