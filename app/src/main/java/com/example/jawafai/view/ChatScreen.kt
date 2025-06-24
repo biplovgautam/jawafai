@@ -10,9 +10,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.MarkEmailUnread
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -29,7 +34,14 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.jawafai.model.ChatPreview
 
 // Sample data for chat list
-private val fakeChatList = listOf(
+enum class ChatFilter(val label: String, val icon: ImageVector?) {
+    All("All", null),
+    Unread("Unread", Icons.Filled.MarkEmailUnread),
+    Favorites("Favorites", Icons.Filled.Star),
+    Groups("Groups", Icons.Filled.Group)
+}
+
+private val chatList = listOf(
     ChatPreview(
         id = "1",
         userName = "Aisha Khan",
@@ -41,20 +53,29 @@ private val fakeChatList = listOf(
     ),
     ChatPreview(
         id = "2",
-        userName = "Rahul Sharma",
-        lastMessage = "I sent you the files you requested. Let me know if you need anything else.",
-        userImage = "https://randomuser.me/api/portraits/men/32.jpg",
-        time = "Yesterday",
+        userName = "Study Group",
+        lastMessage = "Priya: Let's meet at 5 PM!",
+        userImage = "",
+        time = "09:15 AM",
         unreadCount = 0,
-        isOnline = true
+        isOnline = false
     ),
     ChatPreview(
         id = "3",
-        userName = "Priya Patel",
-        lastMessage = "The meeting is scheduled for tomorrow at 2 PM. Don't forget!",
-        userImage = "https://randomuser.me/api/portraits/women/45.jpg",
+        userName = "Rahul Sharma",
+        lastMessage = "I'll send the notes soon.",
+        userImage = "https://randomuser.me/api/portraits/men/32.jpg",
         time = "Yesterday",
-        unreadCount = 2,
+        unreadCount = 1,
+        isOnline = false
+    ),
+    ChatPreview(
+        id = "4",
+        userName = "Favorites Group",
+        lastMessage = "You: See you all tomorrow!",
+        userImage = "",
+        time = "Yesterday",
+        unreadCount = 0,
         isOnline = false
     )
 )
@@ -62,25 +83,44 @@ private val fakeChatList = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen() {
+    val darkTeal = Color(0xFF365A61)
     var searchQuery by remember { mutableStateOf("") }
-    val filteredChats = remember(searchQuery) {
-        if (searchQuery.isBlank()) fakeChatList
-        else fakeChatList.filter {
-            it.userName.contains(searchQuery, ignoreCase = true) ||
-                    it.lastMessage.contains(searchQuery, ignoreCase = true)
+    var selectedFilter by remember { mutableStateOf(ChatFilter.All) }
+
+    val filteredChats = remember(searchQuery, selectedFilter) {
+        chatList.filter { chat ->
+            val matchesQuery = chat.userName.contains(searchQuery, ignoreCase = true) ||
+                chat.lastMessage.contains(searchQuery, ignoreCase = true)
+            val matchesFilter = when (selectedFilter) {
+                ChatFilter.All -> true
+                ChatFilter.Unread -> chat.unreadCount > 0
+                ChatFilter.Favorites -> chat.userName.contains("Favorites", ignoreCase = true)
+                ChatFilter.Groups -> chat.userName.contains("Group", ignoreCase = true)
+            }
+            matchesQuery && matchesFilter
         }
     }
 
     Scaffold(
+        containerColor = darkTeal,
         topBar = {
-            Column {
+            Column(
+                Modifier.background(darkTeal)
+            ) {
+                CenterAlignedTopAppBar(
+                    title = { Text("Chats", fontWeight = FontWeight.Bold, color = Color.White) },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color.Transparent,
+                        titleContentColor = Color.White
+                    )
+                )
                 SearchBarContent(
                     query = searchQuery,
                     onQueryChange = { searchQuery = it },
                     onSearch = {},
                     onClear = { searchQuery = "" }
                 )
-                Divider()
+                ChatFilterSelector(selected = selectedFilter, onSelect = { selectedFilter = it })
             }
         }
     ) { paddingValues ->
@@ -106,9 +146,48 @@ fun ChatScreen() {
             ) {
                 items(filteredChats) { chat ->
                     ChatListItem(chat = chat)
-                    HorizontalDivider()
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun ChatFilterSelector(selected: ChatFilter, onSelect: (ChatFilter) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        ChatFilter.values().forEach { filter ->
+            FilterChip(
+                selected = selected == filter,
+                onClick = { onSelect(filter) },
+                label = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        filter.icon?.let {
+                            Icon(
+                                imageVector = it,
+                                contentDescription = filter.label,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+                        Text(filter.label)
+                    }
+                },
+                modifier = Modifier.padding(end = 8.dp)
+            )
+        }
+        Spacer(modifier = Modifier.weight(1f))
+        IconButton(onClick = { /* TODO: Add new chat/group */ }) {
+            Icon(
+                imageVector = Icons.Filled.Add,
+                contentDescription = "Add Chat/Group",
+                tint = Color.White
+            )
         }
     }
 }
@@ -161,30 +240,39 @@ fun SearchBarContent(
 
 @Composable
 fun ChatListItem(chat: ChatPreview) {
+    val isGroup = chat.userName.contains("Group", ignoreCase = true)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .background(Color.Transparent)
+            .clickable { /* TODO: Open chat */ }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(contentAlignment = Alignment.BottomEnd) {
+        if (isGroup) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF2D3A3F)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Group,
+                    contentDescription = "Group",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        } else {
             Image(
-                painter = rememberAsyncImagePainter(model = chat.userImage),
+                painter = if (chat.userImage.isNotBlank()) rememberAsyncImagePainter(model = chat.userImage) else rememberAsyncImagePainter(model = "https://ui-avatars.com/api/?name=${chat.userName.replace(" ", "+")}"),
                 contentDescription = "Profile picture of ${chat.userName}",
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape),
                 contentScale = ContentScale.Crop
             )
-            if (chat.isOnline) {
-                Box(
-                    modifier = Modifier
-                        .size(14.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF4CAF50))
-                        .align(Alignment.BottomEnd)
-                )
-            }
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -196,11 +284,12 @@ fun ChatListItem(chat: ChatPreview) {
                 Text(
                     text = chat.userName,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontSize = 16.sp,
+                    color = Color.White
                 )
                 Text(
                     text = chat.time,
-                    color = Color.Gray,
+                    color = Color.LightGray,
                     fontSize = 12.sp
                 )
             }
@@ -213,7 +302,7 @@ fun ChatListItem(chat: ChatPreview) {
                 Text(
                     text = chat.lastMessage,
                     maxLines = 1,
-                    color = Color.Gray,
+                    color = Color.LightGray,
                     fontSize = 14.sp,
                     modifier = Modifier.weight(1f)
                 )

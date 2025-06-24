@@ -36,10 +36,12 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.jawafai.ui.theme.JawafaiTheme
 import com.google.firebase.auth.FirebaseAuth
+import androidx.core.view.WindowCompat
 
 class DashboardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
 
         // Handle back press to move app to background instead of navigating back
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -157,14 +159,15 @@ fun DashboardScreen(onLogout: () -> Unit) {
                                 Icon(
                                     imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
                                     contentDescription = item.contentDescription,
-                                    tint = Color.White
+                                    tint = Color.White,
+                                    modifier = Modifier.size(30.dp) // Increased from default to 32.dp
                                 )
 
                                 // Small indicator dot below the icon when selected
                                 if (selected) {
                                     Box(
                                         modifier = Modifier
-                                            .padding(top = 3.dp)
+                                            .padding(top = 2.dp)
                                             .size(4.dp)
                                             .clip(CircleShape)
                                             .background(Color.White)
