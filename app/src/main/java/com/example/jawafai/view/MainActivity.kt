@@ -29,85 +29,170 @@ class MainActivity : ComponentActivity() {
         val sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val hasSeenOnboarding = sharedPreferences.getBoolean(PREF_HAS_SEEN_ONBOARDING, false)
 
-        // Check if user is logged in
+        // Check if user is logged in and force refresh from Firebase
         val auth = FirebaseAuth.getInstance()
-        val isLoggedIn = auth.currentUser != null
+        var isLoggedIn = auth.currentUser != null
 
-        setContent {
-            JawafaiTheme {
-                val navController = rememberNavController()
+        // Force reload user state from Firebase to handle deleted users
+        auth.currentUser?.reload()?.addOnCompleteListener { reloadTask ->
+            val refreshedUser = auth.currentUser
+            isLoggedIn = refreshedUser != null
 
-                NavHost(navController = navController, startDestination = "splash") {
-                    // Splash screen - shown every time the app opens
-                    composable("splash") {
-                        SplashScreen(
-                            onNavigate = { destination ->
-                                navController.navigate(destination) {
-                                    popUpTo("splash") { inclusive = true }
+            setContent {
+                JawafaiTheme {
+                    val navController = rememberNavController()
+
+                    NavHost(navController = navController, startDestination = "splash") {
+                        // Splash screen - shown every time the app opens
+                        composable("splash") {
+                            SplashScreen(
+                                onNavigate = { destination ->
+                                    navController.navigate(destination) {
+                                        popUpTo("splash") { inclusive = true }
+                                    }
+                                },
+                                checkUserState = {
+                                    when {
+                                        isLoggedIn -> "dashboard"
+                                        hasSeenOnboarding -> "welcome"
+                                        else -> "onboard1"
+                                    }
                                 }
-                            },
-                            checkUserState = {
-                                when {
-                                    isLoggedIn -> "dashboard"
-                                    hasSeenOnboarding -> "welcome"
-                                    else -> "onboard1"
+                            )
+                        }
+
+                        // Onboarding screens - shown only first time after installing
+                        composable("onboard1") { Onboard1Screen(navController) }
+                        composable("onboard2") { Onboard2Screen(navController) }
+                        composable("onboard3") { Onboard3Screen(navController) }
+                        composable("onboard4") {
+                            Onboard4Screen(
+                                onFinishOnboarding = {
+                                    // Mark that user has seen onboarding
+                                    sharedPreferences.edit()
+                                        .putBoolean(PREF_HAS_SEEN_ONBOARDING, true)
+                                        .apply()
+                                    navController.navigate("welcome") {
+                                        popUpTo("splash") { inclusive = true }
+                                    }
                                 }
-                            }
-                        )
-                    }
+                            )
+                        }
 
-                    // Onboarding screens - shown only first time after installing
-                    composable("onboard1") { Onboard1Screen(navController) }
-                    composable("onboard2") { Onboard2Screen(navController) }
-                    composable("onboard3") { Onboard3Screen(navController) }
-                    composable("onboard4") {
-                        Onboard4Screen(
-                            onFinishOnboarding = {
-                                // Mark that user has seen onboarding
-                                sharedPreferences.edit()
-                                    .putBoolean(PREF_HAS_SEEN_ONBOARDING, true)
-                                    .apply()
-                                navController.navigate("welcome") {
-                                    popUpTo("splash") { inclusive = true }
+                        // Welcome screen - choice between login and registration
+                        composable("welcome") { WelcomeScreen(navController) }
+
+                        // Login screen - navigate to dashboard on successful login
+                        composable("login") {
+                            LoginNavigation(
+                                navController = navController,
+                                onLogin = {
+                                    val intent = Intent(this@MainActivity, LoginActivity::class.java)
+                                    startActivity(intent)
+                                },
+                                onBack = {
+                                    navController.popBackStack()
                                 }
-                            }
-                        )
+                            )
+                        }
+
+                        // Registration screen - navigate to dashboard on successful registration
+                        composable("registration") {
+                            RegistrationNavigation(
+                                navController = navController,
+                                onRegister = {
+                                    val intent = Intent(this@MainActivity, RegistrationActivity::class.java)
+                                    startActivity(intent)
+                                }
+                            )
+                        }
+
+                        // Dashboard screen - only accessible for logged-in users
+                        composable("dashboard") {
+                            val intent = Intent(this@MainActivity, DashboardActivity::class.java)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            startActivity(intent)
+                            finish() // Close MainActivity once dashboard is opened
+                        }
                     }
+                }
+            }
+        } ?: run {
+            // If no user, just proceed as not logged in
+            setContent {
+                JawafaiTheme {
+                    val navController = rememberNavController()
+                    NavHost(navController = navController, startDestination = "splash") {
+                        composable("splash") {
+                            SplashScreen(
+                                onNavigate = { destination ->
+                                    navController.navigate(destination) {
+                                        popUpTo("splash") { inclusive = true }
+                                    }
+                                },
+                                checkUserState = {
+                                    when {
+                                        false -> "dashboard"
+                                        hasSeenOnboarding -> "welcome"
+                                        else -> "onboard1"
+                                    }
+                                }
+                            )
+                        }
 
-                    // Welcome screen - choice between login and registration
-                    composable("welcome") { WelcomeScreen(navController) }
+                        // Onboarding screens - shown only first time after installing
+                        composable("onboard1") { Onboard1Screen(navController) }
+                        composable("onboard2") { Onboard2Screen(navController) }
+                        composable("onboard3") { Onboard3Screen(navController) }
+                        composable("onboard4") {
+                            Onboard4Screen(
+                                onFinishOnboarding = {
+                                    // Mark that user has seen onboarding
+                                    sharedPreferences.edit()
+                                        .putBoolean(PREF_HAS_SEEN_ONBOARDING, true)
+                                        .apply()
+                                    navController.navigate("welcome") {
+                                        popUpTo("splash") { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
 
-                    // Login screen - navigate to dashboard on successful login
-                    composable("login") {
-                        LoginNavigation(
-                            navController = navController,
-                            onLogin = {
-                                val intent = Intent(this@MainActivity, LoginActivity::class.java)
-                                startActivity(intent)
-                            },
-                            onBack = {
-                                navController.popBackStack()
-                            }
-                        )
-                    }
+                        // Welcome screen - choice between login and registration
+                        composable("welcome") { WelcomeScreen(navController) }
 
-                    // Registration screen - navigate to dashboard on successful registration
-                    composable("registration") {
-                        RegistrationNavigation(
-                            navController = navController,
-                            onRegister = {
-                                val intent = Intent(this@MainActivity, RegistrationActivity::class.java)
-                                startActivity(intent)
-                            }
-                        )
-                    }
+                        // Login screen - navigate to dashboard on successful login
+                        composable("login") {
+                            LoginNavigation(
+                                navController = navController,
+                                onLogin = {
+                                    val intent = Intent(this@MainActivity, LoginActivity::class.java)
+                                    startActivity(intent)
+                                },
+                                onBack = {
+                                    navController.popBackStack()
+                                }
+                            )
+                        }
 
-                    // Dashboard screen - only accessible for logged-in users
-                    composable("dashboard") {
-                        val intent = Intent(this@MainActivity, DashboardActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        startActivity(intent)
-                        finish() // Close MainActivity once dashboard is opened
+                        // Registration screen - navigate to dashboard on successful registration
+                        composable("registration") {
+                            RegistrationNavigation(
+                                navController = navController,
+                                onRegister = {
+                                    val intent = Intent(this@MainActivity, RegistrationActivity::class.java)
+                                    startActivity(intent)
+                                }
+                            )
+                        }
+
+                        // Dashboard screen - only accessible for logged-in users
+                        composable("dashboard") {
+                            val intent = Intent(this@MainActivity, DashboardActivity::class.java)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            startActivity(intent)
+                            finish() // Close MainActivity once dashboard is opened
+                        }
                     }
                 }
             }

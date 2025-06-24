@@ -78,12 +78,43 @@ class UserViewModel(
         }
     }
 
+    fun fetchUserProfile() {
+        viewModelScope.launch {
+            _userState.value = UserOperationResult.Loading
+            try {
+                val firebaseUser = auth.currentUser
+                if (firebaseUser != null) {
+                    val userDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                        .collection("users")
+                        .document(firebaseUser.uid)
+                        .get()
+                        .await()
+                    if (userDoc.exists()) {
+                        val userMap = userDoc.data ?: emptyMap<String, Any>()
+                        _userProfile.value = com.example.jawafai.model.UserModel.fromMap(userMap)
+                        _userState.value = UserOperationResult.Success()
+                    } else {
+                        _userProfile.value = null
+                        _userState.value = UserOperationResult.Error("User profile not found.")
+                    }
+                } else {
+                    _userProfile.value = null
+                    _userState.value = UserOperationResult.Error("User not logged in.")
+                }
+            } catch (e: Exception) {
+                _userProfile.value = null
+                _userState.value = UserOperationResult.Error(e.message ?: "Failed to fetch user profile.")
+            }
+        }
+    }
+
     fun updateUser(user: UserModel) {
         viewModelScope.launch {
             try {
                 _userState.value = UserOperationResult.Loading
                 val result = repository.updateUser(user)
                 if (result) {
+                    fetchUserProfile() // Refresh profile after update
                     _userState.value = UserOperationResult.Success("Profile updated successfully")
                 } else {
                     _userState.value = UserOperationResult.Error("Update failed")
@@ -137,6 +168,7 @@ class UserViewModel(
                 val url = repository.uploadProfileImage(imageUri)
                 if (url != null) {
                     onResult(url)
+                    fetchUserProfile() // Refresh profile after image upload
                     _userState.value = UserOperationResult.Success("Profile image uploaded")
                 } else {
                     _userState.value = UserOperationResult.Error("Image upload failed")

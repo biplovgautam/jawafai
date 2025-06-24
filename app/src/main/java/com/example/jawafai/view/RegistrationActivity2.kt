@@ -68,7 +68,6 @@ class RegistrationActivity : ComponentActivity() {
                     navController = navController,
                     viewModel = viewModel,
                     onSuccessfulRegistration = {
-                        // Navigate to login screen after successful registration
                         Log.d(TAG, "onSuccessfulRegistration: Navigating to login screen")
                         val intent = Intent(this, LoginActivity::class.java)
                         startActivity(intent)
@@ -104,46 +103,27 @@ fun RegistrationScreen(
     // Observe ViewModel state using observeAsState from runtime-livedata
     val userOperationState = viewModel.userState.observeAsState(initial = UserViewModel.UserOperationResult.Initial)
 
-    // State to track if registration was successful
-    var registrationSuccess by remember { mutableStateOf(false) }
-
     // Display current state for debugging
     val currentState = userOperationState.value.toString()
     Log.d(TAG, "Current state: $currentState")
 
-    // Fixed: Add one-time effect to handle successful registration
-    if (!registrationSuccess && userOperationState.value is UserViewModel.UserOperationResult.Success) {
-        Log.d(TAG, "Registration successful detected!")
-        registrationSuccess = true
-
-        LaunchedEffect(Unit) {
-            val successMessage = (userOperationState.value as UserViewModel.UserOperationResult.Success).message
-            Log.d(TAG, "Showing success toast: $successMessage")
-            Toast.makeText(context, successMessage, Toast.LENGTH_LONG).show()
-
-            // Add delay for toast to be visible
-            delay(1500)
-
-            Log.d(TAG, "Calling onSuccessfulRegistration")
-            onSuccessfulRegistration()
-        }
-    }
-
-    // Handle loading state changes
+    // Remove registrationSuccess logic and handle navigation and spinner in LaunchedEffect
     LaunchedEffect(userOperationState.value) {
         when (val state = userOperationState.value) {
-            is UserViewModel.UserOperationResult.Loading -> {
-                Log.d(TAG, "State changed to Loading")
-                isLoading = true
+            is UserViewModel.UserOperationResult.Success -> {
+                isLoading = false
+                Toast.makeText(context, state.message, Toast.LENGTH_LONG).show()
+                delay(1500)
+                onSuccessfulRegistration()
             }
             is UserViewModel.UserOperationResult.Error -> {
-                Log.d(TAG, "State changed to Error: ${state.message}")
                 isLoading = false
                 Toast.makeText(context, "Error: ${state.message}", Toast.LENGTH_LONG).show()
             }
-            else -> {
-                // Other states handled separately
+            is UserViewModel.UserOperationResult.Loading -> {
+                isLoading = true
             }
+            else -> {}
         }
     }
 

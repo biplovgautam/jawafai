@@ -49,6 +49,8 @@ fun ProfileScreen() {
     var email by remember { mutableStateOf("") }
     var dateOfBirth by remember { mutableStateOf("") }
     var imageUrl by remember { mutableStateOf("") }
+    val snackbarHostState = remember { SnackbarHostState() }
+    var snackbarMessage by remember { mutableStateOf("") }
 
     // Image picker launcher
     val imagePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -57,6 +59,10 @@ fun ProfileScreen() {
                 if (url != null && userProfile != null) {
                     val updatedUser = userProfile!!.copy(imageUrl = url)
                     viewModel.updateUser(updatedUser)
+                    imageUrl = url // Update local state so UI reflects new image immediately
+                    snackbarMessage = "Profile image updated!"
+                } else {
+                    snackbarMessage = "Failed to upload image."
                 }
             }
         }
@@ -73,22 +79,9 @@ fun ProfileScreen() {
         }
     }
 
-    // Load user profile on first composition (simulate fetch if needed)
+    // Fetch user profile on first composition ONLY (never write default data)
     LaunchedEffect(Unit) {
-        val firebaseUser = viewModel.getCurrentUser()
-        if (firebaseUser != null && userProfile == null) {
-            viewModel.updateUser(
-                UserModel(
-                    id = firebaseUser.uid,
-                    firstName = "John",
-                    lastName = "Doe",
-                    username = "johndoe",
-                    email = firebaseUser.email ?: "",
-                    dateOfBirth = "2000-01-01",
-                    imageUrl = null
-                )
-            )
-        }
+        viewModel.fetchUserProfile()
     }
 
     // Update local state when userProfile changes
@@ -103,12 +96,28 @@ fun ProfileScreen() {
         }
     }
 
+    // Optionally, also fetch profile when returning to this screen or after updates
+    LaunchedEffect(userState) {
+        if (userState is UserViewModel.UserOperationResult.Success) {
+            viewModel.fetchUserProfile()
+        }
+    }
+
+    // Show Snackbar when message changes
+    LaunchedEffect(snackbarMessage) {
+        if (snackbarMessage.isNotBlank()) {
+            snackbarHostState.showSnackbar(snackbarMessage)
+            snackbarMessage = ""
+        }
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Profile", fontWeight = FontWeight.Bold) }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -119,7 +128,7 @@ fun ProfileScreen() {
         ) {
             // Profile Image
             Box(contentAlignment = Alignment.BottomEnd) {
-                val profileImageUrl = userProfile?.imageUrl?.takeIf { !it.isNullOrBlank() } ?: "https://ui-avatars.com/api/?name=${userProfile?.username ?: "User"}"
+                val profileImageUrl = if (imageUrl.isNotBlank()) imageUrl else userProfile?.imageUrl?.takeIf { !it.isNullOrBlank() } ?: "https://ui-avatars.com/api/?name=${userProfile?.username ?: "User"}"
                 Image(
                     painter = rememberAsyncImagePainter(profileImageUrl),
                     contentDescription = "Profile picture",
