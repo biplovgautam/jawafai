@@ -1,5 +1,6 @@
 package com.example.jawafai.repository
 
+import android.net.Uri
 import com.example.jawafai.model.UserModel
 
 /**
@@ -32,4 +33,9 @@ interface UserRepository {
      * Signs out the current user from Firebase Authentication
      */
     fun logout()
+
+    /**
+     * Uploads a profile image to Cloudinary and returns the image URL
+     */
+    suspend fun uploadProfileImage(imageUri: Uri): String?
 }

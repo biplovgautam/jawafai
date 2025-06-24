@@ -1,5 +1,6 @@
 package com.example.jawafai.viewmodel
 
+import android.net.Uri
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -127,5 +128,22 @@ class UserViewModel(
     fun resetState() {
         _userState.value = UserOperationResult.Initial
         _userProfile.value = null
+    }
+
+    fun uploadProfileImage(imageUri: Uri, onResult: (String?) -> Unit) {
+        viewModelScope.launch {
+            _userState.value = UserOperationResult.Loading
+            try {
+                val url = repository.uploadProfileImage(imageUri)
+                if (url != null) {
+                    onResult(url)
+                    _userState.value = UserOperationResult.Success("Profile image uploaded")
+                } else {
+                    _userState.value = UserOperationResult.Error("Image upload failed")
+                }
+            } catch (e: Exception) {
+                _userState.value = UserOperationResult.Error(e.message ?: "Image upload failed")
+            }
+        }
     }
 }

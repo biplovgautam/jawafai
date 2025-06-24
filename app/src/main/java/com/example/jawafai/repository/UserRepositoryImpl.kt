@@ -1,5 +1,6 @@
 package com.example.jawafai.repository
 
+import android.net.Uri
 import android.util.Log
 import com.example.jawafai.model.UserModel
 import com.google.firebase.auth.FirebaseAuth
@@ -8,6 +9,13 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 import javax.inject.Inject
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
+import org.json.JSONObject
+import java.io.File
 
 class UserRepositoryImpl @Inject constructor(
     private val auth: FirebaseAuth,
@@ -113,5 +121,33 @@ class UserRepositoryImpl @Inject constructor(
 
     override fun logout() {
         auth.signOut()
+    }
+
+    override suspend fun uploadProfileImage(imageUri: Uri): String? {
+        // Replace with your actual Cloudinary details
+        val cloudName = "ddahczkbf"
+        val uploadPreset = "jawafai" // For unsigned uploads
+        val apiUrl = "https://api.cloudinary.com/v1_1/$cloudName/image/upload"
+
+        // Convert Uri to File (assumes you have a way to get a File from Uri)
+        val file = File(imageUri.path ?: return null)
+        val requestBody = file.asRequestBody("image/*".toMediaTypeOrNull())
+        val multipartBody = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("file", file.name, requestBody)
+            .addFormDataPart("upload_preset", uploadPreset)
+            .build()
+
+        val request = Request.Builder()
+            .url(apiUrl)
+            .post(multipartBody)
+            .build()
+
+        val client = OkHttpClient()
+        val response = client.newCall(request).execute()
+        if (!response.isSuccessful) return null
+        val responseBody = response.body?.string() ?: return null
+        val json = JSONObject(responseBody)
+        return json.optString("secure_url", null)
     }
 }
