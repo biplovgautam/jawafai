@@ -71,6 +71,8 @@ fun LoginScreen(viewModel: UserViewModel) {
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
+    var resetEmail by remember { mutableStateOf("") }
 
     // Observe ViewModel state
     val userOperationState = viewModel.userState.observeAsState(initial = UserViewModel.UserOperationResult.Initial)
@@ -98,6 +100,11 @@ fun LoginScreen(viewModel: UserViewModel) {
             is UserViewModel.UserOperationResult.Error -> {
                 isLoading = false
                 Toast.makeText(context, "Login failed: ${state.message}", Toast.LENGTH_LONG).show()
+            }
+            is UserViewModel.UserOperationResult.PasswordResetSent -> {
+                isLoading = false
+                showResetDialog = false
+                Toast.makeText(context, "Password reset email sent!", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -197,8 +204,7 @@ fun LoginScreen(viewModel: UserViewModel) {
                     color = Color.Blue,
                     fontFamily = KaiseiFontFamily,
                     modifier = Modifier.clickable {
-                        // Handle forgot password (could navigate to password reset screen)
-                        Toast.makeText(context, "Password reset not implemented yet", Toast.LENGTH_SHORT).show()
+                        showResetDialog = true
                     }
                 )
             }
@@ -251,6 +257,44 @@ fun LoginScreen(viewModel: UserViewModel) {
                     }
                 )
             }
+        }
+
+        // Password Reset Dialog
+        if (showResetDialog) {
+            AlertDialog(
+                onDismissRequest = { showResetDialog = false },
+                title = { Text("Reset Password", fontFamily = KaiseiFontFamily) },
+                text = {
+                    Column {
+                        Text("Enter your email to receive a password reset link.", fontFamily = KaiseiFontFamily)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = resetEmail,
+                            onValueChange = { resetEmail = it },
+                            label = { Text("Email", fontFamily = KaiseiFontFamily) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        if (resetEmail.isBlank() || !resetEmail.contains("@")) {
+                            Toast.makeText(context, "Enter a valid email", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.resetPassword(resetEmail)
+                        }
+                    }) {
+                        Text("Send Reset Link", fontFamily = KaiseiFontFamily)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showResetDialog = false }) {
+                        Text("Cancel", fontFamily = KaiseiFontFamily)
+                    }
+                }
+            )
         }
     }
 }

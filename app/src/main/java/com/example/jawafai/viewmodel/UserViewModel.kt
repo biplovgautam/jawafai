@@ -32,6 +32,7 @@ class UserViewModel(
         object Loading : UserOperationResult()
         data class Success(val message: String = "") : UserOperationResult()
         data class Error(val message: String) : UserOperationResult()
+        object PasswordResetSent : UserOperationResult() // Added for password reset
     }
 
     // Added login function for Firebase authentication
@@ -175,6 +176,26 @@ class UserViewModel(
                 }
             } catch (e: Exception) {
                 _userState.value = UserOperationResult.Error(e.message ?: "Image upload failed")
+            }
+        }
+    }
+
+    fun resetPassword(email: String) {
+        viewModelScope.launch {
+            _userState.value = UserOperationResult.Loading
+            try {
+                suspendCoroutine<Unit> { continuation ->
+                    auth.sendPasswordResetEmail(email)
+                        .addOnSuccessListener { continuation.resume(Unit) }
+                        .addOnFailureListener { e ->
+                            android.util.Log.e("UserViewModel", "Password reset failed: ${e.message}", e)
+                            continuation.resumeWithException(e)
+                        }
+                }
+                _userState.value = UserOperationResult.PasswordResetSent
+            } catch (e: Exception) {
+                android.util.Log.e("UserViewModel", "Password reset exception: ${e.message}", e)
+                _userState.value = UserOperationResult.Error(e.message ?: "Failed to send reset email.")
             }
         }
     }

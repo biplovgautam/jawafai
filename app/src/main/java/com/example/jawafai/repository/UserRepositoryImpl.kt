@@ -80,33 +80,27 @@ class UserRepositoryImpl @Inject constructor(
     override suspend fun registerUser(user: UserModel, password: String): Boolean =
         suspendCoroutine { continuation ->
             Log.d(TAG, "Starting user registration for email: ${user.email}")
-
             try {
-                // Check username first using coroutine-friendly approach
                 if (user.username.isNotEmpty()) {
-                    // Use withContext instead of runBlocking inside suspendCoroutine
-                    val usernameQuery = usersCollection
+                    usersCollection
                         .whereEqualTo("username", user.username)
                         .limit(1)
                         .get()
-
-                    usernameQuery.addOnSuccessListener { documents ->
-                        if (!documents.isEmpty) {
-                            // Username already exists
-                            Log.w(TAG, "Username already exists: ${user.username}")
-                            continuation.resumeWithException(Exception("Username already exists"))
-                            return@addOnSuccessListener
+                        .addOnSuccessListener { documents ->
+                            if (!documents.isEmpty) {
+                                Log.w(TAG, "Username already exists: ${user.username}")
+                                continuation.resumeWithException(Exception("Username already exists"))
+                                return@addOnSuccessListener
+                            }
+                            // Username doesn't exist, proceed with registration
+                            createUserWithAuthAndFirestore(user, password, continuation)
                         }
-
-                        // Username doesn't exist, proceed with registration
-                        proceedWithRegistration(user, password, continuation)
-                    }.addOnFailureListener { e ->
-                        Log.e(TAG, "Error checking username: ${e.message}")
-                        continuation.resumeWithException(e)
-                    }
+                        .addOnFailureListener { e ->
+                            Log.e(TAG, "Error checking username: ${e.message}")
+                            continuation.resumeWithException(e)
+                        }
                 } else {
-                    // No username to check, proceed with registration
-                    proceedWithRegistration(user, password, continuation)
+                    createUserWithAuthAndFirestore(user, password, continuation)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error in registration process: ${e.message}")
@@ -114,7 +108,7 @@ class UserRepositoryImpl @Inject constructor(
             }
         }
 
-    private fun proceedWithRegistration(user: UserModel, password: String, continuation: kotlin.coroutines.Continuation<Boolean>) {
+    private fun createUserWithAuthAndFirestore(user: UserModel, password: String, continuation: kotlin.coroutines.Continuation<Boolean>) {
         auth.createUserWithEmailAndPassword(user.email, password)
             .addOnSuccessListener { authResult ->
                 val uid = authResult.user?.uid
@@ -123,16 +117,8 @@ class UserRepositoryImpl @Inject constructor(
                     continuation.resume(false)
                     return@addOnSuccessListener
                 }
-
                 Log.d(TAG, "Authentication successful, user created with ID: $uid")
-
-                // Create user document in Firestore
-                val userWithId = user.copy(
-                    id = uid,
-                    password = "" // Don't store password in Firestore
-                )
-
-                // Try to store in Firestore, but consider Auth success as overall success
+                val userWithId = user.copy(id = uid, password = "")
                 usersCollection.document(uid)
                     .set(userWithId.toMap())
                     .addOnSuccessListener {
@@ -141,8 +127,6 @@ class UserRepositoryImpl @Inject constructor(
                     }
                     .addOnFailureListener { e ->
                         Log.w(TAG, "Firestore write failed: ${e.message}")
-                        // Still consider registration successful if auth worked but Firestore failed
-                        // This handles the case where Firestore API is not enabled yet
                         if (e.message?.contains("PERMISSION_DENIED") == true ||
                             e.message?.contains("API has not been used") == true) {
                             Log.d(TAG, "Firestore permission denied but auth succeeded, returning success")
