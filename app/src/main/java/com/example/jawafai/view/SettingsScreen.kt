@@ -8,7 +8,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -24,17 +23,20 @@ import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
 import com.google.firebase.auth.FirebaseAuth
 
-data class SettingsItem(
+data class SettingsItemData(
     val icon: ImageVector,
     val title: String,
     val subtitle: String? = null,
     val onClick: () -> Unit,
-    val tint: Color = Color.Black
+    val tint: Color = Color.Unspecified
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onLogout: () -> Unit) {
+fun SettingsScreen(
+    onLogout: () -> Unit,
+    onProfileClicked: () -> Unit
+) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -43,23 +45,34 @@ fun SettingsScreen(onLogout: () -> Unit) {
                         "Settings",
                         fontWeight = FontWeight.Bold
                     )
-                }
+                },
+                // This makes the top bar transparent to blend with the content
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent
+                )
             )
-        }
+        },
+        // Apply system bar padding to the Scaffold content
+        modifier = Modifier.systemBarsPadding()
     ) { paddingValues ->
         SettingsContent(
             modifier = Modifier.padding(paddingValues),
-            onLogout = onLogout
+            onLogout = onLogout,
+            onProfileClicked = onProfileClicked
         )
     }
 }
 
 @Composable
-fun SettingsContent(modifier: Modifier = Modifier, onLogout: () -> Unit) {
+fun SettingsContent(
+    modifier: Modifier = Modifier,
+    onLogout: () -> Unit,
+    onProfileClicked: () -> Unit
+) {
     val currentUser = FirebaseAuth.getInstance().currentUser
     val userEmail = currentUser?.email ?: "User"
-    val userName = currentUser?.displayName ?: userEmail.substringBefore("@")
-    val profileImage = currentUser?.photoUrl ?: "https://ui-avatars.com/api/?name=${userName.replace(" ", "+")}"
+    val userName = currentUser?.displayName?.takeIf { it.isNotBlank() } ?: userEmail.substringBefore("@")
+    val profileImage = currentUser?.photoUrl
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -70,9 +83,10 @@ fun SettingsContent(modifier: Modifier = Modifier, onLogout: () -> Unit) {
             UserProfileSection(
                 name = userName,
                 email = userEmail,
-                profileImageUrl = profileImage.toString()
+                profileImageUrl = profileImage.toString(),
+                onClick = onProfileClicked // Navigate to profile screen
             )
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp, horizontal = 16.dp))
         }
 
         // Account Settings
@@ -82,18 +96,7 @@ fun SettingsContent(modifier: Modifier = Modifier, onLogout: () -> Unit) {
 
         item {
             SettingsItem(
-                item = SettingsItem(
-                    icon = Icons.Outlined.AccountCircle,
-                    title = "Profile",
-                    subtitle = "Edit your profile information",
-                    onClick = { /* Navigate to profile edit */ }
-                )
-            )
-        }
-
-        item {
-            SettingsItem(
-                item = SettingsItem(
+                item = SettingsItemData(
                     icon = Icons.Outlined.Lock,
                     title = "Privacy",
                     subtitle = "Manage your privacy settings",
@@ -104,7 +107,7 @@ fun SettingsContent(modifier: Modifier = Modifier, onLogout: () -> Unit) {
 
         item {
             SettingsItem(
-                item = SettingsItem(
+                item = SettingsItemData(
                     icon = Icons.Outlined.Notifications,
                     title = "Notifications",
                     subtitle = "Configure notification preferences",
@@ -113,7 +116,7 @@ fun SettingsContent(modifier: Modifier = Modifier, onLogout: () -> Unit) {
             )
         }
 
-        item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
+        item { HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp, horizontal = 16.dp)) }
 
         // App Settings
         item {
@@ -122,8 +125,8 @@ fun SettingsContent(modifier: Modifier = Modifier, onLogout: () -> Unit) {
 
         item {
             SettingsItem(
-                item = SettingsItem(
-                    icon = Icons.Outlined.DarkMode, // Changed from Contrast to DarkMode
+                item = SettingsItemData(
+                    icon = Icons.Outlined.DarkMode,
                     title = "Appearance",
                     subtitle = "Dark mode and theme settings",
                     onClick = { /* Navigate to appearance settings */ }
@@ -133,18 +136,7 @@ fun SettingsContent(modifier: Modifier = Modifier, onLogout: () -> Unit) {
 
         item {
             SettingsItem(
-                item = SettingsItem(
-                    icon = Icons.Outlined.Translate, // Changed from Language to Translate
-                    title = "Language",
-                    subtitle = "Change app language",
-                    onClick = { /* Navigate to language settings */ }
-                )
-            )
-        }
-
-        item {
-            SettingsItem(
-                item = SettingsItem(
+                item = SettingsItemData(
                     icon = Icons.Outlined.Info,
                     title = "About",
                     subtitle = "App information and version",
@@ -153,24 +145,18 @@ fun SettingsContent(modifier: Modifier = Modifier, onLogout: () -> Unit) {
             )
         }
 
-        item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
+        item { HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp, horizontal = 16.dp)) }
 
         // Logout
         item {
             SettingsItem(
-                item = SettingsItem(
-                    icon = Icons.AutoMirrored.Filled.ExitToApp, // Replace Logout with ExitToApp
+                item = SettingsItemData(
+                    icon = Icons.AutoMirrored.Filled.ExitToApp,
                     title = "Logout",
-                    subtitle = "Sign out of your account",
                     onClick = onLogout,
-                    tint = Color.Red
+                    tint = MaterialTheme.colorScheme.error
                 )
             )
-        }
-
-        // Extra space at the bottom
-        item {
-            Spacer(modifier = Modifier.height(80.dp))
         }
     }
 }
@@ -179,20 +165,24 @@ fun SettingsContent(modifier: Modifier = Modifier, onLogout: () -> Unit) {
 fun UserProfileSection(
     name: String,
     email: String,
-    profileImageUrl: String
+    profileImageUrl: String,
+    onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Profile image
         Image(
-            painter = rememberAsyncImagePainter(model = profileImageUrl),
+            painter = rememberAsyncImagePainter(
+                model = profileImageUrl.ifEmpty { "https://ui-avatars.com/api/?name=$name" }
+            ),
             contentDescription = "Profile picture",
             modifier = Modifier
-                .size(80.dp)
+                .size(64.dp)
                 .clip(CircleShape),
             contentScale = ContentScale.Crop
         )
@@ -200,10 +190,10 @@ fun UserProfileSection(
         Spacer(modifier = Modifier.width(16.dp))
 
         // User info
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = name,
-                fontSize = 20.sp,
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
 
@@ -211,10 +201,16 @@ fun UserProfileSection(
 
             Text(
                 text = email,
-                fontSize = 14.sp,
-                color = Color.Gray
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = "Edit Profile",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -222,6 +218,7 @@ fun UserProfileSection(
 fun SettingsSectionTitle(title: String) {
     Text(
         text = title,
+        style = MaterialTheme.typography.titleSmall,
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -229,19 +226,19 @@ fun SettingsSectionTitle(title: String) {
 }
 
 @Composable
-fun SettingsItem(item: SettingsItem) {
+fun SettingsItem(item: SettingsItemData) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = item.onClick)
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Icon
         Icon(
             imageVector = item.icon,
             contentDescription = null,
-            tint = item.tint,
+            tint = if (item.tint != Color.Unspecified) item.tint else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(24.dp)
         )
 
@@ -253,25 +250,18 @@ fun SettingsItem(item: SettingsItem) {
         ) {
             Text(
                 text = item.title,
-                fontWeight = FontWeight.Medium,
-                color = item.tint
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (item.tint != Color.Unspecified) item.tint else MaterialTheme.colorScheme.onSurface
             )
 
             if (item.subtitle != null) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = item.subtitle,
-                    fontSize = 14.sp,
-                    color = Color.Gray
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
-
-        // Arrow icon
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, // Replace ChevronRight with KeyboardArrowRight
-            contentDescription = null,
-            tint = Color.Gray
-        )
     }
 }

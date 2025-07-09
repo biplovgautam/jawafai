@@ -13,6 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.jawafai.ui.theme.JawafaiTheme
 import com.google.firebase.auth.FirebaseAuth
+import androidx.core.view.WindowCompat
 
 class MainActivity : ComponentActivity() {
 
@@ -24,6 +25,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
 
         // Check if user has already seen onboarding screens
         val sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

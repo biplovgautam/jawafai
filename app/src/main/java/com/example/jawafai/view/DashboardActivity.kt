@@ -12,12 +12,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -102,13 +100,6 @@ sealed class BottomNavItem(
         contentDescription = "Chat"
     )
 
-    object Notifications : BottomNavItem(
-        route = "notifications",
-        selectedIcon = Icons.Filled.Notifications,
-        unselectedIcon = Icons.Outlined.Notifications,
-        contentDescription = "Notifications"
-    )
-
     object Settings : BottomNavItem(
         route = "settings",
         selectedIcon = Icons.Filled.Settings,
@@ -116,6 +107,7 @@ sealed class BottomNavItem(
         contentDescription = "Settings"
     )
 
+    // Profile is no longer a bottom nav item, but a destination from Settings
     object Profile : BottomNavItem(
         route = "profile",
         selectedIcon = Icons.Filled.AccountCircle,
@@ -128,11 +120,10 @@ sealed class BottomNavItem(
 @Composable
 fun DashboardScreen(onLogout: () -> Unit) {
     val navController = rememberNavController()
+    // Updated and simplified list of bottom navigation items
     val items = listOf(
-        BottomNavItem.Profile,
-        BottomNavItem.Search,
         BottomNavItem.Home,
-        BottomNavItem.Notifications,
+        BottomNavItem.Search,
         BottomNavItem.Settings
     )
 
@@ -211,7 +202,10 @@ fun DashboardScreen(onLogout: () -> Unit) {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(BottomNavItem.Profile.route) {
-                ProfileScreen()
+                ProfileScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onLogout = onLogout
+                )
             }
             composable(BottomNavItem.Search.route) {
                 ChatScreen()
@@ -219,11 +213,13 @@ fun DashboardScreen(onLogout: () -> Unit) {
             composable(BottomNavItem.Home.route) {
                 HomeScreen()
             }
-            composable(BottomNavItem.Notifications.route) {
-                NotificationsScreen()
-            }
             composable(BottomNavItem.Settings.route) {
-                SettingsScreen(onLogout)
+                SettingsScreen(
+                    onLogout = onLogout,
+                    onProfileClicked = {
+                        navController.navigate(BottomNavItem.Profile.route)
+                    }
+                )
             }
         }
     }
