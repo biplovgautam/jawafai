@@ -122,7 +122,6 @@ fun ChatScreen() {
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf(ChatFilter.All) }
-    var isSearchExpanded by remember { mutableStateOf(false) }
     val searchFocusRequester = remember { FocusRequester() }
 
     var selectedChat: ChatPreview? by remember { mutableStateOf(null) }
@@ -159,41 +158,16 @@ fun ChatScreen() {
             contentColor = Color.White,
             topBar = {
                 Column {
-                    AnimatedVisibility(
-                        visible = !isSearchExpanded,
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
-                    ) {
-                        TopAppBarContent(
-                            onSearchClick = {
-                                isSearchExpanded = true
-                                coroutineScope.launch {
-                                    delay(100)
-                                    searchFocusRequester.requestFocus()
-                                }
-                            },
-                            onNewChatClick = { isNewChatDialogVisible = true }
-                        )
-                    }
-
-                    AnimatedVisibility(
-                        visible = isSearchExpanded,
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
-                    ) {
-                        SearchBarContent(
-                            query = searchQuery,
-                            onQueryChange = { searchQuery = it },
-                            onSearch = {},
-                            onClear = { searchQuery = "" },
-                            onBack = {
-                                isSearchExpanded = false
-                                searchQuery = ""
-                            },
-                            focusRequester = searchFocusRequester
-                        )
-                    }
-
+                    TopAppBarContent(
+                        onNewChatClick = { isNewChatDialogVisible = true }
+                    )
+                    SearchBarContent(
+                        query = searchQuery,
+                        onQueryChange = { searchQuery = it },
+                        onSearch = {},
+                        onClear = { searchQuery = "" },
+                        focusRequester = searchFocusRequester
+                    )
                     ChatFilterChips(
                         selected = selectedFilter,
                         onSelect = { selectedFilter = it }
@@ -243,26 +217,18 @@ fun ChatScreen() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopAppBarContent(
-    onSearchClick: () -> Unit,
     onNewChatClick: () -> Unit
 ) {
     CenterAlignedTopAppBar(
         title = {
             Text(
-                text = "Jawafai",
+                text = "Chats",
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 fontSize = 22.sp
             )
         },
         actions = {
-            IconButton(onClick = onSearchClick) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = Color.White
-                )
-            }
             IconButton(onClick = onNewChatClick) {
                 Icon(
                     imageVector = Icons.Default.Add,
@@ -284,7 +250,6 @@ fun SearchBarContent(
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
     onClear: () -> Unit,
-    onBack: () -> Unit,
     focusRequester: FocusRequester
 ) {
     Row(
@@ -293,20 +258,12 @@ fun SearchBarContent(
             .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onBack) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = Color.White
-            )
-        }
-
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
             placeholder = {
                 Text(
-                    text = "Search chats...",
+                    text = "Ask jawafai or search",
                     modifier = Modifier.alpha(0.7f),
                     color = Color.White.copy(alpha = 0.7f)
                 )
