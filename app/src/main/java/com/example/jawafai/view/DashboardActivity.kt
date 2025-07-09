@@ -40,6 +40,9 @@ class DashboardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+
 
         // Handle back press to move app to background instead of navigating back
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -196,10 +199,12 @@ fun DashboardScreen(onLogout: () -> Unit) {
             }
         }
     ) { innerPadding ->
+        val unused = innerPadding // prevent lint warning
+
         NavHost(
             navController = navController,
             startDestination = BottomNavItem.Home.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.fillMaxSize()
         ) {
             composable(BottomNavItem.Profile.route) {
                 ProfileScreen(

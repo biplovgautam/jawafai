@@ -53,7 +53,7 @@ fun SettingsScreen(
             )
         },
         // Apply system bar padding to the Scaffold content
-        modifier = Modifier.systemBarsPadding()
+        modifier = Modifier
     ) { paddingValues ->
         SettingsContent(
             modifier = Modifier.padding(paddingValues),

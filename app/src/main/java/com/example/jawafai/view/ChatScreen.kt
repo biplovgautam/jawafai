@@ -817,7 +817,6 @@ fun ChatDetailOverlay(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.8f))
-            .systemBarsPadding()
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
