@@ -1,13 +1,13 @@
 package com.example.jawafai.view
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -72,7 +72,7 @@ fun SettingsContent(modifier: Modifier = Modifier, onLogout: () -> Unit) {
                 email = userEmail,
                 profileImageUrl = profileImage.toString()
             )
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
         }
 
         // Account Settings
@@ -113,7 +113,7 @@ fun SettingsContent(modifier: Modifier = Modifier, onLogout: () -> Unit) {
             )
         }
 
-        item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
+        item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
 
         // App Settings
         item {
@@ -153,13 +153,13 @@ fun SettingsContent(modifier: Modifier = Modifier, onLogout: () -> Unit) {
             )
         }
 
-        item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
+        item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
 
         // Logout
         item {
             SettingsItem(
                 item = SettingsItem(
-                    icon = Icons.Outlined.ExitToApp, // Replace Logout with ExitToApp
+                    icon = Icons.AutoMirrored.Filled.ExitToApp, // Replace Logout with ExitToApp
                     title = "Logout",
                     subtitle = "Sign out of your account",
                     onClick = onLogout,
@@ -269,7 +269,7 @@ fun SettingsItem(item: SettingsItem) {
 
         // Arrow icon
         Icon(
-            imageVector = Icons.Default.KeyboardArrowRight, // Replace ChevronRight with KeyboardArrowRight
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, // Replace ChevronRight with KeyboardArrowRight
             contentDescription = null,
             tint = Color.Gray
         )
