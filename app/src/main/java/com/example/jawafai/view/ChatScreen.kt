@@ -119,7 +119,6 @@ fun ChatScreen() {
     val coroutineScope = rememberCoroutineScope()
 
     val darkTeal = Color(0xFF365A61)
-    val lightTeal = Color(0xFF4A7A85)
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf(ChatFilter.All) }
@@ -145,37 +144,14 @@ fun ChatScreen() {
         }
     }
 
-    // Background gradient animation
-    val infiniteTransition = rememberInfiniteTransition(label = "backgroundAnimation")
-    val gradientPosition by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1000f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(20000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "gradientPosition"
-    )
-
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Animated background gradient
+        // Use a solid background color instead of the animated gradient
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            darkTeal,
-                            lightTeal.copy(alpha = 0.7f),
-                            darkTeal
-                        ),
-                        start = Offset(gradientPosition, 0f),
-                        end = Offset(gradientPosition + 1000f, 1000f),
-                        tileMode = TileMode.Mirror
-                    )
-                )
+                .background(darkTeal)
         )
 
         Scaffold(
