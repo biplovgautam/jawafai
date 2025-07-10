@@ -1,23 +1,33 @@
 package com.example.jawafai.view
 
+import android.Manifest
 import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -31,6 +41,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
 import com.example.jawafai.R
 import com.example.jawafai.model.UserModel
 import com.example.jawafai.repository.UserRepositoryImpl
@@ -95,6 +106,8 @@ fun RegistrationScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var dob by remember { mutableStateOf("") }
+    var bio by remember { mutableStateOf("") }
+    var imageUri by remember { mutableStateOf<Uri?>(null) }
     var acceptTerms by remember { mutableStateOf(false) }
 
     // State for showing loading indicator
@@ -124,6 +137,28 @@ fun RegistrationScreen(
                 isLoading = true
             }
             else -> {}
+        }
+    }
+
+    val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_IMAGES
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        imageUri = uri
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            galleryLauncher.launch("image/*")
+        } else {
+            Toast.makeText(context, "Permission Denied", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -201,11 +236,30 @@ fun RegistrationScreen(
             verticalArrangement = Arrangement.Center
         ) {
             item {
-                Image(
-                    painter = painterResource(id = R.drawable.profile),
-                    contentDescription = "App Icon",
-                    modifier = Modifier.size(100.dp)
-                )
+                Box(
+                    contentAlignment = Alignment.BottomEnd,
+                    modifier = Modifier.clickable { permissionLauncher.launch(permission) }
+                ) {
+                    AsyncImage(
+                        model = imageUri ?: R.drawable.profile,
+                        contentDescription = "Profile Picture",
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentScale = ContentScale.Crop
+                    )
+                    Icon(
+                        imageVector = Icons.Default.AddAPhoto,
+                        contentDescription = "Add Photo",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                            .padding(6.dp)
+                    )
+                }
             }
 
             item {
@@ -267,6 +321,16 @@ fun RegistrationScreen(
                     label = { Text("Password", fontFamily = AppFonts.KaiseiRegularFontFamily) },
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
+                )
+            }
+
+            item {
+                OutlinedTextField(
+                    value = bio,
+                    onValueChange = { bio = it },
+                    label = { Text("Bio", fontFamily = AppFonts.KaiseiRegularFontFamily) },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isLoading
                 )
@@ -336,24 +400,37 @@ fun RegistrationScreen(
                             password.length < 6 -> Toast.makeText(context, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show()
                             dob.isBlank() -> Toast.makeText(context, "Date of birth is required", Toast.LENGTH_SHORT).show()
                             else -> {
-                                // Create user model and register
-                                val userModel = UserModel(
-                                    firstName = firstName,
-                                    lastName = lastName,
-                                    username = username,
-                                    email = email,
-                                    password = password, // This won't be stored in Firestore
-                                    dateOfBirth = dob
-                                )
+                                isLoading = true
+                                val registerUser = { imageUrl: String? ->
+                                    val userModel = UserModel(
+                                        firstName = firstName,
+                                        lastName = lastName,
+                                        username = username,
+                                        email = email,
+                                        dateOfBirth = dob,
+                                        bio = bio,
+                                        imageUrl = imageUrl
+                                    )
+                                    viewModel.register(email, password, userModel)
+                                }
 
-                                // Reset any previous states
-                                viewModel.resetState()
-
-                                // Log the registration attempt
-                                Log.d("RegistrationScreen", "Attempting to register user: $email")
-
-                                // Register the user via ViewModel
-                                viewModel.register(email, password, userModel)
+                                if (imageUri != null) {
+                                    Log.d("RegistrationActivity", "Starting image upload: $imageUri")
+                                    viewModel.uploadProfileImage(context, imageUri!!) { imageUrl ->
+                                        Log.d("RegistrationActivity", "Upload callback received, result: ${imageUrl != null}")
+                                        if (imageUrl != null) {
+                                            Log.d("RegistrationActivity", "Upload successful, URL: $imageUrl")
+                                            registerUser(imageUrl)
+                                        } else {
+                                            Log.e("RegistrationActivity", "Image upload returned null URL")
+                                            isLoading = false
+                                            Toast.makeText(context, "Image upload failed.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                } else {
+                                    Log.d("RegistrationActivity", "No image to upload, proceeding with registration")
+                                    registerUser(null)
+                                }
                             }
                         }
                     },

@@ -1,5 +1,6 @@
 package com.example.jawafai.viewmodel
 
+import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.LiveData
@@ -184,21 +185,29 @@ class UserViewModel(
         _userProfile.value = null
     }
 
-    fun uploadProfileImage(imageUri: Uri, onResult: (String?) -> Unit) {
+    fun uploadProfileImage(context: Context, imageUri: Uri, onResult: (String?) -> Unit) {
+        Log.d("UserViewModel", "Starting uploadProfileImage in ViewModel: $imageUri")
         viewModelScope.launch {
             _userState.value = UserOperationResult.Loading
             try {
-                val url = repository.uploadProfileImage(imageUri)
+                Log.d("UserViewModel", "About to call repository.uploadProfileImage")
+                val url = repository.uploadProfileImage(context, imageUri)
+                Log.d("UserViewModel", "Repository returned URL: $url")
                 if (url != null) {
+                    Log.d("UserViewModel", "Upload successful, updating profile with URL: $url")
                     onResult(url)
                     // Update local profile with new image URL
                     _userProfile.value = _userProfile.value?.copy(imageUrl = url)
                     _userState.value = UserOperationResult.Success("Profile image uploaded")
                 } else {
+                    Log.e("UserViewModel", "Repository returned null URL")
                     _userState.value = UserOperationResult.Error("Image upload failed")
+                    onResult(null)
                 }
             } catch (e: Exception) {
+                Log.e("UserViewModel", "Exception during image upload", e)
                 _userState.value = UserOperationResult.Error(e.message ?: "Image upload failed")
+                onResult(null)
             }
         }
     }

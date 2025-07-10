@@ -98,7 +98,7 @@ fun SettingsContent(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp)
+        contentPadding = PaddingValues(vertical = 1.dp)
     ) {
         // Profile Section
         item {

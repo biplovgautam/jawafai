@@ -1,5 +1,6 @@
 package com.example.jawafai.repository
 
+import android.content.Context
 import android.net.Uri
 import com.example.jawafai.model.UserModel
 
@@ -37,5 +38,5 @@ interface UserRepository {
     /**
      * Uploads a profile image to Cloudinary and returns the image URL
      */
-    suspend fun uploadProfileImage(imageUri: Uri): String?
+    suspend fun uploadProfileImage(context: Context, imageUri: Uri): String?
 }

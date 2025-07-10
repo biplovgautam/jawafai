@@ -26,10 +26,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -37,105 +35,58 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.example.jawafai.model.ChatPreview
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import com.example.jawafai.model.ChatSummary
+import com.example.jawafai.repository.ChatRepositoryImpl
+import com.example.jawafai.viewmodel.ChatViewModel
+import com.example.jawafai.viewmodel.ChatViewModelFactory
+import com.google.firebase.auth.FirebaseAuth
+import java.text.SimpleDateFormat
+import java.util.*
+import kotlin.math.abs
 
 // Sample data for chat list
 enum class ChatFilter(val label: String, val icon: ImageVector?) {
     All("All", null),
     Unread("Unread", Icons.Filled.MarkEmailUnread),
-    Favorites("Favorites", Icons.Filled.Star),
     Groups("Groups", Icons.Filled.Group)
 }
 
-private val chatList = listOf(
-    ChatPreview(
-        id = "1",
-        userName = "Aisha Khan",
-        lastMessage = "Hey, how's it going? Did you check out the new AI features?",
-        userImage = "https://randomuser.me/api/portraits/women/12.jpg",
-        time = "10:30 AM",
-        unreadCount = 3,
-        isOnline = true
-    ),
-    ChatPreview(
-        id = "2",
-        userName = "Study Group",
-        lastMessage = "Priya: Let's meet at 5 PM!",
-        userImage = "",
-        time = "09:15 AM",
-        unreadCount = 0,
-        isOnline = false
-    ),
-    ChatPreview(
-        id = "3",
-        userName = "Rahul Sharma",
-        lastMessage = "I'll send the notes soon.",
-        userImage = "https://randomuser.me/api/portraits/men/32.jpg",
-        time = "Yesterday",
-        unreadCount = 1,
-        isOnline = false
-    ),
-    ChatPreview(
-        id = "4",
-        userName = "Favorites Group",
-        lastMessage = "You: See you all tomorrow!",
-        userImage = "",
-        time = "Yesterday",
-        unreadCount = 0,
-        isOnline = false
-    ),
-    ChatPreview(
-        id = "5",
-        userName = "Maya Patel",
-        lastMessage = "The presentation looks great! I've made some minor edits.",
-        userImage = "https://randomuser.me/api/portraits/women/22.jpg",
-        time = "2 days ago",
-        unreadCount = 0,
-        isOnline = true
-    ),
-    ChatPreview(
-        id = "6",
-        userName = "Dev Team",
-        lastMessage = "Sam: I've pushed the latest changes to the repository.",
-        userImage = "",
-        time = "3 days ago",
-        unreadCount = 5,
-        isOnline = true
-    )
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen() {
-    val coroutineScope = rememberCoroutineScope()
+fun ChatScreen(
+    onNavigateToChat: (chatId: String, otherUserId: String) -> Unit
+) {
+    val auth = FirebaseAuth.getInstance()
+    val chatRepository = remember { ChatRepositoryImpl() }
+    val viewModel: ChatViewModel = viewModel(
+        factory = ChatViewModelFactory(chatRepository, auth)
+    )
 
+    val chatSummaries by viewModel.chatSummaries.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf(ChatFilter.All) }
     val searchFocusRequester = remember { FocusRequester() }
-
-    var selectedChat: ChatPreview? by remember { mutableStateOf(null) }
     var isNewChatDialogVisible by remember { mutableStateOf(false) }
 
-    val filteredChats = remember(searchQuery, selectedFilter) {
-        chatList.filter { chat ->
-            val matchesQuery = if (searchQuery.isBlank()) true else {
-                chat.userName.contains(searchQuery, ignoreCase = true) ||
-                chat.lastMessage.contains(searchQuery, ignoreCase = true)
+    val filteredChats = remember(searchQuery, selectedFilter, chatSummaries) {
+        chatSummaries.filter { summary ->
+            val matchesQuery = if (searchQuery.isBlank()) {
+                true
+            } else {
+                summary.otherUserName.contains(searchQuery, ignoreCase = true) ||
+                summary.lastMessage.contains(searchQuery, ignoreCase = true)
             }
+
             val matchesFilter = when (selectedFilter) {
                 ChatFilter.All -> true
-                ChatFilter.Unread -> chat.unreadCount > 0
-                ChatFilter.Favorites -> chat.userName.contains("Favorites", ignoreCase = true)
-                ChatFilter.Groups -> chat.userName.contains("Group", ignoreCase = true)
+                ChatFilter.Unread -> !summary.isLastMessageSeen
+                ChatFilter.Groups -> false // TODO: Implement group logic
             }
             matchesQuery && matchesFilter
         }
@@ -172,8 +123,7 @@ fun ChatScreen() {
                     onClick = { isNewChatDialogVisible = true },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = Color.White,
-                    shape = CircleShape,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    shape = CircleShape
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Edit,
@@ -185,23 +135,16 @@ fun ChatScreen() {
             ChatListContent(
                 chats = filteredChats,
                 paddingValues = paddingValues,
-                onChatClick = { selectedChat = it }
+                onChatClick = { summary ->
+                    onNavigateToChat(summary.chatId, summary.otherUserId)
+                }
             )
         }
 
-        // New Chat Dialog
         if (isNewChatDialogVisible) {
             NewChatDialog(
                 onDismiss = { isNewChatDialogVisible = false },
-                onCreateChat = { /* Create new chat */ }
-            )
-        }
-
-        // Show selected chat in overlay (would normally navigate)
-        selectedChat?.let { chat ->
-            ChatDetailOverlay(
-                chat = chat,
-                onClose = { selectedChat = null }
+                onCreateChat = { /* TODO: Implement create new chat */ }
             )
         }
     }
@@ -350,9 +293,9 @@ fun ChatFilterChips(
 
 @Composable
 fun ChatListContent(
-    chats: List<ChatPreview>,
+    chats: List<ChatSummary>,
     paddingValues: PaddingValues,
-    onChatClick: (ChatPreview) -> Unit
+    onChatClick: (ChatSummary) -> Unit
 ) {
     if (chats.isEmpty()) {
         EmptyChatState(paddingValues)
@@ -363,7 +306,7 @@ fun ChatListContent(
                 .padding(paddingValues),
             contentPadding = PaddingValues(bottom = 80.dp)
         ) {
-            items(chats, key = { it.id }) { chat ->
+            items(chats, key = { it.chatId }) { chat ->
                 ChatListItem(
                     chat = chat,
                     onClick = { onChatClick(chat) }
@@ -411,12 +354,11 @@ fun EmptyChatState(paddingValues: PaddingValues) {
 
 @Composable
 fun ChatListItem(
-    chat: ChatPreview,
+    chat: ChatSummary,
     onClick: () -> Unit
 ) {
-    val isGroup = chat.userName.contains("Group", ignoreCase = true)
+    val isUnread = !chat.isLastMessageSeen
 
-    // Animation for pressed state
     var isPressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.98f else 1f,
@@ -444,7 +386,7 @@ fun ChatListItem(
             },
         shape = RoundedCornerShape(16.dp),
         color = Color.White.copy(alpha = 0.1f),
-        tonalElevation = if (chat.unreadCount > 0) 4.dp else 0.dp
+        tonalElevation = if (isUnread) 4.dp else 0.dp
     ) {
         Row(
             modifier = Modifier
@@ -452,59 +394,11 @@ fun ChatListItem(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isGroup) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color(0xFF2D3A3F),
-                        modifier = Modifier
-                            .size(56.dp)
-                    ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Group,
-                                contentDescription = "Group",
-                                tint = Color.White,
-                                modifier = Modifier.size(30.dp)
-                            )
-                        }
-                    }
-                } else {
-                    AsyncImage(
-                        model = if (chat.userImage.isNotBlank()) chat.userImage
-                            else "https://ui-avatars.com/api/?name=${chat.userName.replace(" ", "+")}&background=4A7A85&color=fff&size=200",
-                        contentDescription = "Profile picture of ${chat.userName}",
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .border(
-                                width = if (chat.isOnline) 2.dp else 0.dp,
-                                color = Color(0xFF4CAF50),
-                                shape = CircleShape
-                            ),
-                        contentScale = ContentScale.Crop
-                    )
-
-                    // Online indicator
-                    if (chat.isOnline) {
-                        Box(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF4CAF50))
-                                .border(1.5.dp, Color(0xFF2D3A3F), CircleShape)
-                                .align(Alignment.BottomEnd)
-                        )
-                    }
-                }
-            }
+            UserAvatar(
+                imageUrl = chat.otherUserImageUrl,
+                userName = chat.otherUserName,
+                size = 56.dp
+            )
 
             Spacer(modifier = Modifier.width(12.dp))
 
@@ -517,8 +411,8 @@ fun ChatListItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = chat.userName,
-                        fontWeight = if (chat.unreadCount > 0) FontWeight.Bold else FontWeight.Medium,
+                        text = chat.otherUserName,
+                        fontWeight = if (isUnread) FontWeight.Bold else FontWeight.Medium,
                         fontSize = 16.sp,
                         color = Color.White,
                         maxLines = 1,
@@ -527,10 +421,10 @@ fun ChatListItem(
                     )
 
                     Text(
-                        text = chat.time,
-                        color = if (chat.unreadCount > 0) Color.White else Color.White.copy(alpha = 0.6f),
+                        text = formatTimestamp(chat.lastMessageTimestamp),
+                        color = if (isUnread) Color.White else Color.White.copy(alpha = 0.6f),
                         fontSize = 12.sp,
-                        fontWeight = if (chat.unreadCount > 0) FontWeight.Bold else FontWeight.Normal
+                        fontWeight = if (isUnread) FontWeight.Bold else FontWeight.Normal
                     )
                 }
 
@@ -543,34 +437,83 @@ fun ChatListItem(
                 ) {
                     Text(
                         text = chat.lastMessage,
-                        color = if (chat.unreadCount > 0) Color.White.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.6f),
+                        color = if (isUnread) Color.White.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.6f),
                         fontSize = 14.sp,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
 
-                    if (chat.unreadCount > 0) {
+                    if (isUnread) {
                         Box(
                             modifier = Modifier
                                 .padding(start = 8.dp)
-                                .size(22.dp)
+                                .size(12.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF4CAF50)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = chat.unreadCount.toString(),
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                                .background(MaterialTheme.colorScheme.tertiary)
+                        )
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+fun UserAvatar(
+    imageUrl: String?,
+    userName: String,
+    modifier: Modifier = Modifier,
+    size: Dp = 56.dp
+) {
+    val placeholderText = (userName.firstOrNull()?.toString() ?: "A").uppercase()
+    val seedForColor = userName
+    val avatarColors = remember {
+        listOf(
+            Color(0xFFF44336), Color(0xFFE91E63), Color(0xFF9C27B0), Color(0xFF673AB7),
+            Color(0xFF3F51B5), Color(0xFF2196F3), Color(0xFF03A9F4), Color(0xFF00BCD4),
+            Color(0xFF009688), Color(0xFF4CAF50), Color(0xFF8BC34A), Color(0xFFCDDC39),
+            Color(0xFFFFC107), Color(0xFFFF9800), Color(0xFFFF5722), Color(0xFF795548)
+        )
+    }
+    val backgroundColor = remember(seedForColor) {
+        avatarColors[abs(seedForColor.hashCode()) % avatarColors.size]
+    }
+
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        if (imageUrl.isNullOrBlank()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(backgroundColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = placeholderText,
+                    style = MaterialTheme.typography.headlineSmall.copy(fontSize = (size.value / 2).sp),
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        } else {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = "Profile picture of $userName",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
+    }
+}
+
+fun formatTimestamp(timestamp: Long): String {
+    val sdf = SimpleDateFormat("h:mm a", Locale.getDefault())
+    return sdf.format(Date(timestamp))
 }
 
 @Composable
@@ -586,7 +529,7 @@ fun NewChatDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(24.dp),
-            color = Color(0xFF2D3A3F),
+            color = MaterialTheme.colorScheme.surface,
             tonalElevation = 8.dp,
             modifier = Modifier
                 .fillMaxWidth()
@@ -598,7 +541,7 @@ fun NewChatDialog(
                 Text(
                     text = if (isCreatingGroup) "New Group" else "New Chat",
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 20.sp
                 )
 
@@ -608,12 +551,12 @@ fun NewChatDialog(
                     OutlinedTextField(
                         value = groupName,
                         onValueChange = { groupName = it },
-                        label = { Text("Group Name", color = Color.White.copy(alpha = 0.7f)) },
+                        label = { Text("Group Name", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)) },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color.White,
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.5f)
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            focusedBorderColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                         ),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -624,7 +567,7 @@ fun NewChatDialog(
                     Text(
                         text = "Select Contacts",
                         fontWeight = FontWeight.Medium,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 16.sp
                     )
 
@@ -641,8 +584,8 @@ fun NewChatDialog(
 
                             Surface(
                                 shape = CircleShape,
-                                color = if (isSelected) Color.White.copy(alpha = 0.2f) else Color.Transparent,
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f)),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.Transparent,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)),
                                 modifier = Modifier
                                     .size(50.dp)
                                     .clickable {
@@ -656,7 +599,7 @@ fun NewChatDialog(
                                 Box(contentAlignment = Alignment.Center) {
                                     Text(
                                         text = "C${index + 1}",
-                                        color = Color.White,
+                                        color = MaterialTheme.colorScheme.onSurface,
                                         fontWeight = FontWeight.Medium
                                     )
 
@@ -664,7 +607,7 @@ fun NewChatDialog(
                                         Icon(
                                             imageVector = Icons.Default.Check,
                                             contentDescription = "Selected",
-                                            tint = Color.White,
+                                            tint = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
@@ -676,12 +619,12 @@ fun NewChatDialog(
                     OutlinedTextField(
                         value = contactName,
                         onValueChange = { contactName = it },
-                        label = { Text("Contact Name or Number", color = Color.White.copy(alpha = 0.7f)) },
+                        label = { Text("Contact Name or Number", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)) },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color.White,
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.5f)
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            focusedBorderColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                         ),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -701,7 +644,7 @@ fun NewChatDialog(
                     ) {
                         Text(
                             text = if (isCreatingGroup) "Create Chat Instead" else "Create Group Instead",
-                            color = Color.White.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                         )
                     }
 
@@ -720,7 +663,7 @@ fun NewChatDialog(
                             contactName.isNotBlank()
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF4CAF50)
+                            containerColor = MaterialTheme.colorScheme.tertiary
                         )
                     ) {
                         Text("Create")
@@ -728,212 +671,5 @@ fun NewChatDialog(
                 }
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ChatDetailOverlay(
-    chat: ChatPreview,
-    onClose: () -> Unit
-) {
-    val isGroup = chat.userName.contains("Group", ignoreCase = true)
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.8f))
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Top app bar
-            TopAppBar(
-                title = {},
-                navigationIcon = {
-                    IconButton(onClick = onClose) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
-            )
-
-            // Chat detail content
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp)
-            ) {
-                if (isGroup) {
-                    Box(
-                        modifier = Modifier
-                            .size(120.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF2D3A3F)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Group,
-                            contentDescription = "Group",
-                            tint = Color.White,
-                            modifier = Modifier.size(60.dp)
-                        )
-                    }
-                } else {
-                    AsyncImage(
-                        model = if (chat.userImage.isNotBlank()) chat.userImage
-                            else "https://ui-avatars.com/api/?name=${chat.userName.replace(" ", "+")}&background=4A7A85&color=fff&size=200",
-                        contentDescription = "Profile picture of ${chat.userName}",
-                        modifier = Modifier
-                            .size(120.dp)
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = chat.userName,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 24.sp,
-                    color = Color.White
-                )
-
-                if (chat.isOnline) {
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF4CAF50))
-                        )
-
-                        Spacer(modifier = Modifier.width(4.dp))
-
-                        Text(
-                            text = "Online",
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Action buttons
-                Row(
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    ActionButton(
-                        icon = Icons.AutoMirrored.Filled.Chat,
-                        label = "Chat",
-                        onClick = onClose
-                    )
-
-                    ActionButton(
-                        icon = Icons.Default.Call,
-                        label = "Call",
-                        onClick = { /* Handle call action */ }
-                    )
-
-                    ActionButton(
-                        icon = Icons.Default.Videocam,
-                        label = "Video",
-                        onClick = { /* Handle video call action */ }
-                    )
-
-                    ActionButton(
-                        icon = Icons.Default.Info,
-                        label = "Info",
-                        onClick = { /* Handle info action */ }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Last message preview
-                if (chat.lastMessage.isNotBlank()) {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color.White.copy(alpha = 0.1f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(
-                                text = "Last message",
-                                fontSize = 12.sp,
-                                color = Color.White.copy(alpha = 0.6f)
-                            )
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            Text(
-                                text = chat.lastMessage,
-                                fontSize = 16.sp,
-                                color = Color.White
-                            )
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            Text(
-                                text = chat.time,
-                                fontSize = 12.sp,
-                                color = Color.White.copy(alpha = 0.6f),
-                                modifier = Modifier.align(Alignment.End)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun ActionButton(
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        IconButton(
-            onClick = onClick,
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.1f))
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            color = Color.White
-        )
     }
 }
