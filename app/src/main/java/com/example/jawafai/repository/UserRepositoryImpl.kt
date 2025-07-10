@@ -4,7 +4,9 @@ import android.net.Uri
 import android.util.Log
 import com.example.jawafai.model.UserModel
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -144,40 +146,49 @@ class UserRepositoryImpl @Inject constructor(
 
     override suspend fun updateUser(user: UserModel): Boolean =
         suspendCoroutine { continuation ->
-            val currentUid = auth.currentUser?.uid
-            if (currentUid == null) {
+            val currentFirebaseUser = auth.currentUser
+            if (currentFirebaseUser == null) {
                 continuation.resume(false)
                 return@suspendCoroutine
             }
+            val currentUid = currentFirebaseUser.uid
 
-            // Only update allowed fields
             val updates = mapOf(
                 "firstName" to user.firstName,
                 "lastName" to user.lastName,
+                "username" to user.username,
                 "dateOfBirth" to user.dateOfBirth,
+                "bio" to user.bio,
                 "imageUrl" to user.imageUrl
             )
 
             val docRef = usersCollection.document(currentUid)
+
+            val firestoreUpdateAction = {
+                val profileUpdates = UserProfileChangeRequest.Builder()
+                    .setDisplayName("${user.firstName} ${user.lastName}".trim().ifEmpty { user.username })
+                    .setPhotoUri(user.imageUrl?.let { Uri.parse(it) })
+                    .build()
+
+                currentFirebaseUser.updateProfile(profileUpdates)
+                    .addOnSuccessListener {
+                        continuation.resume(true)
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e(TAG, "Failed to update Firebase Auth profile", e)
+                        continuation.resume(true) // Firestore succeeded, so we count it as success
+                    }
+            }
+
             docRef.get()
                 .addOnSuccessListener { documentSnapshot ->
-                    if (documentSnapshot.exists()) {
+                    val task = if (documentSnapshot.exists()) {
                         docRef.update(updates)
-                            .addOnSuccessListener {
-                                continuation.resume(true)
-                            }
-                            .addOnFailureListener { e ->
-                                continuation.resumeWithException(e)
-                            }
                     } else {
-                        docRef.set(updates, com.google.firebase.firestore.SetOptions.merge())
-                            .addOnSuccessListener {
-                                continuation.resume(true)
-                            }
-                            .addOnFailureListener { e ->
-                                continuation.resumeWithException(e)
-                            }
+                        docRef.set(updates, SetOptions.merge())
                     }
+                    task.addOnSuccessListener { firestoreUpdateAction() }
+                        .addOnFailureListener { e -> continuation.resumeWithException(e) }
                 }
                 .addOnFailureListener { e ->
                     continuation.resumeWithException(e)

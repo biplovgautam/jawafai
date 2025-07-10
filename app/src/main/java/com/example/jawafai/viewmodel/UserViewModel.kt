@@ -111,11 +111,12 @@ class UserViewModel(
 
     fun updateUser(user: UserModel) {
         viewModelScope.launch {
+            _userState.value = UserOperationResult.Loading
             try {
-                _userState.value = UserOperationResult.Loading
                 val result = repository.updateUser(user)
                 if (result) {
-                    fetchUserProfile() // Refresh profile after update
+                    // Update the local profile directly for a smoother experience
+                    _userProfile.value = user
                     _userState.value = UserOperationResult.Success("Profile updated successfully")
                 } else {
                     _userState.value = UserOperationResult.Error("Update failed")
@@ -169,7 +170,8 @@ class UserViewModel(
                 val url = repository.uploadProfileImage(imageUri)
                 if (url != null) {
                     onResult(url)
-                    fetchUserProfile() // Refresh profile after image upload
+                    // Update local profile with new image URL
+                    _userProfile.value = _userProfile.value?.copy(imageUrl = url)
                     _userState.value = UserOperationResult.Success("Profile image uploaded")
                 } else {
                     _userState.value = UserOperationResult.Error("Image upload failed")

@@ -9,6 +9,7 @@ data class UserModel(
     val password: String = "", // Note: This won't be stored in Firestore
     val dateOfBirth: String = "",
     val imageUrl: String? = null, // For future Cloudinary integration
+    val bio: String = "",
     val createdAt: Long = System.currentTimeMillis()
 ) {
     // Convert to map for Firestore
@@ -21,6 +22,7 @@ data class UserModel(
             "email" to email,
             "dateOfBirth" to dateOfBirth,
             "imageUrl" to imageUrl,
+            "bio" to bio,
             "createdAt" to createdAt
         )
     }
@@ -36,6 +38,7 @@ data class UserModel(
                 email = map["email"] as? String ?: "",
                 dateOfBirth = map["dateOfBirth"] as? String ?: "",
                 imageUrl = map["imageUrl"] as? String,
+                bio = map["bio"] as? String ?: "",
                 createdAt = map["createdAt"] as? Long ?: System.currentTimeMillis()
             )
         }

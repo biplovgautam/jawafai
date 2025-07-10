@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,8 +21,16 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
+import com.example.jawafai.model.UserModel
+import com.example.jawafai.repository.UserRepositoryImpl
+import com.example.jawafai.viewmodel.UserViewModel
+import com.example.jawafai.viewmodel.UserViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 
 data class SettingsItemData(
     val icon: ImageVector,
@@ -35,8 +44,21 @@ data class SettingsItemData(
 @Composable
 fun SettingsScreen(
     onLogout: () -> Unit,
-    onProfileClicked: () -> Unit
+    onProfileClicked: () -> Unit,
+    viewModel: UserViewModel = viewModel(
+        factory = UserViewModelFactory(
+            UserRepositoryImpl(FirebaseAuth.getInstance(), FirebaseFirestore.getInstance()),
+            FirebaseAuth.getInstance()
+        )
+    )
 ) {
+    val userProfile by viewModel.userProfile.observeAsState()
+
+    // Fetch user profile when the screen is first composed
+    LaunchedEffect(Unit) {
+        viewModel.fetchUserProfile()
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -58,7 +80,8 @@ fun SettingsScreen(
         SettingsContent(
             modifier = Modifier.padding(paddingValues),
             onLogout = onLogout,
-            onProfileClicked = onProfileClicked
+            onProfileClicked = onProfileClicked,
+            userModel = userProfile
         )
     }
 }
@@ -67,12 +90,14 @@ fun SettingsScreen(
 fun SettingsContent(
     modifier: Modifier = Modifier,
     onLogout: () -> Unit,
-    onProfileClicked: () -> Unit
+    onProfileClicked: () -> Unit,
+    userModel: UserModel?
 ) {
-    val currentUser = FirebaseAuth.getInstance().currentUser
-    val userEmail = currentUser?.email ?: "User"
-    val userName = currentUser?.displayName?.takeIf { it.isNotBlank() } ?: userEmail.substringBefore("@")
-    val profileImage = currentUser?.photoUrl
+    val userEmail = userModel?.email ?: "User"
+    val userName = userModel?.let {
+        "${it.firstName} ${it.lastName}".trim().ifEmpty { it.username }
+    } ?: userEmail.substringBefore("@")
+    val profileImage = userModel?.imageUrl
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -83,7 +108,7 @@ fun SettingsContent(
             UserProfileSection(
                 name = userName,
                 email = userEmail,
-                profileImageUrl = profileImage.toString(),
+                profileImageUrl = profileImage ?: "",
                 onClick = onProfileClicked // Navigate to profile screen
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp, horizontal = 16.dp))
