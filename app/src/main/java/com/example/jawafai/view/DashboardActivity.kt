@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -123,88 +124,76 @@ sealed class BottomNavItem(
 @Composable
 fun DashboardScreen(onLogout: () -> Unit) {
     val navController = rememberNavController()
-    // Updated and simplified list of bottom navigation items
     val items = listOf(
         BottomNavItem.Home,
         BottomNavItem.Search,
         BottomNavItem.Settings
     )
 
-    // Dark teal color for the bottom navigation bar (#365A61)
-    val bottomNavBackgroundColor = Color(0xFF365A61)
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
+    val showBottomBar = items.any { it.route == currentDestination?.route }
 
     Scaffold(
         bottomBar = {
-            NavigationBar(
-                containerColor = bottomNavBackgroundColor,
-                contentColor = Color.White
-            ) {5
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = navBackStackEntry?.destination
+            if (showBottomBar) {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    items.forEach { item ->
+                        val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
 
-                items.forEach { item ->
-                    val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
-
-                    NavigationBarItem(
-                        icon = {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Icon(
-                                    imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
-                                    contentDescription = item.contentDescription,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(30.dp) // Increased from default to 32.dp
-                                )
-
-                                // Small indicator dot below the icon when selected
-                                if (selected) {
-                                    Box(
-                                        modifier = Modifier
-                                            .padding(top = 2.dp)
-                                            .size(4.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.White)
+                        NavigationBarItem(
+                            icon = {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(
+                                        imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
+                                        contentDescription = item.contentDescription,
+                                        modifier = Modifier.size(28.dp)
                                     )
-                                } else {
-                                    // Empty spacer with the same height to maintain layout consistency
-                                    Spacer(modifier = Modifier.height(7.dp))
+                                    AnimatedVisibility(visible = selected) {
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(top = 4.dp)
+                                                .width(16.dp)
+                                                .height(2.dp)
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.onPrimary)
+                                        )
+                                    }
                                 }
-                            }
-                        },
-                        selected = selected,
-                        onClick = {
-                            navController.navigate(item.route) {
-                                // Pop up to the start destination of the graph to avoid
-                                // building up a large stack of destinations
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                            },
+                            selected = selected,
+                            onClick = {
+                                navController.navigate(item.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                // Avoid multiple copies of the same destination when
-                                // reselecting the same item
-                                launchSingleTop = true
-                                // Restore state when reselecting a previously selected item
-                                restoreState = true
-                            }
-                        },
-                        // Custom colors with transparent indicator (since we're using our own)
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color.White,
-                            unselectedIconColor = Color.White.copy(alpha = 0.6f),
-                            indicatorColor = Color.Transparent // Make the default indicator transparent
-                        ),
-                        alwaysShowLabel = false
-                    )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
+                                indicatorColor = Color.Transparent
+                            ),
+                            alwaysShowLabel = false
+                        )
+                    }
                 }
             }
         }
     ) { innerPadding ->
-        val unused = innerPadding // prevent lint warning
-
         NavHost(
             navController = navController,
             startDestination = BottomNavItem.Home.route,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize()
         ) {
             composable(BottomNavItem.Profile.route) {
                 ProfileScreen(

@@ -32,7 +32,7 @@ fun SplashScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF395B64))
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(
             modifier = Modifier
@@ -45,7 +45,7 @@ fun SplashScreen(
             Icon(
                 painter = painterResource(id = R.drawable.logo),
                 contentDescription = "App Icon",
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.size(150.dp)
             )
 
@@ -55,7 +55,7 @@ fun SplashScreen(
                 text = "जवाफ.AI",
                 fontSize = 30.sp,
                 fontFamily = AppFonts.KaiseiRegularFontFamily,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onBackground
             )
 
             Spacer(modifier = Modifier.height(9.dp))
@@ -64,7 +64,7 @@ fun SplashScreen(
                 text = "Your AI Wingman for Every Reply.",
                 fontSize = 18.sp,
                 fontFamily = AppFonts.KaiseiRegularFontFamily,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onBackground
             )
 
             Spacer(modifier = Modifier.weight(1f))

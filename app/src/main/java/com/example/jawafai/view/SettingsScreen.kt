@@ -151,17 +151,6 @@ fun SettingsContent(
         item {
             SettingsItem(
                 item = SettingsItemData(
-                    icon = Icons.Outlined.DarkMode,
-                    title = "Appearance",
-                    subtitle = "Dark mode and theme settings",
-                    onClick = { /* Navigate to appearance settings */ }
-                )
-            )
-        }
-
-        item {
-            SettingsItem(
-                item = SettingsItemData(
                     icon = Icons.Outlined.Info,
                     title = "About",
                     subtitle = "App information and version",

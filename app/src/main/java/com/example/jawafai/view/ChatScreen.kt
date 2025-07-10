@@ -118,8 +118,6 @@ private val chatList = listOf(
 fun ChatScreen() {
     val coroutineScope = rememberCoroutineScope()
 
-    val darkTeal = Color(0xFF365A61)
-
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf(ChatFilter.All) }
     val searchFocusRequester = remember { FocusRequester() }
@@ -144,18 +142,13 @@ fun ChatScreen() {
     }
 
     Box(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
     ) {
-        // Use a solid background color instead of the animated gradient
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(darkTeal)
-        )
-
         Scaffold(
             containerColor = Color.Transparent,
-            contentColor = Color.White,
+            contentColor = MaterialTheme.colorScheme.onBackground,
             topBar = {
                 Column {
                     TopAppBarContent(
