@@ -1,6 +1,7 @@
 package com.example.jawafai.viewmodel
 
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -85,18 +86,37 @@ class UserViewModel(
             try {
                 val firebaseUser = auth.currentUser
                 if (firebaseUser != null) {
-                    val userDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    val userDocRef = com.google.firebase.firestore.FirebaseFirestore.getInstance()
                         .collection("users")
                         .document(firebaseUser.uid)
-                        .get()
-                        .await()
+                    val userDoc = userDocRef.get().await()
+
                     if (userDoc.exists()) {
+                        // Profile exists, load it
                         val userMap = userDoc.data ?: emptyMap<String, Any>()
                         _userProfile.value = com.example.jawafai.model.UserModel.fromMap(userMap)
                         _userState.value = UserOperationResult.Success()
                     } else {
-                        _userProfile.value = null
-                        _userState.value = UserOperationResult.Error("User profile not found.")
+                        // Profile doesn't exist, create a default one
+                        Log.w("UserViewModel", "User document not found for UID: ${firebaseUser.uid}. Creating a default one.")
+                        val defaultUsername = firebaseUser.email?.substringBefore('@') ?: "user${firebaseUser.uid.take(6)}"
+                        val displayName = firebaseUser.displayName
+                        val firstName = displayName?.split(" ")?.getOrNull(0) ?: ""
+                        val lastName = displayName?.split(" ")?.getOrNull(1) ?: ""
+
+                        val defaultUser = UserModel(
+                            id = firebaseUser.uid,
+                            email = firebaseUser.email ?: "",
+                            username = defaultUsername,
+                            firstName = firstName,
+                            lastName = lastName,
+                            imageUrl = firebaseUser.photoUrl?.toString()
+                        )
+
+                        // Save the new default profile to Firestore and update local state
+                        userDocRef.set(defaultUser.toMap()).await()
+                        _userProfile.value = defaultUser
+                        _userState.value = UserOperationResult.Success("Default profile created.")
                     }
                 } else {
                     _userProfile.value = null
@@ -105,6 +125,7 @@ class UserViewModel(
             } catch (e: Exception) {
                 _userProfile.value = null
                 _userState.value = UserOperationResult.Error(e.message ?: "Failed to fetch user profile.")
+                Log.e("UserViewModel", "Error fetching user profile", e)
             }
         }
     }

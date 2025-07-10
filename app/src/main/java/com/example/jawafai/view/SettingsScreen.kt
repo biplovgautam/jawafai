@@ -1,6 +1,7 @@
 package com.example.jawafai.view
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,7 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.rememberAsyncImagePainter
+import coil.compose.AsyncImage
 import com.example.jawafai.model.UserModel
 import com.example.jawafai.repository.UserRepositoryImpl
 import com.example.jawafai.viewmodel.UserViewModel
@@ -31,6 +32,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.remember
+import kotlin.math.abs
 
 data class SettingsItemData(
     val icon: ImageVector,
@@ -93,12 +96,6 @@ fun SettingsContent(
     onProfileClicked: () -> Unit,
     userModel: UserModel?
 ) {
-    val userEmail = userModel?.email ?: "User"
-    val userName = userModel?.let {
-        "${it.firstName} ${it.lastName}".trim().ifEmpty { it.username }
-    } ?: userEmail.substringBefore("@")
-    val profileImage = userModel?.imageUrl
-
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 8.dp)
@@ -106,9 +103,7 @@ fun SettingsContent(
         // Profile Section
         item {
             UserProfileSection(
-                name = userName,
-                email = userEmail,
-                profileImageUrl = profileImage ?: "",
+                userModel = userModel,
                 onClick = onProfileClicked // Navigate to profile screen
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp, horizontal = 16.dp))
@@ -177,9 +172,7 @@ fun SettingsContent(
 
 @Composable
 fun UserProfileSection(
-    name: String,
-    email: String,
-    profileImageUrl: String,
+    userModel: UserModel?,
     onClick: () -> Unit
 ) {
     Row(
@@ -189,36 +182,88 @@ fun UserProfileSection(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Profile image
-        Image(
-            painter = rememberAsyncImagePainter(
-                model = profileImageUrl.ifEmpty { "https://ui-avatars.com/api/?name=$name" }
-            ),
-            contentDescription = "Profile picture",
+        // --- Profile Image Avatar ---
+        val imageSize = 64.dp
+        val placeholderText = (userModel?.firstName?.firstOrNull()?.toString() ?: userModel?.username?.firstOrNull()?.toString() ?: "A").uppercase()
+        val seedForColor = userModel?.username ?: userModel?.id ?: "default"
+
+        val avatarColors = remember {
+            listOf(
+                Color(0xFFF44336), Color(0xFFE91E63), Color(0xFF9C27B0), Color(0xFF673AB7),
+                Color(0xFF3F51B5), Color(0xFF2196F3), Color(0xFF03A9F4), Color(0xFF00BCD4),
+                Color(0xFF009688), Color(0xFF4CAF50), Color(0xFF8BC34A), Color(0xFFCDDC39),
+                Color(0xFFFFC107), Color(0xFFFF9800), Color(0xFFFF5722), Color(0xFF795548)
+            )
+        }
+        val backgroundColor = remember(seedForColor) {
+            avatarColors[abs(seedForColor.hashCode()) % avatarColors.size]
+        }
+
+        Box(
             modifier = Modifier
-                .size(64.dp)
+                .size(imageSize)
                 .clip(CircleShape),
-            contentScale = ContentScale.Crop
-        )
+            contentAlignment = Alignment.Center
+        ) {
+            if (userModel?.imageUrl.isNullOrBlank()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(backgroundColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = placeholderText,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            } else {
+                AsyncImage(
+                    model = userModel.imageUrl,
+                    contentDescription = "Profile picture",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+        }
+        // --- End Profile Image Avatar ---
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        // User info
+        // --- User Info ---
         Column(modifier = Modifier.weight(1f)) {
+            val fullName = userModel?.let { "${it.firstName} ${it.lastName}".trim() }?.ifEmpty { userModel.username } ?: "Anonymous"
+            val username = userModel?.username ?: ""
+            val email = userModel?.email ?: ""
+
             Text(
-                text = name,
+                text = fullName,
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
-            Text(
-                text = email,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (email.isNotEmpty()) {
+                Text(
+                    text = email,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (username.isNotEmpty()) {
+                Text(
+                    text = "@$username",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                )
+            }
         }
+        // --- End User Info ---
 
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
