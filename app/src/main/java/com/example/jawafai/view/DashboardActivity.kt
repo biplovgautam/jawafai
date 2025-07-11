@@ -29,10 +29,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.jawafai.ui.theme.JawafaiTheme
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.view.WindowCompat
@@ -212,6 +214,18 @@ fun DashboardScreen(onLogout: () -> Unit) {
                     onLogout = onLogout,
                     onProfileClicked = {
                         navController.navigate(BottomNavItem.Profile.route)
+                    },
+                    onPersonaClicked = {
+                        // Add navigation to the persona settings screen
+                        navController.navigate("settings/persona")
+                    }
+                )
+            }
+            // Add route for PersonaScreen
+            composable("settings/persona") {
+                PersonaScreen(
+                    onNavigateBack = {
+                        navController.navigateUp()
                     }
                 )
             }

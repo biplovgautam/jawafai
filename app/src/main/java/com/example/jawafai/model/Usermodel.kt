@@ -10,6 +10,7 @@ data class UserModel(
     val dateOfBirth: String = "",
     val imageUrl: String? = null, // For future Cloudinary integration
     val bio: String = "",
+    val personaCompleted: Boolean = false, // Added for persona completion tracking
     val createdAt: Long = System.currentTimeMillis()
 ) {
     // Convert to map for Firestore
@@ -23,6 +24,7 @@ data class UserModel(
             "dateOfBirth" to dateOfBirth,
             "imageUrl" to imageUrl,
             "bio" to bio,
+            "personaCompleted" to personaCompleted, // Added personaCompleted to map
             "createdAt" to createdAt
         )
     }
@@ -39,6 +41,7 @@ data class UserModel(
                 dateOfBirth = map["dateOfBirth"] as? String ?: "",
                 imageUrl = map["imageUrl"] as? String,
                 bio = map["bio"] as? String ?: "",
+                personaCompleted = map["personaCompleted"] as? Boolean ?: false, // Added personaCompleted to fromMap
                 createdAt = map["createdAt"] as? Long ?: System.currentTimeMillis()
             )
         }

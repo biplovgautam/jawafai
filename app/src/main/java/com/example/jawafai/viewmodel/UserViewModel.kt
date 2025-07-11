@@ -92,7 +92,36 @@ class UserViewModel(
                         .await()
                     if (userDoc.exists()) {
                         val userMap = userDoc.data ?: emptyMap<String, Any>()
-                        _userProfile.value = com.example.jawafai.model.UserModel.fromMap(userMap)
+
+                        // Check if persona is completed by fetching persona data
+                        // This line had the error - reference doesn't exist, replaced with correct path
+                        val personaRef = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                            .collection("users")
+                            .document(firebaseUser.uid)
+                            .collection("persona")
+
+                        // Create UserModel with personaCompleted status
+                        val userModel = com.example.jawafai.model.UserModel.fromMap(userMap)
+
+                        try {
+                            // Try to fetch persona data to determine completion
+                            val personaSnapshot = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                .collection("users")
+                                .document(firebaseUser.uid)
+                                .collection("persona")
+                                .get()
+                                .await()
+
+                            // Consider persona completed if there are at least 5 answers
+                            val personaCompleted = !personaSnapshot.isEmpty && personaSnapshot.size() >= 5
+
+                            // Update the user model with persona completion status
+                            _userProfile.value = userModel.copy(personaCompleted = personaCompleted)
+                        } catch (e: Exception) {
+                            // If there's an error fetching persona data, just use the user model as is
+                            _userProfile.value = userModel
+                        }
+
                         _userState.value = UserOperationResult.Success()
                     } else {
                         _userProfile.value = null

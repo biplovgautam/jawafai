@@ -1,6 +1,7 @@
 package com.example.jawafai.view
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -8,10 +9,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,7 +21,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.jawafai.model.UserModel
@@ -29,8 +29,9 @@ import com.example.jawafai.viewmodel.UserViewModel
 import com.example.jawafai.viewmodel.UserViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
+import kotlinx.coroutines.tasks.await
+import kotlin.math.abs
 
 data class SettingsItemData(
     val icon: ImageVector,
@@ -45,6 +46,7 @@ data class SettingsItemData(
 fun SettingsScreen(
     onLogout: () -> Unit,
     onProfileClicked: () -> Unit,
+    onPersonaClicked: () -> Unit,
     viewModel: UserViewModel = viewModel(
         factory = UserViewModelFactory(
             UserRepositoryImpl(FirebaseAuth.getInstance(), FirebaseFirestore.getInstance()),
@@ -54,9 +56,31 @@ fun SettingsScreen(
 ) {
     val userProfile by viewModel.userProfile.observeAsState()
 
+    // Track if persona is completed
+    val personaCompleted = remember { mutableStateOf(false) }
+
     // Fetch user profile when the screen is first composed
     LaunchedEffect(Unit) {
         viewModel.fetchUserProfile()
+
+        // Check if persona is completed
+        try {
+            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+            if (currentUserId != null) {
+                val personaData = FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(currentUserId)
+                    .collection("persona")
+                    .get()
+                    .await()
+
+                // Consider persona completed if there are at least 5 answers
+                personaCompleted.value = !personaData.isEmpty && personaData.size() >= 5
+            }
+        } catch (e: Exception) {
+            // If we can't fetch persona data, assume it's not completed
+            personaCompleted.value = false
+        }
     }
 
     Scaffold(
@@ -81,7 +105,9 @@ fun SettingsScreen(
             modifier = Modifier.padding(paddingValues),
             onLogout = onLogout,
             onProfileClicked = onProfileClicked,
-            userModel = userProfile
+            onPersonaClicked = onPersonaClicked,
+            userModel = userProfile,
+            personaCompleted = personaCompleted.value // Pass the direct value
         )
     }
 }
@@ -91,7 +117,9 @@ fun SettingsContent(
     modifier: Modifier = Modifier,
     onLogout: () -> Unit,
     onProfileClicked: () -> Unit,
-    userModel: UserModel?
+    onPersonaClicked: () -> Unit,
+    userModel: UserModel?,
+    personaCompleted: Boolean // Receive the direct value
 ) {
     val userEmail = userModel?.email ?: "User"
     val userName = userModel?.let {
@@ -113,6 +141,22 @@ fun SettingsContent(
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp, horizontal = 16.dp))
         }
+
+        // Persona Section - Moved to be right after Profile section
+        item {
+            SettingsSectionTitle(title = "Persona")
+        }
+
+        item {
+            PersonaSettingsItem(
+                title = "Your Persona",
+                subtitle = if (personaCompleted) "Persona completed" else "Complete your persona",
+                onClick = onPersonaClicked,
+                completed = personaCompleted
+            )
+        }
+
+        item { HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp, horizontal = 16.dp)) }
 
         // Account Settings
         item {
@@ -277,5 +321,56 @@ fun SettingsItem(item: SettingsItemData) {
                 )
             }
         }
+    }
+}
+
+@Composable
+fun PersonaSettingsItem(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    completed: Boolean
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Icon - Person icon in normal state, check icon when completed
+        Icon(
+            imageVector = if (completed) Icons.Filled.Check else Icons.Outlined.Person,
+            contentDescription = null,
+            tint = if (completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp)
+        )
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        // Text content
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        // Arrow icon for navigation
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = "Navigate",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
