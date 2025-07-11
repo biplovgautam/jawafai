@@ -8,23 +8,27 @@ data class UserModel(
     val email: String = "",
     val password: String = "", // Note: This won't be stored in Firestore
     val dateOfBirth: String = "",
-    val imageUrl: String? = null, // For future Cloudinary integration
-    val bio: String = "",
+    val imageUrl: String? = null, // Optional - users can add later in profile
+    val bio: String = "", // Optional - users can add later in profile
     val createdAt: Long = System.currentTimeMillis()
 ) {
     // Convert to map for Firestore
     fun toMap(): Map<String, Any?> {
-        return mapOf(
+        val map = mutableMapOf<String, Any?>(
             "id" to id,
             "firstName" to firstName,
             "lastName" to lastName,
-            "username" to username, // Added username to map
+            "username" to username,
             "email" to email,
             "dateOfBirth" to dateOfBirth,
-            "imageUrl" to imageUrl,
-            "bio" to bio,
             "createdAt" to createdAt
         )
+
+        // Only add these fields if they're not empty
+        if (!bio.isNullOrBlank()) map["bio"] = bio
+        if (!imageUrl.isNullOrBlank()) map["imageUrl"] = imageUrl
+
+        return map
     }
 
     companion object {
@@ -34,7 +38,7 @@ data class UserModel(
                 id = map["id"] as? String ?: "",
                 firstName = map["firstName"] as? String ?: "",
                 lastName = map["lastName"] as? String ?: "",
-                username = map["username"] as? String ?: "", // Added username to fromMap
+                username = map["username"] as? String ?: "",
                 email = map["email"] as? String ?: "",
                 dateOfBirth = map["dateOfBirth"] as? String ?: "",
                 imageUrl = map["imageUrl"] as? String,

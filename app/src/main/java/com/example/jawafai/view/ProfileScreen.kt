@@ -67,7 +67,7 @@ fun ProfileScreen(
     // Image picker launcher
     val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
-            viewModel.uploadProfileImage(context, it) { url ->
+            viewModel.uploadProfileImage(it) { url ->
                 if (url != null) {
                     imageUrl = url
                 }

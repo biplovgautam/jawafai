@@ -1,6 +1,5 @@
 package com.example.jawafai.viewmodel
 
-import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.LiveData
@@ -65,18 +64,67 @@ class UserViewModel(
         }
     }
 
-    fun register(email: String, password: String, user: UserModel) {
+    fun register(email: String, password: String, user: UserModel, imageUri: Uri?) {
         viewModelScope.launch {
+            _userState.value = UserOperationResult.Loading
             try {
-                _userState.value = UserOperationResult.Loading
-                val result = repository.registerUser(user, password)
-                if (result) {
-                    _userState.value = UserOperationResult.Success("Registration successful")
+                // Check if the username is already taken
+                try {
+                    if (repository.isUsernameExists(user.username)) {
+                        _userState.value = UserOperationResult.Error("Username already exists")
+                        return@launch
+                    }
+                } catch (e: Exception) {
+                    // If checking username fails due to permissions, log it but continue
+                    Log.w("UserViewModel", "Failed to check if username exists: ${e.message}")
+                    // Continue with registration anyway
+                }
+
+                // 1. Upload image if it exists
+                val imageUrl = if (imageUri != null) {
+                    try {
+                        Log.d("UserViewModel", "Uploading profile image...")
+                        repository.uploadProfileImage(imageUri)
+                    } catch (e: Exception) {
+                        Log.e("UserViewModel", "Image upload failed: ${e.message}")
+                        null // Continue without image
+                    }
                 } else {
-                    _userState.value = UserOperationResult.Error("Registration failed")
+                    null
+                }
+
+                // 2. Create user model with the image URL (might be null)
+                val userWithImage = user.copy(imageUrl = imageUrl)
+
+                // 3. Register user in auth and firestore
+                Log.d("UserViewModel", "Registering user details...")
+                try {
+                    val result = repository.registerUser(userWithImage, password)
+                    if (result) {
+                        _userState.value = UserOperationResult.Success("Registration successful")
+                    } else {
+                        _userState.value = UserOperationResult.Error("Registration failed")
+                    }
+                } catch (e: Exception) {
+                    // Special handling for permission denied errors
+                    if (e.message?.contains("PERMISSION_DENIED", ignoreCase = true) == true) {
+                        Log.w("UserViewModel", "Firestore permission denied but auth succeeded. " +
+                                "Registration considered successful, but profile data not saved.")
+                        _userState.value = UserOperationResult.Success("Registration successful. You can update your profile later.")
+                    } else {
+                        throw e  // Re-throw other exceptions to be caught by outer catch block
+                    }
                 }
             } catch (e: Exception) {
-                _userState.value = UserOperationResult.Error(e.message ?: "Unknown error occurred")
+                Log.e("UserViewModel", "Exception during registration process", e)
+                // Return more user-friendly error messages
+                val errorMessage = when {
+                    e.message?.contains("username", ignoreCase = true) == true -> "Username already exists"
+                    e.message?.contains("email", ignoreCase = true) == true ||
+                    e.message?.contains("already in use", ignoreCase = true) == true -> "Email already in use"
+                    else -> e.message ?: "An unknown error occurred"
+                }
+                _userState.value = UserOperationResult.Error(errorMessage)
             }
         }
     }
@@ -185,22 +233,23 @@ class UserViewModel(
         _userProfile.value = null
     }
 
-    fun uploadProfileImage(context: Context, imageUri: Uri, onResult: (String?) -> Unit) {
-        Log.d("UserViewModel", "Starting uploadProfileImage in ViewModel: $imageUri")
+    /**
+     * Uploads a profile image and returns the URL.
+     * This is used by the ProfileScreen to update the user's avatar.
+     * Note: This does NOT save the URL to the database. The user must click "Save" on the profile screen
+     * to persist the change via the updateUser function.
+     */
+    fun uploadProfileImage(imageUri: Uri, onResult: (String?) -> Unit) {
         viewModelScope.launch {
             _userState.value = UserOperationResult.Loading
             try {
-                Log.d("UserViewModel", "About to call repository.uploadProfileImage")
-                val url = repository.uploadProfileImage(context, imageUri)
-                Log.d("UserViewModel", "Repository returned URL: $url")
+                val url = repository.uploadProfileImage(imageUri)
                 if (url != null) {
-                    Log.d("UserViewModel", "Upload successful, updating profile with URL: $url")
+                    // Success, but don't show a message yet.
+                    // The user has to save the profile for the change to be permanent.
+                    _userState.value = UserOperationResult.Initial
                     onResult(url)
-                    // Update local profile with new image URL
-                    _userProfile.value = _userProfile.value?.copy(imageUrl = url)
-                    _userState.value = UserOperationResult.Success("Profile image uploaded")
                 } else {
-                    Log.e("UserViewModel", "Repository returned null URL")
                     _userState.value = UserOperationResult.Error("Image upload failed")
                     onResult(null)
                 }
