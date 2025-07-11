@@ -1,6 +1,7 @@
 package com.example.jawafai.viewmodel
 
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -63,18 +64,67 @@ class UserViewModel(
         }
     }
 
-    fun register(email: String, password: String, user: UserModel) {
+    fun register(email: String, password: String, user: UserModel, imageUri: Uri?) {
         viewModelScope.launch {
+            _userState.value = UserOperationResult.Loading
             try {
-                _userState.value = UserOperationResult.Loading
-                val result = repository.registerUser(user, password)
-                if (result) {
-                    _userState.value = UserOperationResult.Success("Registration successful")
+                // Check if the username is already taken
+                try {
+                    if (repository.isUsernameExists(user.username)) {
+                        _userState.value = UserOperationResult.Error("Username already exists")
+                        return@launch
+                    }
+                } catch (e: Exception) {
+                    // If checking username fails due to permissions, log it but continue
+                    Log.w("UserViewModel", "Failed to check if username exists: ${e.message}")
+                    // Continue with registration anyway
+                }
+
+                // 1. Upload image if it exists
+                val imageUrl = if (imageUri != null) {
+                    try {
+                        Log.d("UserViewModel", "Uploading profile image...")
+                        repository.uploadProfileImage(imageUri)
+                    } catch (e: Exception) {
+                        Log.e("UserViewModel", "Image upload failed: ${e.message}")
+                        null // Continue without image
+                    }
                 } else {
-                    _userState.value = UserOperationResult.Error("Registration failed")
+                    null
+                }
+
+                // 2. Create user model with the image URL (might be null)
+                val userWithImage = user.copy(imageUrl = imageUrl)
+
+                // 3. Register user in auth and firestore
+                Log.d("UserViewModel", "Registering user details...")
+                try {
+                    val result = repository.registerUser(userWithImage, password)
+                    if (result) {
+                        _userState.value = UserOperationResult.Success("Registration successful")
+                    } else {
+                        _userState.value = UserOperationResult.Error("Registration failed")
+                    }
+                } catch (e: Exception) {
+                    // Special handling for permission denied errors
+                    if (e.message?.contains("PERMISSION_DENIED", ignoreCase = true) == true) {
+                        Log.w("UserViewModel", "Firestore permission denied but auth succeeded. " +
+                                "Registration considered successful, but profile data not saved.")
+                        _userState.value = UserOperationResult.Success("Registration successful. You can update your profile later.")
+                    } else {
+                        throw e  // Re-throw other exceptions to be caught by outer catch block
+                    }
                 }
             } catch (e: Exception) {
-                _userState.value = UserOperationResult.Error(e.message ?: "Unknown error occurred")
+                Log.e("UserViewModel", "Exception during registration process", e)
+                // Return more user-friendly error messages
+                val errorMessage = when {
+                    e.message?.contains("username", ignoreCase = true) == true -> "Username already exists"
+                    e.message?.contains("email", ignoreCase = true) == true ||
+                    e.message?.contains("already in use", ignoreCase = true) == true -> "Email already in use"
+                    else -> e.message ?: "An unknown error occurred"
+                }
+                _userState.value = UserOperationResult.Error(errorMessage)
             }
         }
     }
@@ -85,12 +135,13 @@ class UserViewModel(
             try {
                 val firebaseUser = auth.currentUser
                 if (firebaseUser != null) {
-                    val userDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    val userDocRef = com.google.firebase.firestore.FirebaseFirestore.getInstance()
                         .collection("users")
                         .document(firebaseUser.uid)
-                        .get()
-                        .await()
+                    val userDoc = userDocRef.get().await()
+
                     if (userDoc.exists()) {
+                        // Profile exists, load it
                         val userMap = userDoc.data ?: emptyMap<String, Any>()
 
                         // Check if persona is completed by fetching persona data
@@ -124,8 +175,26 @@ class UserViewModel(
 
                         _userState.value = UserOperationResult.Success()
                     } else {
-                        _userProfile.value = null
-                        _userState.value = UserOperationResult.Error("User profile not found.")
+                        // Profile doesn't exist, create a default one
+                        Log.w("UserViewModel", "User document not found for UID: ${firebaseUser.uid}. Creating a default one.")
+                        val defaultUsername = firebaseUser.email?.substringBefore('@') ?: "user${firebaseUser.uid.take(6)}"
+                        val displayName = firebaseUser.displayName
+                        val firstName = displayName?.split(" ")?.getOrNull(0) ?: ""
+                        val lastName = displayName?.split(" ")?.getOrNull(1) ?: ""
+
+                        val defaultUser = UserModel(
+                            id = firebaseUser.uid,
+                            email = firebaseUser.email ?: "",
+                            username = defaultUsername,
+                            firstName = firstName,
+                            lastName = lastName,
+                            imageUrl = firebaseUser.photoUrl?.toString()
+                        )
+
+                        // Save the new default profile to Firestore and update local state
+                        userDocRef.set(defaultUser.toMap()).await()
+                        _userProfile.value = defaultUser
+                        _userState.value = UserOperationResult.Success("Default profile created.")
                     }
                 } else {
                     _userProfile.value = null
@@ -134,6 +203,7 @@ class UserViewModel(
             } catch (e: Exception) {
                 _userProfile.value = null
                 _userState.value = UserOperationResult.Error(e.message ?: "Failed to fetch user profile.")
+                Log.e("UserViewModel", "Error fetching user profile", e)
             }
         }
     }
@@ -192,21 +262,30 @@ class UserViewModel(
         _userProfile.value = null
     }
 
+    /**
+     * Uploads a profile image and returns the URL.
+     * This is used by the ProfileScreen to update the user's avatar.
+     * Note: This does NOT save the URL to the database. The user must click "Save" on the profile screen
+     * to persist the change via the updateUser function.
+     */
     fun uploadProfileImage(imageUri: Uri, onResult: (String?) -> Unit) {
         viewModelScope.launch {
             _userState.value = UserOperationResult.Loading
             try {
                 val url = repository.uploadProfileImage(imageUri)
                 if (url != null) {
+                    // Success, but don't show a message yet.
+                    // The user has to save the profile for the change to be permanent.
+                    _userState.value = UserOperationResult.Initial
                     onResult(url)
-                    // Update local profile with new image URL
-                    _userProfile.value = _userProfile.value?.copy(imageUrl = url)
-                    _userState.value = UserOperationResult.Success("Profile image uploaded")
                 } else {
                     _userState.value = UserOperationResult.Error("Image upload failed")
+                    onResult(null)
                 }
             } catch (e: Exception) {
+                Log.e("UserViewModel", "Exception during image upload", e)
                 _userState.value = UserOperationResult.Error(e.message ?: "Image upload failed")
+                onResult(null)
             }
         }
     }

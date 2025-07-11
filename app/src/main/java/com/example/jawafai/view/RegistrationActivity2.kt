@@ -1,7 +1,6 @@
 package com.example.jawafai.view
 
 import android.app.DatePickerDialog
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -16,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,7 +28,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.jawafai.R
@@ -88,7 +87,7 @@ fun RegistrationScreen(
     val TAG = "RegistrationScreen"
     val context = LocalContext.current
 
-    // State variables for form fields
+    // State variables for form fields - Only required fields
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
@@ -100,6 +99,10 @@ fun RegistrationScreen(
     // State for showing loading indicator
     var isLoading by remember { mutableStateOf(false) }
 
+    // State for username and email availability
+    var isUsernameValid by remember { mutableStateOf(true) }
+    var isEmailValid by remember { mutableStateOf(true) }
+
     // Observe ViewModel state using observeAsState from runtime-livedata
     val userOperationState = viewModel.userState.observeAsState(initial = UserViewModel.UserOperationResult.Initial)
 
@@ -107,7 +110,7 @@ fun RegistrationScreen(
     val currentState = userOperationState.value.toString()
     Log.d(TAG, "Current state: $currentState")
 
-    // Remove registrationSuccess logic and handle navigation and spinner in LaunchedEffect
+    // Handle registration state changes
     LaunchedEffect(userOperationState.value) {
         when (val state = userOperationState.value) {
             is UserViewModel.UserOperationResult.Success -> {
@@ -118,7 +121,22 @@ fun RegistrationScreen(
             }
             is UserViewModel.UserOperationResult.Error -> {
                 isLoading = false
-                Toast.makeText(context, "Error: ${state.message}", Toast.LENGTH_LONG).show()
+                val errorMessage = state.message
+
+                // Check for specific error messages
+                when {
+                    errorMessage.contains("username", ignoreCase = true) -> {
+                        isUsernameValid = false
+                        Toast.makeText(context, "Username already exists", Toast.LENGTH_LONG).show()
+                    }
+                    errorMessage.contains("email", ignoreCase = true) || errorMessage.contains("already in use", ignoreCase = true) -> {
+                        isEmailValid = false
+                        Toast.makeText(context, "Email already in use", Toast.LENGTH_LONG).show()
+                    }
+                    else -> {
+                        Toast.makeText(context, "Error: ${state.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
             }
             is UserViewModel.UserOperationResult.Loading -> {
                 isLoading = true
@@ -177,6 +195,16 @@ fun RegistrationScreen(
         }
     }
 
+    // Define text field colors for better visibility
+    val textFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = Color.Black,
+        unfocusedTextColor = Color.Black,
+        focusedLabelColor = Color(0xFF006064),
+        unfocusedLabelColor = Color(0xFF006064),
+        focusedBorderColor = Color(0xFF006064),
+        unfocusedBorderColor = Color(0xFF009688)
+    )
+
     // Main UI
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
@@ -201,20 +229,12 @@ fun RegistrationScreen(
             verticalArrangement = Arrangement.Center
         ) {
             item {
-                Image(
-                    painter = painterResource(id = R.drawable.profile),
-                    contentDescription = "App Icon",
-                    modifier = Modifier.size(100.dp)
-                )
-            }
-
-            item {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     "Register",
                     fontSize = 32.sp,
                     color = Color(0xFF004D40),
-                    fontFamily = AppFonts.KaiseiRegularFontFamily // Use the centralized font
+                    fontFamily = AppFonts.KaiseiRegularFontFamily
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -225,8 +245,10 @@ fun RegistrationScreen(
                     onValueChange = { firstName = it },
                     label = { Text("First Name", fontFamily = AppFonts.KaiseiRegularFontFamily) },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
+                    enabled = !isLoading,
+                    colors = textFieldColors
                 )
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             item {
@@ -235,29 +257,53 @@ fun RegistrationScreen(
                     onValueChange = { lastName = it },
                     label = { Text("Last Name", fontFamily = AppFonts.KaiseiRegularFontFamily) },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
+                    enabled = !isLoading,
+                    colors = textFieldColors
                 )
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             item {
                 OutlinedTextField(
                     value = username,
-                    onValueChange = { username = it },
+                    onValueChange = {
+                        username = it
+                        isUsernameValid = true
+                    },
                     label = { Text("Username", fontFamily = AppFonts.KaiseiRegularFontFamily) },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
+                    enabled = !isLoading,
+                    isError = !isUsernameValid,
+                    supportingText = {
+                        if (!isUsernameValid) {
+                            Text("Username already exists", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    colors = textFieldColors
                 )
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             item {
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it },
+                    onValueChange = {
+                        email = it
+                        isEmailValid = true
+                    },
                     label = { Text("Email", fontFamily = AppFonts.KaiseiRegularFontFamily) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
+                    enabled = !isLoading,
+                    isError = !isEmailValid,
+                    supportingText = {
+                        if (!isEmailValid) {
+                            Text("Email already in use", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    colors = textFieldColors
                 )
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             item {
@@ -268,8 +314,13 @@ fun RegistrationScreen(
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
+                    enabled = !isLoading,
+                    supportingText = {
+                        Text("Minimum 6 characters")
+                    },
+                    colors = textFieldColors
                 )
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             item {
@@ -294,8 +345,10 @@ fun RegistrationScreen(
                             if (!isLoading) showDatePicker = true
                         },
                     supportingText = { Text("Age must be at least 13 years") },
-                    enabled = !isLoading
+                    enabled = !isLoading,
+                    colors = textFieldColors
                 )
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             item {
@@ -310,7 +363,11 @@ fun RegistrationScreen(
                         onCheckedChange = { if (!isLoading) acceptTerms = it },
                         enabled = !isLoading
                     )
-                    Text("Accept Terms & Conditions", fontFamily = AppFonts.KaiseiRegularFontFamily)
+                    Text(
+                        "Accept Terms & Conditions",
+                        fontFamily = AppFonts.KaiseiRegularFontFamily,
+                        color = Color.Black
+                    )
                 }
             }
 
@@ -336,24 +393,17 @@ fun RegistrationScreen(
                             password.length < 6 -> Toast.makeText(context, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show()
                             dob.isBlank() -> Toast.makeText(context, "Date of birth is required", Toast.LENGTH_SHORT).show()
                             else -> {
-                                // Create user model and register
+                                // Create the user model with only essential information
                                 val userModel = UserModel(
                                     firstName = firstName,
                                     lastName = lastName,
                                     username = username,
                                     email = email,
-                                    password = password, // This won't be stored in Firestore
                                     dateOfBirth = dob
+                                    // Bio and imageUrl are not required and will be handled in profile settings
                                 )
-
-                                // Reset any previous states
-                                viewModel.resetState()
-
-                                // Log the registration attempt
-                                Log.d("RegistrationScreen", "Attempting to register user: $email")
-
-                                // Register the user via ViewModel
-                                viewModel.register(email, password, userModel)
+                                // Register user with null imageUri since it's not required
+                                viewModel.register(email, password, userModel, null)
                             }
                         }
                     },
@@ -380,7 +430,7 @@ fun RegistrationScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = "Already have an account? Sign In",
-                    color = Color.Blue,
+                    color = Color(0xFF01579B),
                     fontFamily = AppFonts.KaiseiRegularFontFamily,
                     modifier = Modifier.clickable(enabled = !isLoading) {
                         if (!isLoading) {

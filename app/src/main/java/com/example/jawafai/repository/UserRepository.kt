@@ -16,6 +16,20 @@ interface UserRepository {
     suspend fun registerUser(user: UserModel, password: String): Boolean
 
     /**
+     * Checks if a username already exists in the database
+     * @param username The username to check
+     * @return Boolean indicating if the username exists
+     */
+    suspend fun isUsernameExists(username: String): Boolean
+
+    /**
+     * Checks if an email already exists in the database
+     * @param email The email to check
+     * @return Boolean indicating if the email exists
+     */
+    suspend fun isEmailExists(email: String): Boolean
+
+    /**
      * Updates an existing user's information in Firestore
      * @param user The updated user model
      * @return Boolean indicating success or failure

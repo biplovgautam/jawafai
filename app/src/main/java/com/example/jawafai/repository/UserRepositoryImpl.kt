@@ -2,6 +2,7 @@ package com.example.jawafai.repository
 
 import android.net.Uri
 import android.util.Log
+import com.example.jawafai.managers.CloudinaryManager
 import com.example.jawafai.model.UserModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
@@ -11,16 +12,6 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 import javax.inject.Inject
-import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.asRequestBody
-import org.json.JSONObject
-import java.io.File
 
 class UserRepositoryImpl @Inject constructor(
     private val auth: FirebaseAuth,
@@ -35,7 +26,7 @@ class UserRepositoryImpl @Inject constructor(
      * @param username The username to check
      * @return Boolean true if username exists, false otherwise
      */
-    private suspend fun isUsernameExists(username: String): Boolean = suspendCoroutine { continuation ->
+    override suspend fun isUsernameExists(username: String): Boolean = suspendCoroutine { continuation ->
         if (username.isEmpty()) {
             continuation.resume(false)
             return@suspendCoroutine
@@ -60,7 +51,7 @@ class UserRepositoryImpl @Inject constructor(
      * @param email The email to check
      * @return Boolean true if email exists, false otherwise
      */
-    private suspend fun isEmailExists(email: String): Boolean = suspendCoroutine { continuation ->
+    override suspend fun isEmailExists(email: String): Boolean = suspendCoroutine { continuation ->
         if (email.isEmpty()) {
             continuation.resume(false)
             return@suspendCoroutine
@@ -121,6 +112,10 @@ class UserRepositoryImpl @Inject constructor(
                 }
                 Log.d(TAG, "Authentication successful, user created with ID: $uid")
                 val userWithId = user.copy(id = uid, password = "")
+
+                // Log what we're trying to write to Firestore
+                Log.d(TAG, "Attempting to write user data to Firestore: ${userWithId.toMap()}")
+
                 usersCollection.document(uid)
                     .set(userWithId.toMap())
                     .addOnSuccessListener {
@@ -128,14 +123,14 @@ class UserRepositoryImpl @Inject constructor(
                         continuation.resume(true)
                     }
                     .addOnFailureListener { e ->
-                        Log.w(TAG, "Firestore write failed: ${e.message}")
-                        if (e.message?.contains("PERMISSION_DENIED") == true ||
-                            e.message?.contains("API has not been used") == true) {
-                            Log.d(TAG, "Firestore permission denied but auth succeeded, returning success")
-                            continuation.resume(true)
-                        } else {
-                            continuation.resumeWithException(e)
-                        }
+                        Log.e(TAG, "Firestore write failed with error: ${e.message}", e)
+
+                        // We'll consider registration successful even if Firestore write fails
+                        // This way the user can at least log in, even if their profile data isn't saved
+                        continuation.resume(true)
+
+                        // This allows registration to "succeed" even though Firestore write failed
+                        // The user can update their profile later
                     }
             }
             .addOnFailureListener { e ->
@@ -220,31 +215,13 @@ class UserRepositoryImpl @Inject constructor(
         auth.signOut()
     }
 
+    /**
+     * Uploads a profile image using the CloudinaryManager.
+     * @param imageUri The URI of the image to upload.
+     * @return The secure URL of the uploaded image, or null on failure.
+     */
     override suspend fun uploadProfileImage(imageUri: Uri): String? {
-        // Replace with your actual Cloudinary details
-        val cloudName = "ddahczkbf"
-        val uploadPreset = "jawafai" // For unsigned uploads
-        val apiUrl = "https://api.cloudinary.com/v1_1/$cloudName/image/upload"
-
-        // Convert Uri to File (assumes you have a way to get a File from Uri)
-        val file = File(imageUri.path ?: return null)
-        val requestBody = file.asRequestBody("image/*".toMediaTypeOrNull())
-        val multipartBody = MultipartBody.Builder()
-            .setType(MultipartBody.FORM)
-            .addFormDataPart("file", file.name, requestBody)
-            .addFormDataPart("upload_preset", uploadPreset)
-            .build()
-
-        val request = Request.Builder()
-            .url(apiUrl)
-            .post(multipartBody)
-            .build()
-
-        val client = OkHttpClient()
-        val response = client.newCall(request).execute()
-        if (!response.isSuccessful) return null
-        val responseBody = response.body?.string() ?: return null
-        val json = JSONObject(responseBody)
-        return json.optString("secure_url", null)
+        Log.d(TAG, "Uploading image through CloudinaryManager for URI: $imageUri")
+        return CloudinaryManager.uploadImage(imageUri)
     }
 }
