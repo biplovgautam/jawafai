@@ -204,7 +204,11 @@ fun DashboardScreen(onLogout: () -> Unit) {
                 )
             }
             composable(BottomNavItem.Search.route) {
-                ChatScreen()
+                ChatScreen(
+                    onNavigateToChat = { chatId, otherUserId ->
+                        navController.navigate("chat_detail/$chatId/$otherUserId")
+                    }
+                )
             }
             composable(BottomNavItem.Home.route) {
                 HomeScreen()

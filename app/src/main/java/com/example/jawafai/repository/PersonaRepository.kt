@@ -5,7 +5,7 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
-import com.google.firebase.database.ktx.getValue
+import com.google.firebase.database.ktx.snapshots
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -54,7 +54,10 @@ class PersonaRepository private constructor() {
 
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val personaMap = snapshot.getValue<Map<String, String>>() ?: emptyMap()
+                // Update to use the KTX API pattern
+                val personaMap = snapshot.children.associate {
+                    it.key.toString() to (it.value?.toString() ?: "")
+                }
                 trySend(personaMap)
             }
 
@@ -79,7 +82,10 @@ class PersonaRepository private constructor() {
         return try {
             val personaRef = database.getReference(String.format(personaPath, uid))
             val snapshot = personaRef.get().await()
-            snapshot.getValue<Map<String, String>>() ?: emptyMap()
+            // Update to use the KTX API pattern
+            snapshot.children.associate {
+                it.key.toString() to (it.value?.toString() ?: "")
+            }
         } catch (e: Exception) {
             // Log error here if needed
             emptyMap()
