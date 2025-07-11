@@ -218,6 +218,17 @@ fun DashboardScreen(onLogout: () -> Unit) {
                     onLogout = onLogout,
                     onProfileClicked = {
                         navController.navigate(BottomNavItem.Profile.route)
+                    },
+                    onPersonaClicked = {
+                        navController.navigate("settings/persona")
+                    }
+                )
+            }
+            // Add route for Persona Settings screen
+            composable("settings/persona") {
+                PersonaScreen(
+                    onNavigateBack = {
+                        navController.navigateUp()
                     }
                 )
             }
