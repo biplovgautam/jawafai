@@ -210,6 +210,23 @@ fun DashboardScreen(onLogout: () -> Unit) {
                     }
                 )
             }
+            // Add the missing ChatDetailScreen route
+            composable(
+                route = "chat_detail/{chatId}/{otherUserId}",
+                arguments = listOf(
+                    navArgument("chatId") { type = NavType.StringType },
+                    navArgument("otherUserId") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
+                val otherUserId = backStackEntry.arguments?.getString("otherUserId") ?: ""
+
+                ChatDetailScreen(
+                    chatId = chatId,
+                    otherUserId = otherUserId,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
             composable(BottomNavItem.Home.route) {
                 HomeScreen()
             }

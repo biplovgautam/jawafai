@@ -55,27 +55,40 @@ fun ChatDetailScreen(
 
     // Get user info for the other user
     var otherUserName by remember { mutableStateOf("Chat") }
+    var isLoadingUserInfo by remember { mutableStateOf(true) }
 
-    LaunchedEffect(chatId) {
+    // Load messages when screen opens
+    LaunchedEffect(chatId, currentUserId) {
         if (currentUserId != null) {
-            // Use the new method signature: getMessagesForChat(senderId, receiverId)
-            viewModel.getMessagesForChat(currentUserId, otherUserId)
-            viewModel.markMessagesAsSeen(currentUserId, otherUserId)
+            try {
+                // Use the new method signature: getMessagesForChat(senderId, receiverId)
+                viewModel.getMessagesForChat(currentUserId, otherUserId)
+                viewModel.markMessagesAsSeen(currentUserId, otherUserId)
+            } catch (e: Exception) {
+                println("🔍 DEBUG: ChatDetailScreen - Error loading messages: ${e.message}")
+            }
         }
     }
 
-    // Try to get user info by user ID
+    // Load user info for the other user
     LaunchedEffect(otherUserId) {
-        println("🔍 DEBUG: ChatDetailScreen - Looking up user with ID: $otherUserId")
-        val userProfile = viewModel.findUserById(otherUserId)
-        if (userProfile != null) {
-            otherUserName = userProfile.displayName.ifEmpty {
-                userProfile.username.ifEmpty { userProfile.email }
+        try {
+            println("🔍 DEBUG: ChatDetailScreen - Looking up user with ID: $otherUserId")
+            val userProfile = viewModel.findUserById(otherUserId)
+            if (userProfile != null) {
+                otherUserName = userProfile.displayName.ifEmpty {
+                    userProfile.username.ifEmpty { userProfile.email }
+                }
+                println("🔍 DEBUG: ChatDetailScreen - Set user name to: $otherUserName")
+            } else {
+                println("🔍 DEBUG: ChatDetailScreen - Could not find user with ID: $otherUserId")
+                otherUserName = "Unknown User"
             }
-            println("🔍 DEBUG: ChatDetailScreen - Set user name to: $otherUserName")
-        } else {
-            println("🔍 DEBUG: ChatDetailScreen - Could not find user with ID: $otherUserId")
+        } catch (e: Exception) {
+            println("🔍 DEBUG: ChatDetailScreen - Error loading user info: ${e.message}")
             otherUserName = "Unknown User"
+        } finally {
+            isLoadingUserInfo = false
         }
     }
 
