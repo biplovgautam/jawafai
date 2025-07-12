@@ -1,4 +1,4 @@
-package com.example.jawafai.view
+package com.example.jawafai.view.auth
 
 import android.app.DatePickerDialog
 import android.content.Intent

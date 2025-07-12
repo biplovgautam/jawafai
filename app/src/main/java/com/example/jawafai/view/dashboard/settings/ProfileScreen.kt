@@ -1,4 +1,4 @@
-package com.example.jawafai.view
+package com.example.jawafai.view.dashboard.settings
 
 import android.Manifest
 import android.net.Uri

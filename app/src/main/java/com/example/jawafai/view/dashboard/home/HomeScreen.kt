@@ -1,4 +1,4 @@
-package com.example.jawafai.view
+package com.example.jawafai.view.dashboard.home
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background

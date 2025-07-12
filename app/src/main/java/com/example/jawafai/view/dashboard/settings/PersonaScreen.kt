@@ -1,4 +1,4 @@
-package com.example.jawafai.view
+package com.example.jawafai.view.dashboard.settings
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,6 +18,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlin.collections.iterator
 
 /**
  * Composable screen for the Persona Settings.

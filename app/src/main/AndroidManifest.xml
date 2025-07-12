@@ -21,19 +21,19 @@
 
         <!-- Dashboard Activity -->
         <activity
-            android:name=".view.DashboardActivity"
+            android:name=".view.dashboard.DashboardActivity"
             android:exported="false"
             android:theme="@style/Theme.Jawafai" />
 
         <!-- Login Activity -->
         <activity
-            android:name=".view.LoginActivity"
+            android:name=".view.auth.LoginActivity"
             android:exported="false"
             android:theme="@style/Theme.Jawafai" />
 
         <!-- Registration Activity -->
         <activity
-            android:name=".view.RegistrationActivity"
+            android:name=".view.auth.RegistrationActivity"
             android:exported="false"
             android:theme="@style/Theme.Jawafai" />
 

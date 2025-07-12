@@ -7,7 +7,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.example.jawafai.R
-import com.example.jawafai.view.KaiseiDecolFontFamily
+import com.example.jawafai.view.splash.KaiseiDecolFontFamily
 
 // Define your custom font family
 val KaiseiDecolFontFamily = FontFamily(

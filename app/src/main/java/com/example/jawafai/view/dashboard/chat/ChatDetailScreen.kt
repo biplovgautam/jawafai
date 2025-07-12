@@ -1,4 +1,4 @@
-package com.example.jawafai.view
+package com.example.jawafai.view.dashboard.chat
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background

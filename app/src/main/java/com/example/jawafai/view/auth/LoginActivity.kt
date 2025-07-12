@@ -1,5 +1,6 @@
-package com.example.jawafai.view
+package com.example.jawafai.view.auth
 
+ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
@@ -26,13 +27,13 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.runtime.livedata.observeAsState
+ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.jawafai.R
 import com.example.jawafai.repository.UserRepositoryImpl
 import com.example.jawafai.ui.theme.JawafaiTheme
-import com.example.jawafai.viewmodel.UserViewModel
+ import com.example.jawafai.view.dashboard.DashboardActivity
+ import com.example.jawafai.viewmodel.UserViewModel
 import com.example.jawafai.viewmodel.UserViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -44,6 +45,11 @@ val KaiseiFontFamily = FontFamily(
 
 class LoginActivity : ComponentActivity() {
     private lateinit var viewModel: UserViewModel
+
+    companion object {
+        const val PREFS_NAME = "JawafaiPrefs"
+        const val PREF_REMEMBER_ME = "rememberMe"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,6 +68,18 @@ class LoginActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onStop() {
+        super.onStop()
+        // Check if "Remember Me" is disabled and user is closing the app
+        val sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val rememberMe = sharedPreferences.getBoolean(PREF_REMEMBER_ME, false)
+
+        if (!rememberMe) {
+            // Auto logout if Remember Me is not checked
+            FirebaseAuth.getInstance().signOut()
+        }
+    }
 }
 
 @Composable
@@ -75,6 +93,7 @@ fun LoginScreen(viewModel: UserViewModel) {
     var isLoading by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
     var resetEmail by remember { mutableStateOf("") }
+    var rememberMe by remember { mutableStateOf(false) }
 
     // Observe ViewModel state
     val userOperationState = viewModel.userState.observeAsState(initial = UserViewModel.UserOperationResult.Initial)
@@ -220,7 +239,33 @@ fun LoginScreen(viewModel: UserViewModel) {
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(32.dp)) }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+
+            item {
+                // Remember Me checkbox
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = rememberMe,
+                        onCheckedChange = { rememberMe = it },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = MaterialTheme.colorScheme.primary,
+                            uncheckedColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                        )
+                    )
+                    Text(
+                        "Remember Me",
+                        fontFamily = KaiseiFontFamily,
+                        modifier = Modifier.clickable {
+                            rememberMe = !rememberMe
+                        }
+                    )
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
 
             item {
                 // Login Button
@@ -234,6 +279,13 @@ fun LoginScreen(viewModel: UserViewModel) {
                             else -> {
                                 // Trigger login in ViewModel
                                 viewModel.login(email, password)
+
+                                // Save or clear Remember Me preference
+                                val sharedPreferences = context.getSharedPreferences(LoginActivity.PREFS_NAME, Context.MODE_PRIVATE)
+                                with(sharedPreferences.edit()) {
+                                    putBoolean(LoginActivity.PREF_REMEMBER_ME, rememberMe)
+                                    apply()
+                                }
                             }
                         }
                     },

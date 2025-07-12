@@ -1,4 +1,4 @@
-package com.example.jawafai.view
+package com.example.jawafai.view.dashboard
 
 import android.content.Intent
 import android.os.Bundle
@@ -38,6 +38,13 @@ import androidx.navigation.navArgument
 import com.example.jawafai.ui.theme.JawafaiTheme
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.view.WindowCompat
+import com.example.jawafai.view.auth.LoginActivity
+import com.example.jawafai.view.dashboard.chat.ChatDetailScreen
+import com.example.jawafai.view.dashboard.chat.ChatScreen
+import com.example.jawafai.view.dashboard.home.HomeScreen
+import com.example.jawafai.view.dashboard.settings.PersonaScreen
+import com.example.jawafai.view.dashboard.settings.ProfileScreen
+import com.example.jawafai.view.dashboard.settings.SettingsScreen
 
 class DashboardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

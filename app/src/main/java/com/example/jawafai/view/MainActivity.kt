@@ -6,14 +6,21 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.Modifier
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.jawafai.ui.theme.JawafaiTheme
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.view.WindowCompat
+import com.example.jawafai.view.auth.LoginActivity
+import com.example.jawafai.view.auth.RegistrationActivity
+import com.example.jawafai.view.dashboard.DashboardActivity
+import com.example.jawafai.view.splash.Onboard1Screen
+import com.example.jawafai.view.splash.Onboard2Screen
+import com.example.jawafai.view.splash.Onboard3Screen
+import com.example.jawafai.view.splash.Onboard4Screen
+import com.example.jawafai.view.splash.SplashScreen
+import com.example.jawafai.view.splash.WelcomeScreen
 
 class MainActivity : ComponentActivity() {
 

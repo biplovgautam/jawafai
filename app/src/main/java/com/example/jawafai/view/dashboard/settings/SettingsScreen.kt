@@ -1,4 +1,4 @@
-package com.example.jawafai.view
+package com.example.jawafai.view.dashboard.settings
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -31,7 +31,6 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.runtime.livedata.observeAsState
 import kotlinx.coroutines.tasks.await
-import kotlin.math.abs
 
 data class SettingsItemData(
     val icon: ImageVector,

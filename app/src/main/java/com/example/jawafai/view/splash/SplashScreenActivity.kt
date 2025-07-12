@@ -1,4 +1,4 @@
-package com.example.jawafai.view
+package com.example.jawafai.view.splash
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
