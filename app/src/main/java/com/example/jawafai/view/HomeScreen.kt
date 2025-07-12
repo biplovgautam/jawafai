@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.rounded.ChatBubble
+import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -145,9 +147,21 @@ fun HomeScreenContent(modifier: Modifier = Modifier) {
             .background(darkTeal),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
-        // JAWAF Section Header
+        // JAWAFAI Section Header (New AI Chatbot Section)
         item {
-            SectionHeader(title = "JAWAF")
+            SectionHeader(title = "JAWAFAI")
+        }
+
+        // JAWAFAI Chatbot Card
+        item {
+            JawafaiChatbotCard(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
+
+        // CHATS Section Header (Changed from JAWAF)
+        item {
+            SectionHeader(title = "CHATS")
         }
 
         // JAWAF Chat items
@@ -313,5 +327,79 @@ fun ServiceItem(service: ServiceMessage) {
             color = Color.LightGray,
             fontSize = 14.sp
         )
+    }
+}
+
+@Composable
+fun JawafaiChatbotCard(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = { /* Handle chatbot click */ }
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.1f)
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 4.dp
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // AI Bot Avatar
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.SmartToy,
+                    contentDescription = "JawafAI Bot",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Chatbot Info
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "JawafAI Assistant",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color.White
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "Ask me anything! I'm here to help.",
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // Online indicator
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF4CAF50))
+            )
+        }
     }
 }
