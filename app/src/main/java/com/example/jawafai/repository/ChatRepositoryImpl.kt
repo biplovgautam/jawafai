@@ -85,25 +85,74 @@ class ChatRepositoryImpl(
     override fun getChatSummaries(userId: String): Flow<List<ChatSummary>> = callbackFlow {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val summaries = snapshot.children.mapNotNull { chatSnapshot ->
+                val summaries = mutableListOf<ChatSummary>()
+                val summariesData = snapshot.children.mapNotNull { chatSnapshot ->
                     val otherUserId = chatSnapshot.key
                     val lastMessage = chatSnapshot.child("lastMessage").getValue(String::class.java) ?: ""
                     val lastMessageTimestamp = chatSnapshot.child("lastMessageTimestamp").getValue(Long::class.java) ?: 0
                     val isSeen = chatSnapshot.child("isSeen").getValue(Boolean::class.java) ?: false
 
                     if (otherUserId != null) {
-                        ChatSummary(
-                            chatId = getChatId(userId, otherUserId),
-                            otherUserId = otherUserId,
-                            lastMessage = lastMessage,
-                            lastMessageTimestamp = lastMessageTimestamp,
-                            isLastMessageSeen = isSeen
-                        )
+                        Triple(otherUserId, lastMessage to lastMessageTimestamp, isSeen)
                     } else {
                         null
                     }
-                }.sortedByDescending { it.lastMessageTimestamp }
-                trySend(summaries).isSuccess
+                }
+
+                // Fetch user names for each chat
+                var processedCount = 0
+                val totalCount = summariesData.size
+
+                if (totalCount == 0) {
+                    trySend(emptyList()).isSuccess
+                    return
+                }
+
+                summariesData.forEach { (otherUserId, messageData, isSeen) ->
+                    usersRef.child(otherUserId).get().addOnSuccessListener { userSnapshot ->
+                        val otherUserName = userSnapshot.child("displayName").getValue(String::class.java)
+                            ?: userSnapshot.child("username").getValue(String::class.java)
+                            ?: userSnapshot.child("email").getValue(String::class.java)
+                            ?: "Unknown User"
+                        val otherUserImageUrl = userSnapshot.child("profileImageUrl").getValue(String::class.java)
+
+                        summaries.add(
+                            ChatSummary(
+                                chatId = getChatId(userId, otherUserId),
+                                otherUserId = otherUserId,
+                                otherUserName = otherUserName,
+                                otherUserImageUrl = otherUserImageUrl,
+                                lastMessage = messageData.first,
+                                lastMessageTimestamp = messageData.second,
+                                isLastMessageSeen = isSeen
+                            )
+                        )
+
+                        processedCount++
+                        if (processedCount == totalCount) {
+                            val sortedSummaries = summaries.sortedByDescending { it.lastMessageTimestamp }
+                            trySend(sortedSummaries).isSuccess
+                        }
+                    }.addOnFailureListener {
+                        summaries.add(
+                            ChatSummary(
+                                chatId = getChatId(userId, otherUserId),
+                                otherUserId = otherUserId,
+                                otherUserName = "Unknown User",
+                                otherUserImageUrl = null,
+                                lastMessage = messageData.first,
+                                lastMessageTimestamp = messageData.second,
+                                isLastMessageSeen = isSeen
+                            )
+                        )
+
+                        processedCount++
+                        if (processedCount == totalCount) {
+                            val sortedSummaries = summaries.sortedByDescending { it.lastMessageTimestamp }
+                            trySend(sortedSummaries).isSuccess
+                        }
+                    }
+                }
             }
 
             override fun onCancelled(error: DatabaseError) {
@@ -112,6 +161,57 @@ class ChatRepositoryImpl(
         }
         chatsRef.child(userId).addValueEventListener(listener)
         awaitClose { chatsRef.child(userId).removeEventListener(listener) }
+    }
+
+    override suspend fun findUserByEmailOrUsername(query: String): UserProfile? {
+        return try {
+            val userSnapshot = usersRef.orderByChild("email").equalTo(query).get().await()
+            if (userSnapshot.exists()) {
+                val userData = userSnapshot.children.first()
+                UserProfile(
+                    userId = userData.key ?: "",
+                    username = userData.child("username").getValue(String::class.java) ?: "",
+                    email = userData.child("email").getValue(String::class.java) ?: "",
+                    displayName = userData.child("displayName").getValue(String::class.java) ?: "",
+                    profileImageUrl = userData.child("profileImageUrl").getValue(String::class.java)
+                )
+            } else {
+                // Try searching by username
+                val usernameSnapshot = usersRef.orderByChild("username").equalTo(query).get().await()
+                if (usernameSnapshot.exists()) {
+                    val userData = usernameSnapshot.children.first()
+                    UserProfile(
+                        userId = userData.key ?: "",
+                        username = userData.child("username").getValue(String::class.java) ?: "",
+                        email = userData.child("email").getValue(String::class.java) ?: "",
+                        displayName = userData.child("displayName").getValue(String::class.java) ?: "",
+                        profileImageUrl = userData.child("profileImageUrl").getValue(String::class.java)
+                    )
+                } else {
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    override suspend fun createChatWithUser(currentUserId: String, otherUserId: String): String {
+        val chatId = getChatId(currentUserId, otherUserId)
+        val timestamp = System.currentTimeMillis()
+
+        // Initialize chat metadata for both users
+        val chatMeta = mapOf(
+            "lastMessage" to "",
+            "lastMessageTimestamp" to timestamp,
+            "lastMessageSenderId" to "",
+            "isSeen" to true
+        )
+
+        chatsRef.child(currentUserId).child(otherUserId).updateChildren(chatMeta).await()
+        chatsRef.child(otherUserId).child(currentUserId).updateChildren(chatMeta).await()
+
+        return chatId
     }
 
     private fun getChatId(userId1: String, userId2: String): String {

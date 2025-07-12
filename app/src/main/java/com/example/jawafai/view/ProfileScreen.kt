@@ -124,10 +124,10 @@ fun ProfileScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Profile", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Profile", fontWeight = FontWeight.SemiBold, color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 actions = {
@@ -147,15 +147,24 @@ fun ProfileScreen(
                             }
                             isEditing = !isEditing
                         },
-                        enabled = userState !is UserViewModel.UserOperationResult.Loading
+                        enabled = userState !is UserViewModel.UserOperationResult.Loading,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color.White
+                        )
                     ) {
                         Text(if (isEditing) "Save" else "Edit")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
+                )
             )
         },
-        containerColor = Color(0xFFF5F5F5)
+        containerColor = Color.Transparent,
+        modifier = Modifier.background(MaterialTheme.colorScheme.primary)
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
             Column(
@@ -205,13 +214,14 @@ fun ProfileScreen(
                     Text(
                         text = "${it.firstName} ${it.lastName}".trim().ifEmpty { it.username },
                         style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = it.email,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
+                        color = Color.LightGray
                     )
                 }
 
@@ -267,7 +277,7 @@ private fun ProfileTextField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
+        label = { Text(label, color = if (enabled) Color.White else Color.Gray) },
         enabled = enabled,
         modifier = Modifier
             .fillMaxWidth()
@@ -282,7 +292,7 @@ private fun ProfileTextField(
             disabledLabelColor = Color.Gray
         ),
         readOnly = !enabled,
-        textStyle = LocalTextStyle.current.copy(color = if (enabled) Color.Black else Color.DarkGray)
+        textStyle = LocalTextStyle.current.copy(color = if (enabled) Color.White else Color.DarkGray)
     )
 }
 

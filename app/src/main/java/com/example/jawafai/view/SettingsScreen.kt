@@ -89,17 +89,21 @@ fun SettingsScreen(
                 title = {
                     Text(
                         "Settings",
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White  // Using white text for better contrast
                     )
                 },
                 // This makes the top bar transparent to blend with the content
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent
+                    containerColor = Color.Transparent,
+                    titleContentColor = Color.White
                 )
             )
         },
         // Apply system bar padding to the Scaffold content
         modifier = Modifier
+            .background(MaterialTheme.colorScheme.primary), // Setting same background as Home
+        containerColor = Color.Transparent // Making Scaffold transparent to show the background color
     ) { paddingValues ->
         SettingsContent(
             modifier = Modifier.padding(paddingValues),
