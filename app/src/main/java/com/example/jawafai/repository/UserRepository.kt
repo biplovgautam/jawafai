@@ -2,6 +2,7 @@ package com.example.jawafai.repository
 
 import android.net.Uri
 import com.example.jawafai.model.UserModel
+import com.google.firebase.auth.FirebaseUser
 
 /**
  * Repository interface for handling user authentication and Firestore operations
@@ -52,4 +53,18 @@ interface UserRepository {
      * Uploads a profile image to Cloudinary and returns the image URL
      */
     suspend fun uploadProfileImage(imageUri: Uri): String?
+
+    /**
+     * Syncs user profile to both Firestore and Realtime Database
+     * @param user The Firebase user to sync
+     * @param userModel The user model with complete profile data
+     */
+    suspend fun syncUserProfileToFirebase(user: FirebaseUser, userModel: UserModel)
+
+    /**
+     * Finds a user by username or email in Firestore
+     * @param query The username or email to search for
+     * @return UserModel if found, null otherwise
+     */
+    suspend fun findUserByEmailOrUsername(query: String): UserModel?
 }

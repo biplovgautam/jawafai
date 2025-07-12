@@ -43,9 +43,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.jawafai.model.ChatSummary
 import com.example.jawafai.repository.ChatRepositoryImpl
+import com.example.jawafai.repository.UserRepositoryImpl
+import com.example.jawafai.utils.UserMigrationUtils
 import com.example.jawafai.viewmodel.ChatViewModel
 import com.example.jawafai.viewmodel.ChatViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -70,9 +73,18 @@ fun ChatScreen(
 ) {
     val auth = FirebaseAuth.getInstance()
     val chatRepository = remember { ChatRepositoryImpl() }
+    val userRepository = remember { UserRepositoryImpl(auth, FirebaseFirestore.getInstance()) }
     val viewModel: ChatViewModel = viewModel(
-        factory = ChatViewModelFactory(chatRepository, auth)
+        factory = ChatViewModelFactory(chatRepository, userRepository, auth)
     )
+
+    val coroutineScope = rememberCoroutineScope()
+
+    // Auto-migrate current user to database when screen loads
+    LaunchedEffect(Unit) {
+        UserMigrationUtils.saveCurrentUserToDatabase()
+        UserMigrationUtils.showAllUsersInDatabase()
+    }
 
     val chatSummaries by viewModel.chatSummaries.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
@@ -845,8 +857,22 @@ fun NewChatDialog(
     // Handle search trigger
     LaunchedEffect(isSearching) {
         if (isSearching && searchQuery.isNotBlank()) {
+            println("🔍 DEBUG: NewChatDialog - Triggering search for: '$searchQuery'")
             viewModel.findUserByEmailOrUsername(searchQuery.trim())
             isSearching = false
         }
+    }
+
+    // Debug: Log state changes
+    LaunchedEffect(isLoading) {
+        println("🔍 DEBUG: NewChatDialog - Loading state changed to: $isLoading")
+    }
+
+    LaunchedEffect(errorMessage) {
+        println("🔍 DEBUG: NewChatDialog - Error message changed to: $errorMessage")
+    }
+
+    LaunchedEffect(foundUser) {
+        println("🔍 DEBUG: NewChatDialog - Found user changed to: $foundUser")
     }
 }

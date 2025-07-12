@@ -5,9 +5,16 @@ import android.util.Log
 import com.example.jawafai.managers.CloudinaryManager
 import com.example.jawafai.model.UserModel
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.database.FirebaseDatabase
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -20,6 +27,128 @@ class UserRepositoryImpl @Inject constructor(
 
     private val TAG = "UserRepositoryImpl"
     private val usersCollection = firestore.collection("users")
+    private val database = FirebaseDatabase.getInstance("https://jawafai-d2c23-default-rtdb.firebaseio.com/")
+    private val usersRef = database.getReference("users")
+
+    /**
+     * Syncs user profile to both Firestore and Realtime Database
+     * This ensures users are searchable and have consistent data across both databases
+     */
+    override suspend fun syncUserProfileToFirebase(user: FirebaseUser, userModel: UserModel): Unit = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "🔄 Starting user profile sync for UID: ${user.uid}")
+
+            // 1. Check if Firestore document exists
+            val firestoreDoc = usersCollection.document(user.uid).get().await()
+
+            if (!firestoreDoc.exists()) {
+                Log.d(TAG, "📝 User not found in Firestore, creating profile...")
+
+                // Create user profile in Firestore
+                val userWithId = userModel.copy(
+                    id = user.uid,
+                    password = "", // Never store password
+                    email = user.email ?: userModel.email,
+                    createdAt = System.currentTimeMillis()
+                )
+
+                usersCollection.document(user.uid).set(userWithId.toMap()).await()
+                Log.d(TAG, "✅ User profile created in Firestore")
+            } else {
+                Log.d(TAG, "👤 User profile already exists in Firestore")
+            }
+
+            // 2. Sync to Realtime Database for chat functionality
+            val realtimeUserData = mapOf(
+                "username" to userModel.username,
+                "email" to (user.email ?: userModel.email),
+                "displayName" to userModel.let {
+                    "${it.firstName} ${it.lastName}".trim().ifEmpty { it.username }
+                },
+                "profileImageUrl" to userModel.imageUrl,
+                "onlineStatus" to true,
+                "lastSeen" to System.currentTimeMillis(),
+                "createdAt" to System.currentTimeMillis()
+            )
+
+            usersRef.child(user.uid).setValue(realtimeUserData).await()
+            Log.d(TAG, "✅ User profile synced to Realtime Database")
+
+            Log.d(TAG, "🎉 User profile sync completed successfully")
+
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error syncing user profile: ${e.message}", e)
+            throw e
+        }
+    }
+
+    /**
+     * Finds a user by username or email in Firestore
+     * This provides better search capabilities than the current Realtime Database approach
+     */
+    override suspend fun findUserByEmailOrUsername(query: String): UserModel? = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "🔍 Searching for user with query: '$query'")
+
+            val cleanQuery = query.trim()
+            if (cleanQuery.isBlank()) {
+                Log.w(TAG, "Empty search query provided")
+                return@withContext null
+            }
+
+            // First try to find by email
+            val emailQuery = usersCollection
+                .whereEqualTo("email", cleanQuery)
+                .limit(1)
+                .get()
+                .await()
+
+            if (!emailQuery.isEmpty) {
+                val userDoc = emailQuery.documents.first()
+                val userModel = UserModel.fromMap(userDoc.data ?: emptyMap())
+                Log.d(TAG, "✅ Found user by email: ${userModel.username}")
+                return@withContext userModel
+            }
+
+            // Then try to find by username (case-insensitive)
+            val usernameQuery = usersCollection
+                .whereEqualTo("username", cleanQuery)
+                .limit(1)
+                .get()
+                .await()
+
+            if (!usernameQuery.isEmpty) {
+                val userDoc = usernameQuery.documents.first()
+                val userModel = UserModel.fromMap(userDoc.data ?: emptyMap())
+                Log.d(TAG, "✅ Found user by username: ${userModel.username}")
+                return@withContext userModel
+            }
+
+            // If exact match fails, try case-insensitive search
+            val allUsersQuery = usersCollection.get().await()
+            val matchingUser = allUsersQuery.documents.find { doc ->
+                val data = doc.data ?: return@find false
+                val email = data["email"] as? String ?: ""
+                val username = data["username"] as? String ?: ""
+
+                email.equals(cleanQuery, ignoreCase = true) ||
+                username.equals(cleanQuery, ignoreCase = true)
+            }
+
+            if (matchingUser != null) {
+                val userModel = UserModel.fromMap(matchingUser.data ?: emptyMap())
+                Log.d(TAG, "✅ Found user by case-insensitive search: ${userModel.username}")
+                return@withContext userModel
+            }
+
+            Log.d(TAG, "❌ No user found with query: '$cleanQuery'")
+            return@withContext null
+
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error searching for user: ${e.message}", e)
+            return@withContext null
+        }
+    }
 
     /**
      * Checks if a username already exists in Firestore
@@ -120,6 +249,19 @@ class UserRepositoryImpl @Inject constructor(
                     .set(userWithId.toMap())
                     .addOnSuccessListener {
                         Log.d(TAG, "Firestore document created successfully")
+
+                        // Now sync to Realtime Database as well
+                        authResult.user?.let { firebaseUser ->
+                            // Launch coroutine to sync profile to both databases
+                            CoroutineScope(Dispatchers.IO).launch {
+                                try {
+                                    syncUserProfileToFirebase(firebaseUser, userWithId)
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error syncing user profile during registration: ${e.message}")
+                                }
+                            }
+                        }
+
                         continuation.resume(true)
                     }
                     .addOnFailureListener { e ->

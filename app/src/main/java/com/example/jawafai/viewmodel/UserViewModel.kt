@@ -54,6 +54,44 @@ class UserViewModel(
                 }
 
                 if (user != null) {
+                    // After successful login, sync user profile to both databases
+                    try {
+                        // Fetch user profile from Firestore
+                        val userDocRef = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                            .collection("users")
+                            .document(user.uid)
+                        val userDoc = userDocRef.get().await()
+
+                        if (userDoc.exists()) {
+                            // User profile exists, sync to Realtime Database
+                            val userModel = com.example.jawafai.model.UserModel.fromMap(userDoc.data ?: emptyMap())
+                            repository.syncUserProfileToFirebase(user, userModel)
+                            Log.d("UserViewModel", "✅ User profile synced after login")
+                        } else {
+                            // Create minimal profile if doesn't exist
+                            val defaultUsername = user.email?.substringBefore('@') ?: "user${user.uid.take(6)}"
+                            val displayName = user.displayName
+                            val firstName = displayName?.split(" ")?.getOrNull(0) ?: ""
+                            val lastName = displayName?.split(" ")?.getOrNull(1) ?: ""
+
+                            val defaultUser = UserModel(
+                                id = user.uid,
+                                email = user.email ?: "",
+                                username = defaultUsername,
+                                firstName = firstName,
+                                lastName = lastName,
+                                imageUrl = user.photoUrl?.toString()
+                            )
+
+                            // Sync the default profile to both databases
+                            repository.syncUserProfileToFirebase(user, defaultUser)
+                            Log.d("UserViewModel", "✅ Default user profile created and synced")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("UserViewModel", "Error syncing user profile after login: ${e.message}", e)
+                        // Don't fail login if sync fails
+                    }
+
                     _userState.value = UserOperationResult.Success("Login successful")
                 } else {
                     _userState.value = UserOperationResult.Error("Login failed: Unknown error")

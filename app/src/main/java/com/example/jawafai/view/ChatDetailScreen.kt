@@ -1,5 +1,6 @@
 package com.example.jawafai.view
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,15 +17,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.jawafai.model.ChatMessage
 import com.example.jawafai.repository.ChatRepositoryImpl
+import com.example.jawafai.repository.UserRepositoryImpl
 import com.example.jawafai.viewmodel.ChatViewModel
 import com.example.jawafai.viewmodel.ChatViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
-import kotlinx.coroutines.launch
+import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -38,27 +41,41 @@ fun ChatDetailScreen(
     otherUserId: String,
     onNavigateBack: () -> Unit,
     viewModel: ChatViewModel = viewModel(
-        factory = ChatViewModelFactory(ChatRepositoryImpl(), FirebaseAuth.getInstance())
+        factory = ChatViewModelFactory(
+            ChatRepositoryImpl(),
+            UserRepositoryImpl(FirebaseAuth.getInstance(), FirebaseFirestore.getInstance()),
+            FirebaseAuth.getInstance()
+        )
     )
 ) {
     val messages by viewModel.messages.collectAsState()
+    val typingStatus by viewModel.typingStatus.collectAsState()
     var newMessageText by remember { mutableStateOf("") }
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
     // Get user info for the other user
-    val foundUser by viewModel.foundUser.collectAsState()
     var otherUserName by remember { mutableStateOf("Chat") }
 
     LaunchedEffect(chatId) {
-        viewModel.getMessagesForChat(chatId)
-        viewModel.markMessagesAsSeen(chatId, otherUserId)
+        if (currentUserId != null) {
+            // Use the new method signature: getMessagesForChat(senderId, receiverId)
+            viewModel.getMessagesForChat(currentUserId, otherUserId)
+            viewModel.markMessagesAsSeen(currentUserId, otherUserId)
+        }
     }
 
-    // Try to get user info
+    // Try to get user info by user ID
     LaunchedEffect(otherUserId) {
-        val userProfile = viewModel.findUserByEmailOrUsername(otherUserId)
+        println("🔍 DEBUG: ChatDetailScreen - Looking up user with ID: $otherUserId")
+        val userProfile = viewModel.findUserById(otherUserId)
         if (userProfile != null) {
-            otherUserName = userProfile.displayName.ifEmpty { userProfile.username }
+            otherUserName = userProfile.displayName.ifEmpty {
+                userProfile.username.ifEmpty { userProfile.email }
+            }
+            println("🔍 DEBUG: ChatDetailScreen - Set user name to: $otherUserName")
+        } else {
+            println("🔍 DEBUG: ChatDetailScreen - Could not find user with ID: $otherUserId")
+            otherUserName = "Unknown User"
         }
     }
 
@@ -67,11 +84,22 @@ fun ChatDetailScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Text(
-                        text = otherUserName,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = otherUserName,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                        // Show typing indicator in the title area
+                        if (typingStatus?.isTyping == true) {
+                            Text(
+                                text = "typing...",
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 12.sp,
+                                fontStyle = FontStyle.Italic
+                            )
+                        }
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -90,7 +118,11 @@ fun ChatDetailScreen(
         bottomBar = {
             MessageInput(
                 value = newMessageText,
-                onValueChange = { newMessageText = it },
+                onValueChange = { newText ->
+                    newMessageText = newText
+                    // Trigger typing indicator
+                    viewModel.onTextChanged(otherUserId, newText)
+                },
                 onSendClick = {
                     if (newMessageText.isNotBlank()) {
                         viewModel.sendMessage(otherUserId, newMessageText)
@@ -109,11 +141,68 @@ fun ChatDetailScreen(
             reverseLayout = true,
             contentPadding = PaddingValues(vertical = 8.dp)
         ) {
+            // Add typing indicator as a message bubble at the bottom
+            if (typingStatus?.isTyping == true) {
+                item {
+                    TypingIndicatorBubble()
+                }
+            }
+
             items(messages.sortedByDescending { it.timestamp }) { message ->
                 MessageBubble(
                     message = message,
                     isFromCurrentUser = message.senderId == currentUserId
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun TypingIndicatorBubble() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Surface(
+            shape = RoundedCornerShape(
+                topStart = 20.dp,
+                topEnd = 20.dp,
+                bottomStart = 4.dp,
+                bottomEnd = 20.dp
+            ),
+            color = Color.White.copy(alpha = 0.15f),
+            tonalElevation = 2.dp,
+            modifier = Modifier.widthIn(max = 100.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Animated dots for typing indicator
+                repeat(3) { index ->
+                    val alpha by rememberInfiniteTransition(label = "typing").animateFloat(
+                        initialValue = 0.3f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(600),
+                            repeatMode = RepeatMode.Reverse
+                        ), label = "alpha"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = alpha))
+                    )
+
+                    if (index < 2) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                }
             }
         }
     }
@@ -147,7 +236,7 @@ fun MessageBubble(message: ChatMessage, isFromCurrentUser: Boolean) {
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 Text(
-                    text = message.messageText,
+                    text = message.text,
                     color = if (isFromCurrentUser) {
                         Color.White
                     } else {
@@ -159,15 +248,29 @@ fun MessageBubble(message: ChatMessage, isFromCurrentUser: Boolean) {
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                Text(
-                    text = formatMessageTime(message.timestamp),
-                    color = if (isFromCurrentUser) {
-                        Color.White.copy(alpha = 0.7f)
-                    } else {
-                        Color.White.copy(alpha = 0.6f)
-                    },
-                    fontSize = 12.sp
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = formatMessageTime(message.timestamp),
+                        color = if (isFromCurrentUser) {
+                            Color.White.copy(alpha = 0.7f)
+                        } else {
+                            Color.White.copy(alpha = 0.6f)
+                        },
+                        fontSize = 12.sp
+                    )
+
+                    // Show "seen" indicator for sent messages
+                    if (isFromCurrentUser && message.seen) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "✓✓",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 10.sp
+                        )
+                    }
+                }
             }
         }
     }
