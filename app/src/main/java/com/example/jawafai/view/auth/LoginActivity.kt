@@ -71,12 +71,25 @@ class LoginActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        // Check if "Remember Me" is disabled and user is closing the app
+        // Enhanced auto-logout logic
         val sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val rememberMe = sharedPreferences.getBoolean(PREF_REMEMBER_ME, false)
 
-        if (!rememberMe) {
+        if (!rememberMe && FirebaseAuth.getInstance().currentUser != null) {
             // Auto logout if Remember Me is not checked
+            FirebaseAuth.getInstance().signOut()
+            // Clear any other user session data if needed
+            sharedPreferences.edit().clear().apply()
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Additional cleanup when activity is destroyed
+        val sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val rememberMe = sharedPreferences.getBoolean(PREF_REMEMBER_ME, false)
+
+        if (!rememberMe && FirebaseAuth.getInstance().currentUser != null) {
             FirebaseAuth.getInstance().signOut()
         }
     }

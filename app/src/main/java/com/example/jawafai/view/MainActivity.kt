@@ -15,10 +15,7 @@ import androidx.core.view.WindowCompat
 import com.example.jawafai.view.auth.LoginActivity
 import com.example.jawafai.view.auth.RegistrationActivity
 import com.example.jawafai.view.dashboard.DashboardActivity
-import com.example.jawafai.view.splash.Onboard1Screen
-import com.example.jawafai.view.splash.Onboard2Screen
-import com.example.jawafai.view.splash.Onboard3Screen
-import com.example.jawafai.view.splash.Onboard4Screen
+import com.example.jawafai.view.splash.OnboardingScreen
 import com.example.jawafai.view.splash.SplashScreen
 import com.example.jawafai.view.splash.WelcomeScreen
 
@@ -28,24 +25,32 @@ class MainActivity : ComponentActivity() {
         // Key for tracking if user has seen onboarding
         const val PREFS_NAME = "JawafaiPrefs"
         const val PREF_HAS_SEEN_ONBOARDING = "hasSeenOnboarding"
+        const val PREF_REMEMBER_ME = "rememberMe"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
-        // Check if user has already seen onboarding screens
+        // Check SharedPreferences
         val sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val hasSeenOnboarding = sharedPreferences.getBoolean(PREF_HAS_SEEN_ONBOARDING, false)
+        val rememberMe = sharedPreferences.getBoolean(PREF_REMEMBER_ME, false)
 
-        // Check if user is logged in and force refresh from Firebase
+        // Check if user is logged in
         val auth = FirebaseAuth.getInstance()
         var isLoggedIn = auth.currentUser != null
+
+        // Auto-logout if Remember Me is not checked
+        if (!rememberMe && isLoggedIn) {
+            auth.signOut()
+            isLoggedIn = false
+        }
 
         // Force reload user state from Firebase to handle deleted users
         auth.currentUser?.reload()?.addOnCompleteListener { reloadTask ->
             val refreshedUser = auth.currentUser
-            isLoggedIn = refreshedUser != null
+            isLoggedIn = refreshedUser != null && rememberMe
 
             setContent {
                 JawafaiTheme {
@@ -64,25 +69,23 @@ class MainActivity : ComponentActivity() {
                                     when {
                                         isLoggedIn -> "dashboard"
                                         hasSeenOnboarding -> "welcome"
-                                        else -> "onboard1"
+                                        else -> "onboarding"
                                     }
                                 }
                             )
                         }
 
-                        // Onboarding screens - shown only first time after installing
-                        composable("onboard1") { Onboard1Screen(navController) }
-                        composable("onboard2") { Onboard2Screen(navController) }
-                        composable("onboard3") { Onboard3Screen(navController) }
-                        composable("onboard4") {
-                            Onboard4Screen(
+                        // Merged onboarding screens - shown only first time after installing
+                        composable("onboarding") {
+                            OnboardingScreen(
+                                navController = navController,
                                 onFinishOnboarding = {
                                     // Mark that user has seen onboarding
                                     sharedPreferences.edit()
                                         .putBoolean(PREF_HAS_SEEN_ONBOARDING, true)
                                         .apply()
                                     navController.navigate("welcome") {
-                                        popUpTo("splash") { inclusive = true }
+                                        popUpTo("onboarding") { inclusive = true }
                                     }
                                 }
                             )
@@ -143,25 +146,23 @@ class MainActivity : ComponentActivity() {
                                     when {
                                         false -> "dashboard"
                                         hasSeenOnboarding -> "welcome"
-                                        else -> "onboard1"
+                                        else -> "onboarding"
                                     }
                                 }
                             )
                         }
 
-                        // Onboarding screens - shown only first time after installing
-                        composable("onboard1") { Onboard1Screen(navController) }
-                        composable("onboard2") { Onboard2Screen(navController) }
-                        composable("onboard3") { Onboard3Screen(navController) }
-                        composable("onboard4") {
-                            Onboard4Screen(
+                        // Merged onboarding screens - shown only first time after installing
+                        composable("onboarding") {
+                            OnboardingScreen(
+                                navController = navController,
                                 onFinishOnboarding = {
                                     // Mark that user has seen onboarding
                                     sharedPreferences.edit()
                                         .putBoolean(PREF_HAS_SEEN_ONBOARDING, true)
                                         .apply()
                                     navController.navigate("welcome") {
-                                        popUpTo("splash") { inclusive = true }
+                                        popUpTo("onboarding") { inclusive = true }
                                     }
                                 }
                             )
@@ -205,6 +206,23 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Check auto-logout when app is resumed
+        val sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val rememberMe = sharedPreferences.getBoolean(PREF_REMEMBER_ME, false)
+
+        if (!rememberMe && FirebaseAuth.getInstance().currentUser != null) {
+            // Auto logout if Remember Me is not checked
+            FirebaseAuth.getInstance().signOut()
+            // Restart the app to go back to splash screen
+            val intent = Intent(this, MainActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+            finish()
         }
     }
 }

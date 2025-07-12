@@ -74,6 +74,9 @@ dependencies {
     implementation("androidx.compose.runtime:runtime-livedata:1.5.4") // Add this line
     implementation("androidx.compose.material:material-icons-extended")
 
+    // Lottie Animation for Compose
+    implementation("com.airbnb.android:lottie-compose:6.1.0")
+
     // Coil for image loading in Compose
     implementation("io.coil-kt:coil-compose:2.4.0")
 
