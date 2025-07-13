@@ -21,13 +21,12 @@ object GroqApiManager {
 
     // Groq API Configuration
     private const val GROQ_BASE_URL = "https://api.groq.com/openai/v1/chat/completions"
-    private const val GROQ_API_KEY = "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" // Replace with your actual API key
-
+    private val GROQ_API_KEY = com.example.jawafai.BuildConfig.GROQ_API_KEY
     // Model Configuration
-    private const val DEFAULT_MODEL = "mixtral-8x7b-32768"
-    private const val MAX_TOKENS = 1000
+    private const val DEFAULT_MODEL = "llama-3.1-70b-versatile" // Updated to latest model
+    private const val MAX_TOKENS = 2048 // Increased for better responses
     private const val TEMPERATURE = 0.7f
-    private const val MAX_CONVERSATION_HISTORY = 10
+    private const val MAX_CONVERSATION_HISTORY = 10 // Keep last 10 messages for context
 
     // HTTP Client Configuration
     private val httpClient = OkHttpClient.Builder()
@@ -118,7 +117,19 @@ object GroqApiManager {
         userPersona: Map<String, Any>? = null
     ): GroqResponse = withContext(Dispatchers.IO) {
         try {
+            // Debug: Check if API key is available
+            if (GROQ_API_KEY.isBlank() || GROQ_API_KEY == "null") {
+                Log.e(TAG, "❌ Groq API key is not configured properly")
+                return@withContext GroqResponse(
+                    success = false,
+                    message = null,
+                    error = "API key not configured"
+                )
+            }
+
             Log.d(TAG, "🤖 Sending request to Groq API...")
+            Log.d(TAG, "🔑 API Key length: ${GROQ_API_KEY.length}")
+            Log.d(TAG, "📝 User message: $userMessage")
 
             val messages = JSONArray()
 
@@ -156,6 +167,8 @@ object GroqApiManager {
                 put("presence_penalty", 0.0)
             }
 
+            Log.d(TAG, "📤 Request body prepared, making API call...")
+
             val request = Request.Builder()
                 .url(GROQ_BASE_URL)
                 .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
@@ -166,35 +179,49 @@ object GroqApiManager {
             val response = httpClient.newCall(request).execute()
             val responseBody = response.body?.string()
 
+            Log.d(TAG, "📥 Response code: ${response.code}")
+            Log.d(TAG, "📥 Response body length: ${responseBody?.length ?: 0}")
+
             if (response.isSuccessful && responseBody != null) {
-                val jsonResponse = JSONObject(responseBody)
-                val choices = jsonResponse.getJSONArray("choices")
+                try {
+                    val jsonResponse = JSONObject(responseBody)
+                    val choices = jsonResponse.getJSONArray("choices")
 
-                if (choices.length() > 0) {
-                    val firstChoice = choices.getJSONObject(0)
-                    val messageContent = firstChoice.getJSONObject("message")
-                    val botResponse = messageContent.getString("content")
+                    if (choices.length() > 0) {
+                        val firstChoice = choices.getJSONObject(0)
+                        val messageContent = firstChoice.getJSONObject("message")
+                        val botResponse = messageContent.getString("content")
 
-                    Log.d(TAG, "✅ Received response from Groq API")
-                    return@withContext GroqResponse(
-                        success = true,
-                        message = botResponse.trim(),
-                        error = null
-                    )
-                } else {
-                    Log.e(TAG, "❌ No choices in Groq API response")
+                        Log.d(TAG, "✅ Received response from Groq API: ${botResponse.take(100)}...")
+                        return@withContext GroqResponse(
+                            success = true,
+                            message = botResponse.trim(),
+                            error = null
+                        )
+                    } else {
+                        Log.e(TAG, "❌ No choices in Groq API response")
+                        return@withContext GroqResponse(
+                            success = false,
+                            message = null,
+                            error = "No response generated"
+                        )
+                    }
+                } catch (jsonException: Exception) {
+                    Log.e(TAG, "❌ JSON parsing error: ${jsonException.message}")
+                    Log.e(TAG, "📥 Raw response: $responseBody")
                     return@withContext GroqResponse(
                         success = false,
                         message = null,
-                        error = "No response generated"
+                        error = "Response parsing failed: ${jsonException.message}"
                     )
                 }
             } else {
-                Log.e(TAG, "❌ Groq API error: ${response.code} - $responseBody")
+                Log.e(TAG, "❌ Groq API error: ${response.code}")
+                Log.e(TAG, "❌ Error response: $responseBody")
                 return@withContext GroqResponse(
                     success = false,
                     message = null,
-                    error = "API request failed: ${response.code}"
+                    error = "API request failed: ${response.code} - $responseBody"
                 )
             }
 

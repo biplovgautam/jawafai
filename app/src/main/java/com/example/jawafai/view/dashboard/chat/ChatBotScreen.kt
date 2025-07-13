@@ -1,5 +1,6 @@
 package com.example.jawafai.view.dashboard.chat
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -110,10 +111,14 @@ fun ChatBotScreen(
                         timestamp = System.currentTimeMillis()
                     )
                 } else {
+                    // Show detailed error for debugging
+                    val errorMsg = response.error ?: "Unknown error occurred"
+                    Log.e("ChatBotScreen", "API Error: $errorMsg")
+
                     ChatBotMessageModel(
                         id = java.util.UUID.randomUUID().toString(),
                         conversationId = "current_conversation",
-                        message = "I'm having trouble connecting right now. Could you try again? I'm here to help! 😊",
+                        message = "Debug: API Error - $errorMsg. Please check logs for details.",
                         isFromUser = false,
                         timestamp = System.currentTimeMillis()
                     )
@@ -122,10 +127,11 @@ fun ChatBotScreen(
                 messages = messages + aiMessage
                 isTyping = false
             } catch (e: Exception) {
+                Log.e("ChatBotScreen", "Exception in sendMessage: ${e.message}", e)
                 val errorMessage = ChatBotMessageModel(
                     id = java.util.UUID.randomUUID().toString(),
                     conversationId = "current_conversation",
-                    message = "I apologize, but I'm experiencing some technical difficulties. Please try again in a moment. 💙",
+                    message = "Debug: Exception - ${e.message}. Please check logs for details.",
                     isFromUser = false,
                     timestamp = System.currentTimeMillis()
                 )
