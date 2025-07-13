@@ -31,23 +31,25 @@ fun OnboardingScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFA5C9CA)) // Background color #A5C9CA for all screens
+            .background(Color.White) // Changed to white background
     ) {
-        // Skip Button
-        TextButton(
-            onClick = { onFinishOnboarding() },
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(24.dp)
-        ) {
-            Text(
-                text = "Skip",
-                fontSize = 20.sp,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = AppFonts.KaiseiDecolFontFamily,
-                    color = Color(0xFF395B64)
+        // Skip Button - Only show on first 3 screens (pages 0, 1, 2)
+        if (pagerState.currentPage < 3) {
+            TextButton(
+                onClick = { onFinishOnboarding() },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(24.dp)
+            ) {
+                Text(
+                    text = "Skip",
+                    fontSize = 20.sp,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                        color = Color(0xFF395B64)
+                    )
                 )
-            )
+            }
         }
 
         // Pager Content

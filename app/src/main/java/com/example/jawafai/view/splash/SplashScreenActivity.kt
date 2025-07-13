@@ -14,10 +14,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavController
 import com.example.jawafai.R
 import com.example.jawafai.ui.theme.AppFonts
-import com.example.jawafai.utils.NetworkManager
 import com.example.jawafai.utils.rememberNetworkConnectivity
 import kotlinx.coroutines.delay
 import com.airbnb.lottie.compose.*
@@ -89,7 +87,7 @@ fun SplashScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFA5C9CA)), // Updated background color to #A5C9CA
+            .background(Color.White), // Changed to white background
         contentAlignment = Alignment.Center
     ) {
         Column(
