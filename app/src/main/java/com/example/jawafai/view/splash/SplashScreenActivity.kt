@@ -121,7 +121,7 @@ fun SplashScreen(
 
             // Tagline - Using Karla Bold font as per Figma specifications
             Text(
-                text = "Your AI Assistant",
+                text = "Your AI Wingman for Every Reply.",
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontFamily = AppFonts.KarlaFontFamily,
                     fontWeight = FontWeight.Bold,

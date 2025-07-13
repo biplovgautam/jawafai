@@ -31,6 +31,7 @@ fun WelcomeScreen(navController: NavController) {
             .fillMaxSize()
             .background(Color.White) // Plain white background
     ) {
+        // Main content - centered
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -45,55 +46,63 @@ fun WelcomeScreen(navController: NavController) {
                 modifier = Modifier.size(200.dp)
             )
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Title: "जवाफ.AI" - Using KaiseiDecol Bold for consistent font loading
+            // Title: "जवाफ.AI" - Using Kadwa Bold to match splash screen
             Text(
                 text = "जवाफ.AI",
                 style = MaterialTheme.typography.headlineLarge.copy(
-                    fontFamily = AppFonts.KaiseiDecolFontFamily,
+                    fontFamily = AppFonts.KadwaFontFamily,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 42.sp,
+                    fontSize = 36.sp,
                     color = Color(0xFF395B64)
                 ),
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Subtitle: "Your AI Wingman for Every Reply." - Using KaiseiDecol for consistency
+            // Subtitle: "Your AI Wingman for Every Reply." - Using Karla Bold to match splash screen
             Text(
                 text = "Your AI Wingman for Every Reply.",
                 style = MaterialTheme.typography.bodyLarge.copy(
-                    fontFamily = AppFonts.KaiseiDecolFontFamily,
-                    fontWeight = FontWeight.Normal,
+                    fontFamily = AppFonts.KarlaFontFamily,
+                    fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     color = Color(0xFF395B64)
                 ),
                 textAlign = TextAlign.Center
             )
+        }
 
-            Spacer(modifier = Modifier.height(48.dp))
-
-            // Sign In Button
+        // Bottom buttons - positioned at the bottom with padding
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 40.dp), // Increased padding from 10dp to 40dp
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Sign In Button - Wider with circular edges, using Karla Bold
             Button(
                 onClick = {
                     navController.navigate("login") {
                         popUpTo("welcome") { inclusive = true }
                     }
                 },
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFA5C9CA)),
+                shape = RoundedCornerShape(25.dp), // More circular edges
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF395B64)),
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .width(200.dp) // Wider but not max width
                     .height(50.dp)
             ) {
                 Text(
                     text = "Sign In",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = AppFonts.KaiseiDecolFontFamily,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 18.sp,
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        lineHeight = 24.sp, // 100% line height
+                        letterSpacing = 0.sp,
                         color = Color.White
                     )
                 )
@@ -101,7 +110,7 @@ fun WelcomeScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Create an account button (text-only)
+            // Create an account button (text-only) - Using Karla Bold
             TextButton(
                 onClick = {
                     navController.navigate("registration") {
@@ -112,9 +121,11 @@ fun WelcomeScreen(navController: NavController) {
                 Text(
                     text = "Create an account",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = AppFonts.KaiseiDecolFontFamily,
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 16.sp,
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        lineHeight = 20.sp, // 100% line height
+                        letterSpacing = 0.sp,
                         color = Color(0xFF395B64)
                     )
                 )
