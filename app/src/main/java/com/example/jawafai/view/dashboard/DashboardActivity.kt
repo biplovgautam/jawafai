@@ -41,6 +41,9 @@ import com.example.jawafai.ui.theme.JawafaiTheme
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.view.WindowCompat
 import com.example.jawafai.view.auth.LoginActivity
+import com.example.jawafai.view.dashboard.chat.ChatBotConversationScreen
+import com.example.jawafai.view.dashboard.chat.ChatBotScreen
+import com.example.jawafai.view.dashboard.chat.ChatBotHistoryScreen
 import com.example.jawafai.view.dashboard.chat.ChatDetailScreen
 import com.example.jawafai.view.dashboard.chat.ChatScreen
 import com.example.jawafai.view.dashboard.home.HomeScreen
@@ -248,10 +251,41 @@ fun DashboardScreen(onLogout: () -> Unit) {
             composable(BottomNavItem.Home.route) {
                 HomeScreen(
                     onProfileClick = { navController.navigate(BottomNavItem.Profile.route) },
-                    onChatBotClick = { navController.navigate(BottomNavItem.Chat.route) },
+                    onChatBotClick = { navController.navigate("chatbot") },
                     onCompletePersonaClick = { navController.navigate("settings/persona") },
                     onRecentChatClick = { chatId -> navController.navigate("chat_detail/$chatId/") },
                     onNotificationClick = { navController.navigate(BottomNavItem.Notifications.route) }
+                )
+            }
+            // Add ChatBot Screen route (no bottom bar)
+            composable("chatbot") {
+                ChatBotScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToHistory = { navController.navigate("chatbot_history") }
+                )
+            }
+            // Add ChatBot History Screen route (no bottom bar)
+            composable("chatbot_history") {
+                ChatBotHistoryScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onConversationClick = { conversationId ->
+                        navController.navigate("chatbot_conversation/$conversationId")
+                    },
+                    onNewChatClick = { navController.navigate("chatbot") }
+                )
+            }
+            // Add specific conversation route
+            composable(
+                route = "chatbot_conversation/{conversationId}",
+                arguments = listOf(
+                    navArgument("conversationId") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
+                ChatBotConversationScreen(
+                    conversationId = conversationId,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToHistory = { navController.navigate("chatbot_history") }
                 )
             }
             composable(BottomNavItem.Notifications.route) {
