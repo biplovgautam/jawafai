@@ -1,42 +1,57 @@
 package com.example.jawafai.view.auth
 
- import android.content.Context
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
- import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.jawafai.JawafaiApplication
 import com.example.jawafai.R
 import com.example.jawafai.repository.UserRepositoryImpl
 import com.example.jawafai.ui.theme.JawafaiTheme
- import com.example.jawafai.view.dashboard.DashboardActivity
- import com.example.jawafai.viewmodel.UserViewModel
+import com.example.jawafai.ui.theme.AppFonts
+import com.example.jawafai.view.dashboard.DashboardActivity
+import com.example.jawafai.viewmodel.UserViewModel
 import com.example.jawafai.viewmodel.UserViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.airbnb.lottie.compose.*
+import kotlinx.coroutines.delay
 
 // Define the font family directly in this file
 val KaiseiFontFamily = FontFamily(
@@ -53,6 +68,9 @@ class LoginActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Check for auto-logout when app starts
+        (application as JawafaiApplication).checkAutoLogout()
 
         // Initialize Firebase components
         val auth = FirebaseAuth.getInstance()
@@ -71,27 +89,14 @@ class LoginActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        // Enhanced auto-logout logic
-        val sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val rememberMe = sharedPreferences.getBoolean(PREF_REMEMBER_ME, false)
-
-        if (!rememberMe && FirebaseAuth.getInstance().currentUser != null) {
-            // Auto logout if Remember Me is not checked
-            FirebaseAuth.getInstance().signOut()
-            // Clear any other user session data if needed
-            sharedPreferences.edit().clear().apply()
-        }
+        // The Application class will handle the auto-logout logic
+        // No need for manual logout here as it's handled globally
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        // Additional cleanup when activity is destroyed
-        val sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val rememberMe = sharedPreferences.getBoolean(PREF_REMEMBER_ME, false)
-
-        if (!rememberMe && FirebaseAuth.getInstance().currentUser != null) {
-            FirebaseAuth.getInstance().signOut()
-        }
+        // Application class handles the session management
+        // Individual activity destruction doesn't trigger logout
     }
 }
 
@@ -108,8 +113,31 @@ fun LoginScreen(viewModel: UserViewModel) {
     var resetEmail by remember { mutableStateOf("") }
     var rememberMe by remember { mutableStateOf(false) }
 
-    // Observe ViewModel state
+    // Focus requesters for keyboard navigation
+    val passwordFocusRequester = remember { FocusRequester() }
+
+    // Lottie animation composition
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.live_chatbot))
+    val progress by animateLottieCompositionAsState(
+        composition,
+        iterations = LottieConstants.IterateForever
+    )
+
+    // Observe ViewModel states
     val userOperationState = viewModel.userState.observeAsState(initial = UserViewModel.UserOperationResult.Initial)
+    val emailValidationState = viewModel.emailValidationState.observeAsState(initial = UserViewModel.EmailValidationState.Initial)
+
+    // Email validation with debounce
+    LaunchedEffect(email) {
+        if (email.isNotBlank()) {
+            delay(750) // 0.75 second delay
+            if (email.isNotBlank()) { // Check again after delay
+                viewModel.validateEmail(email)
+            }
+        } else {
+            viewModel.resetEmailValidation()
+        }
+    }
 
     // Handle state changes
     LaunchedEffect(userOperationState.value) {
@@ -123,6 +151,11 @@ fun LoginScreen(viewModel: UserViewModel) {
             is UserViewModel.UserOperationResult.Success -> {
                 isLoading = false
                 Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
+
+                // Save remember me preference using Application class
+                if (context is ComponentActivity) {
+                    (context.application as JawafaiApplication).saveRememberMePreference(rememberMe)
+                }
 
                 // Navigate to Dashboard/Profile/Main screen
                 val intent = Intent(context, DashboardActivity::class.java)
@@ -143,119 +176,220 @@ fun LoginScreen(viewModel: UserViewModel) {
         }
     }
 
-    // UI elements
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Background image
-        Image(
-            painter = painterResource(id = R.drawable.background1),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
-
-        // Loading indicator
-        if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center),
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-
-        // Login form
+    Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding(), // Add IME padding for keyboard handling
+        containerColor = Color.White
+    ) { paddingValues ->
+        val unused = paddingValues
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .background(Color.White)
+                .padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                // App Logo
-                Image(
-                    painter = painterResource(id = R.drawable.profile),
-                    contentDescription = "App Logo",
-                    modifier = Modifier.size(100.dp)
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+
+            // Lottie Animation
+            item {
+                LottieAnimation(
+                    composition = composition,
+                    progress = { progress },
+                    modifier = Modifier.size(180.dp)
                 )
             }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-
+            // App Title - Using Kadwa font (only exception)
             item {
-                // Login Title
                 Text(
-                    "Login",
-                    fontSize = 32.sp,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontFamily = KaiseiFontFamily
+                    text = "जवाफ.AI",
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        fontFamily = AppFonts.KadwaFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 36.sp,
+                        color = Color(0xFF395B64)
+                    ),
+                    textAlign = TextAlign.Center
                 )
             }
 
-            item { Spacer(modifier = Modifier.height(32.dp)) }
-
+            // Subtitle - Using Karla font
             item {
-                // Email field
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("Email", fontFamily = KaiseiFontFamily) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                Text(
+                    text = "signin to continue using ai powered जवाफ",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontSize = 16.sp,
+                        color = Color(0xFF666666)
+                    ),
+                    textAlign = TextAlign.Center
                 )
             }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-
             item {
-                // Password field with visibility toggle
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Password", fontFamily = KaiseiFontFamily) },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    trailingIcon = {
-                        val icon = if (passwordVisible)
-                            painterResource(id = R.drawable.baseline_visibility_off_24)
-                        else
-                            painterResource(id = R.drawable.baseline_visibility_24)
-
-                        Icon(
-                            painter = icon,
-                            contentDescription = "Toggle password visibility",
-                            modifier = Modifier.clickable {
-                                passwordVisible = !passwordVisible
-                            }
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
+                Spacer(modifier = Modifier.height(24.dp))
             }
 
-            item { Spacer(modifier = Modifier.height(8.dp)) }
-
+            // Email TextField - Fixed height and validation indicator
             item {
-                // Forgot Password link
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                Box(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        "Forgot Password?",
-                        color = Color.Blue,
-                        fontFamily = KaiseiFontFamily,
-                        modifier = Modifier.clickable {
-                            showResetDialog = true
-                        }
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = {
+                            Text(
+                                "Enter your email",
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                color = Color(0xFF666666)
+                            )
+                        },
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            color = Color.Black,
+                            fontSize = 16.sp
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = {
+                                passwordFocusRequester.requestFocus()
+                            }
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp), // Increased height for proper text visibility
+                        shape = RoundedCornerShape(28.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF395B64),
+                            unfocusedBorderColor = Color(0xFFE0E0E0),
+                            focusedLabelColor = Color(0xFF395B64),
+                            unfocusedLabelColor = Color(0xFF666666),
+                            cursorColor = Color(0xFF395B64),
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black
+                        ),
+                        singleLine = true
                     )
+
+                    // Email validation indicator
+                    if (email.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(end = 16.dp)
+                                .size(24.dp)
+                                .background(
+                                    Color(0xFFA5C9CA),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            when (emailValidationState.value) {
+                                is UserViewModel.EmailValidationState.Checking -> {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                is UserViewModel.EmailValidationState.Valid -> {
+                                    // Use a proper tick/check mark icon
+                                    Text(
+                                        text = "✓",
+                                        fontFamily = AppFonts.KarlaFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = Color.White
+                                    )
+                                }
+                                is UserViewModel.EmailValidationState.Invalid -> {
+                                    Icon(
+                                        painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
+                                        contentDescription = "Email doesn't exist",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                else -> {
+                                    // Show nothing for initial state
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-
+            // Password TextField - Fixed height
             item {
-                // Remember Me checkbox
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = {
+                        Text(
+                            "Enter your password",
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            color = Color(0xFF666666)
+                        )
+                    },
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        color = Color.Black,
+                        fontSize = 16.sp
+                    ),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            // Trigger login when Done is pressed
+                            if (email.isNotBlank() && password.isNotBlank()) {
+                                viewModel.login(email, password)
+                            }
+                        }
+                    ),
+                    trailingIcon = {
+                        val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                        val description = if (passwordVisible) "Hide password" else "Show password"
+
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = image,
+                                contentDescription = description,
+                                tint = Color(0xFF395B64)
+                            )
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp) // Increased height for proper text visibility
+                        .focusRequester(passwordFocusRequester),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF395B64),
+                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                        focusedLabelColor = Color(0xFF395B64),
+                        unfocusedLabelColor = Color(0xFF666666),
+                        cursorColor = Color(0xFF395B64),
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black
+                    ),
+                    singleLine = true
+                )
+            }
+
+            // Remember Me Checkbox
+            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -264,118 +398,158 @@ fun LoginScreen(viewModel: UserViewModel) {
                         checked = rememberMe,
                         onCheckedChange = { rememberMe = it },
                         colors = CheckboxDefaults.colors(
-                            checkedColor = MaterialTheme.colorScheme.primary,
-                            uncheckedColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                            checkedColor = Color(0xFF395B64),
+                            uncheckedColor = Color(0xFF666666)
                         )
                     )
                     Text(
-                        "Remember Me",
-                        fontFamily = KaiseiFontFamily,
-                        modifier = Modifier.clickable {
-                            rememberMe = !rememberMe
-                        }
+                        text = "Remember Me",
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontSize = 14.sp,
+                        color = Color(0xFF666666)
                     )
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-
+            // Sign In Button - Round cornered
             item {
-                // Login Button
                 Button(
                     onClick = {
-                        // Validate fields
-                        when {
-                            email.isBlank() -> Toast.makeText(context, "Email is required", Toast.LENGTH_SHORT).show()
-                            !email.contains('@') -> Toast.makeText(context, "Enter a valid email address", Toast.LENGTH_SHORT).show()
-                            password.isBlank() -> Toast.makeText(context, "Password is required", Toast.LENGTH_SHORT).show()
-                            else -> {
-                                // Trigger login in ViewModel
-                                viewModel.login(email, password)
-
-                                // Save or clear Remember Me preference
-                                val sharedPreferences = context.getSharedPreferences(LoginActivity.PREFS_NAME, Context.MODE_PRIVATE)
-                                with(sharedPreferences.edit()) {
-                                    putBoolean(LoginActivity.PREF_REMEMBER_ME, rememberMe)
-                                    apply()
-                                }
-                            }
+                        if (email.isNotBlank() && password.isNotBlank()) {
+                            viewModel.login(email, password)
+                        } else {
+                            Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
                         }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        .height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF395B64)
+                    ),
+                    enabled = !isLoading
                 ) {
-                    Text("Login", color = MaterialTheme.colorScheme.onPrimary, fontSize = 18.sp, fontFamily = KaiseiFontFamily)
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    } else {
+                        Text(
+                            text = "Sign In",
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = Color.White
+                        )
+                    }
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-
             item {
-                // Register link
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Create Account Text
+            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        "Don't have an account? ",
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                        fontFamily = KaiseiFontFamily
+                        text = "Don't have an account? ",
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontSize = 14.sp,
+                        color = Color(0xFFA5C9CA)
                     )
                     Text(
-                        "Register",
-                        color = MaterialTheme.colorScheme.tertiary,
-                        fontFamily = KaiseiFontFamily,
+                        text = "Create an account",
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = Color(0xFF395B64),
                         modifier = Modifier.clickable {
-                            // Navigate to registration
-                            val intent = Intent(context, RegistrationActivity::class.java)
-                            context.startActivity(intent)
+                            // Navigate to sign up screen
+                            Toast.makeText(context, "Navigate to Sign Up", Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
             }
-        }
 
-        // Password Reset Dialog
-        if (showResetDialog) {
-            AlertDialog(
-                onDismissRequest = { showResetDialog = false },
-                title = { Text("Reset Password", fontFamily = KaiseiFontFamily) },
-                text = {
-                    Column {
-                        Text("Enter your email to receive a password reset link.", fontFamily = KaiseiFontFamily)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = resetEmail,
-                            onValueChange = { resetEmail = it },
-                            label = { Text("Email", fontFamily = KaiseiFontFamily) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+            // Add some bottom padding for keyboard handling
+            item {
+                Spacer(modifier = Modifier.height(40.dp))
+            }
+        }
+    }
+
+    // Password Reset Dialog
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = {
+                Text(
+                    "Reset Password",
+                    fontFamily = AppFonts.KarlaFontFamily,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        "Enter your email address to receive a password reset link.",
+                        fontFamily = AppFonts.KarlaFontFamily
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = resetEmail,
+                        onValueChange = { resetEmail = it },
+                        label = {
+                            Text(
+                                "Email",
+                                fontFamily = AppFonts.KarlaFontFamily
+                            )
+                        },
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            color = Color.Black
+                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black
                         )
-                    }
-                },
-                confirmButton = {
-                    Button(onClick = {
-                        if (resetEmail.isBlank() || !resetEmail.contains("@")) {
-                            Toast.makeText(context, "Enter a valid email", Toast.LENGTH_SHORT).show()
-                        } else {
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (resetEmail.isNotBlank()) {
                             viewModel.resetPassword(resetEmail)
                         }
-                    }) {
-                        Text("Send Reset Link", fontFamily = KaiseiFontFamily)
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showResetDialog = false }) {
-                        Text("Cancel", fontFamily = KaiseiFontFamily)
-                    }
+                ) {
+                    Text(
+                        "Send Reset Link",
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        color = Color(0xFF395B64)
+                    )
                 }
-            )
-        }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) {
+                    Text(
+                        "Cancel",
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        color = Color(0xFF666666)
+                    )
+                }
+            }
+        )
     }
 }
 

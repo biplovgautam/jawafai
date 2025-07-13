@@ -74,6 +74,10 @@ dependencies {
     implementation("androidx.compose.runtime:runtime-livedata:1.5.4") // Add this line
     implementation("androidx.compose.material:material-icons-extended")
 
+    // Lifecycle components for ProcessLifecycleOwner
+    implementation("androidx.lifecycle:lifecycle-process:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-common:2.7.0")
+
     // Lottie Animation for Compose
     implementation("com.airbnb.android:lottie-compose:6.1.0")
 

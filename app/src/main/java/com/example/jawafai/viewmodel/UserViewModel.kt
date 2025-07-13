@@ -28,12 +28,23 @@ class UserViewModel(
     private val _userProfile = MutableLiveData<UserModel?>()
     val userProfile: LiveData<UserModel?> = _userProfile
 
+    // Add email validation state
+    private val _emailValidationState = MutableLiveData<EmailValidationState>()
+    val emailValidationState: LiveData<EmailValidationState> = _emailValidationState
+
     sealed class UserOperationResult {
         object Initial : UserOperationResult()
         object Loading : UserOperationResult()
         data class Success(val message: String = "") : UserOperationResult()
         data class Error(val message: String) : UserOperationResult()
         object PasswordResetSent : UserOperationResult() // Added for password reset
+    }
+
+    sealed class EmailValidationState {
+        object Initial : EmailValidationState()
+        object Checking : EmailValidationState()
+        object Valid : EmailValidationState()
+        object Invalid : EmailValidationState()
     }
 
     // Added login function for Firebase authentication
@@ -346,5 +357,27 @@ class UserViewModel(
                 _userState.value = UserOperationResult.Error(e.message ?: "Failed to send reset email.")
             }
         }
+    }
+
+    // Add email validation function
+    fun validateEmail(email: String) {
+        viewModelScope.launch {
+            if (email.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                _emailValidationState.value = EmailValidationState.Invalid
+                return@launch
+            }
+
+            _emailValidationState.value = EmailValidationState.Checking
+            try {
+                val exists = repository.isEmailExists(email)
+                _emailValidationState.value = if (exists) EmailValidationState.Valid else EmailValidationState.Invalid
+            } catch (e: Exception) {
+                _emailValidationState.value = EmailValidationState.Invalid
+            }
+        }
+    }
+
+    fun resetEmailValidation() {
+        _emailValidationState.value = EmailValidationState.Initial
     }
 }
