@@ -13,10 +13,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -42,6 +44,7 @@ import com.example.jawafai.view.auth.LoginActivity
 import com.example.jawafai.view.dashboard.chat.ChatDetailScreen
 import com.example.jawafai.view.dashboard.chat.ChatScreen
 import com.example.jawafai.view.dashboard.home.HomeScreen
+import com.example.jawafai.view.dashboard.notifications.NotificationScreen
 import com.example.jawafai.view.dashboard.settings.PersonaScreen
 import com.example.jawafai.view.dashboard.settings.ProfileScreen
 import com.example.jawafai.view.dashboard.settings.SettingsScreen
@@ -106,11 +109,18 @@ sealed class BottomNavItem(
         contentDescription = "Home"
     )
 
-    object Search : BottomNavItem(
-        route = "search",
+    object Chat : BottomNavItem(
+        route = "chat",
         selectedIcon = Icons.Filled.Chat,
         unselectedIcon = Icons.Outlined.Chat,
         contentDescription = "Chat"
+    )
+
+    object Notifications : BottomNavItem(
+        route = "notifications",
+        selectedIcon = Icons.Filled.Notifications,
+        unselectedIcon = Icons.Outlined.Notifications,
+        contentDescription = "Notifications"
     )
 
     object Settings : BottomNavItem(
@@ -135,7 +145,8 @@ fun DashboardScreen(onLogout: () -> Unit) {
     val navController = rememberNavController()
     val items = listOf(
         BottomNavItem.Home,
-        BottomNavItem.Search,
+        BottomNavItem.Chat,
+        BottomNavItem.Notifications,
         BottomNavItem.Settings
     )
 
@@ -210,7 +221,7 @@ fun DashboardScreen(onLogout: () -> Unit) {
                     onLogout = onLogout
                 )
             }
-            composable(BottomNavItem.Search.route) {
+            composable(BottomNavItem.Chat.route) {
                 ChatScreen(
                     onNavigateToChat = { chatId, otherUserId ->
                         navController.navigate("chat_detail/$chatId/$otherUserId")
@@ -235,7 +246,16 @@ fun DashboardScreen(onLogout: () -> Unit) {
                 )
             }
             composable(BottomNavItem.Home.route) {
-                HomeScreen()
+                HomeScreen(
+                    onProfileClick = { navController.navigate(BottomNavItem.Profile.route) },
+                    onChatBotClick = { navController.navigate(BottomNavItem.Chat.route) },
+                    onCompletePersonaClick = { navController.navigate("settings/persona") },
+                    onRecentChatClick = { chatId -> navController.navigate("chat_detail/$chatId/") },
+                    onNotificationClick = { navController.navigate(BottomNavItem.Notifications.route) }
+                )
+            }
+            composable(BottomNavItem.Notifications.route) {
+                NotificationScreen()
             }
             composable(BottomNavItem.Settings.route) {
                 SettingsScreen(
