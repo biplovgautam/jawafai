@@ -23,7 +23,7 @@ object GroqApiManager {
     private const val GROQ_BASE_URL = "https://api.groq.com/openai/v1/chat/completions"
     private val GROQ_API_KEY = com.example.jawafai.BuildConfig.GROQ_API_KEY
     // Model Configuration
-    private const val DEFAULT_MODEL = "llama-3.1-70b-versatile" // Updated to latest model
+    private const val DEFAULT_MODEL = "mistral-saba-24b" // Updated to latest model
     private const val MAX_TOKENS = 2048 // Increased for better responses
     private const val TEMPERATURE = 0.7f
     private const val MAX_CONVERSATION_HISTORY = 10 // Keep last 10 messages for context
