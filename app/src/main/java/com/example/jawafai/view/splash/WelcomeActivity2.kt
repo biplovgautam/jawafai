@@ -1,7 +1,6 @@
 package com.example.jawafai.view.splash
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -9,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,12 +47,13 @@ fun WelcomeScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Title: "जवाफ.AI"
+            // Title: "जवाफ.AI" - Using KaiseiDecol Bold for consistent font loading
             Text(
                 text = "जवाफ.AI",
-                fontSize = 42.sp,
                 style = MaterialTheme.typography.headlineLarge.copy(
                     fontFamily = AppFonts.KaiseiDecolFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 42.sp,
                     color = Color(0xFF395B64)
                 ),
                 textAlign = TextAlign.Center
@@ -60,12 +61,13 @@ fun WelcomeScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Subtitle: "Your AI Wingman for Every Reply."
+            // Subtitle: "Your AI Wingman for Every Reply." - Using KaiseiDecol for consistency
             Text(
                 text = "Your AI Wingman for Every Reply.",
-                fontSize = 18.sp,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontFamily = AppFonts.KaiseiDecolFontFamily,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 18.sp,
                     color = Color(0xFF395B64)
                 ),
                 textAlign = TextAlign.Center
@@ -83,14 +85,16 @@ fun WelcomeScreen(navController: NavController) {
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFA5C9CA)),
                 modifier = Modifier
+                    .fillMaxWidth()
                     .height(50.dp)
             ) {
                 Text(
                     text = "Sign In",
-                    color = Color.White,
-                    fontSize = 18.sp,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = AppFonts.KaiseiDecolFontFamily
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 18.sp,
+                        color = Color.White
                     )
                 )
             }
@@ -107,15 +111,14 @@ fun WelcomeScreen(navController: NavController) {
             ) {
                 Text(
                     text = "Create an account",
-                    color = Color(0xFF395B64),
-                    fontSize = 16.sp,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = AppFonts.KaiseiDecolFontFamily
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 16.sp,
+                        color = Color(0xFF395B64)
                     )
                 )
             }
         }
     }
 }
-
-

@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -103,24 +104,30 @@ fun SplashScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // App Name
+            // App Name - Using Kadwa Bold font as per Figma specifications
             Text(
                 text = "जवाफ.AI",
                 style = MaterialTheme.typography.headlineLarge.copy(
-                    fontFamily = AppFonts.KaiseiDecolFontFamily,
-                    fontSize = 36.sp,
+                    fontFamily = AppFonts.KadwaFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 32.sp,
+                    lineHeight = 32.sp, // 100% line height
+                    letterSpacing = 0.sp,
                     color = Color(0xFF395B64)
                 )
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Tagline
+            // Tagline - Using Karla Bold font as per Figma specifications
             Text(
                 text = "Your AI Assistant",
                 style = MaterialTheme.typography.bodyLarge.copy(
-                    fontFamily = AppFonts.KaiseiDecolFontFamily,
-                    fontSize = 18.sp,
+                    fontFamily = AppFonts.KarlaFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    lineHeight = 15.sp, // 100% line height
+                    letterSpacing = 0.sp,
                     color = Color(0xFF395B64)
                 )
             )
