@@ -58,6 +58,7 @@ import com.example.jawafai.view.dashboard.notifications.NotificationScreen
 import com.example.jawafai.view.dashboard.settings.PersonaScreen
 import com.example.jawafai.view.dashboard.settings.ProfileScreen
 import com.example.jawafai.view.dashboard.settings.SettingsScreen
+import com.example.jawafai.utils.WithNetworkMonitoring
 
 class DashboardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,18 +70,21 @@ class DashboardActivity : ComponentActivity() {
 
         setContent {
             JawafaiTheme {
-                DashboardScreen(
-                    onLogout = {
-                        // Sign out from Firebase
-                        FirebaseAuth.getInstance().signOut()
+                // Wrap dashboard with network monitoring
+                WithNetworkMonitoring {
+                    DashboardScreen(
+                        onLogout = {
+                            // Sign out from Firebase
+                            FirebaseAuth.getInstance().signOut()
 
-                        // Navigate directly to login screen
-                        val intent = Intent(this@DashboardActivity, LoginActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        startActivity(intent)
-                        finish() // Close dashboard activity
-                    }
-                )
+                            // Navigate directly to login screen
+                            val intent = Intent(this@DashboardActivity, LoginActivity::class.java)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            startActivity(intent)
+                            finish() // Close dashboard activity
+                        }
+                    )
+                }
             }
         }
     }

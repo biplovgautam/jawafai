@@ -53,6 +53,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.airbnb.lottie.compose.*
 import kotlinx.coroutines.delay
+import com.example.jawafai.utils.WithNetworkMonitoring
 
 // Define the font family directly in this file
 val KaiseiFontFamily = FontFamily(
@@ -88,7 +89,10 @@ class LoginActivity : ComponentActivity() {
 
         setContent {
             JawafaiTheme {
-                LoginScreen(viewModel = viewModel)
+                // Wrap login screen with network monitoring
+                WithNetworkMonitoring {
+                    LoginScreen(viewModel = viewModel)
+                }
             }
         }
     }
@@ -189,6 +193,7 @@ fun LoginScreen(viewModel: UserViewModel) {
         containerColor = Color.White
     ) { paddingValues ->
         // Don't use paddingValues to allow full screen usage
+        val unused = paddingValues
         Box(
             modifier = Modifier
                 .fillMaxSize()
