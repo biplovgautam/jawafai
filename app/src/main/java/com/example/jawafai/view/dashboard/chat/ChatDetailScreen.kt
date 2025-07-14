@@ -2,6 +2,7 @@ package com.example.jawafai.view.dashboard.chat
 
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -158,17 +159,54 @@ fun ChatDetailScreen(
                                 )
                             )
 
-                            // Show typing indicator in the title area
-                            if (typingStatus?.isTyping == true) {
-                                Text(
-                                    text = "typing...",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                        fontSize = 12.sp,
-                                        color = Color(0xFF4CAF50),
-                                        fontStyle = FontStyle.Italic
-                                    )
+                            // Enhanced typing indicator with animation
+                            AnimatedVisibility(
+                                visible = typingStatus?.isTyping == true,
+                                enter = fadeIn(animationSpec = tween(200)) + slideInVertically(
+                                    initialOffsetY = { -it },
+                                    animationSpec = tween(200)
+                                ),
+                                exit = fadeOut(animationSpec = tween(200)) + slideOutVertically(
+                                    targetOffsetY = { -it },
+                                    animationSpec = tween(200)
                                 )
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    // Animated typing dots
+                                    repeat(3) { index ->
+                                        val infiniteTransition = rememberInfiniteTransition(label = "typing")
+                                        val alpha by infiniteTransition.animateFloat(
+                                            initialValue = 0.3f,
+                                            targetValue = 1f,
+                                            animationSpec = infiniteRepeatable(
+                                                animation = tween(600, delayMillis = index * 200),
+                                                repeatMode = RepeatMode.Reverse
+                                            ), label = "alpha"
+                                        )
+
+                                        Box(
+                                            modifier = Modifier
+                                                .size(4.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFF4CAF50).copy(alpha = alpha))
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(4.dp))
+
+                                    Text(
+                                        text = "typing...",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF4CAF50),
+                                            fontStyle = FontStyle.Italic
+                                        )
+                                    )
+                                }
                             }
                         }
                     }

@@ -83,6 +83,11 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.1.2")
     implementation("androidx.compose.foundation:foundation:1.5.4")
 
+    // Animation libraries for smooth transitions
+    implementation("androidx.compose.animation:animation:1.5.4")
+    implementation("androidx.compose.animation:animation-core:1.5.4")
+    implementation("androidx.compose.animation:animation-graphics:1.5.4")
+
     // Lifecycle components for ProcessLifecycleOwner
     implementation("androidx.lifecycle:lifecycle-process:2.7.0")
     implementation("androidx.lifecycle:lifecycle-common:2.7.0")
