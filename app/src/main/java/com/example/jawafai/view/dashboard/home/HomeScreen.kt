@@ -260,7 +260,7 @@ fun CompletePersonaSection(
     isPersonaCompleted: Boolean
 ) {
     // Lottie animation for onboard2
-    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.onboard3))
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.persona))
     val progress by animateLottieCompositionAsState(
         composition,
         iterations = LottieConstants.IterateForever
