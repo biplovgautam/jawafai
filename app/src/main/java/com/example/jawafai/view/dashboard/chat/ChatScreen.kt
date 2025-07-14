@@ -4,6 +4,10 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -84,6 +88,7 @@ fun ChatScreen(
     var selectedUser by remember { mutableStateOf<com.example.jawafai.repository.UserProfile?>(null) }
     var isRefreshing by remember { mutableStateOf(false) }
     var showInitialLoading by remember { mutableStateOf(true) }
+    var isSearchLoading by remember { mutableStateOf(false) }
 
     // Handle back press for search
     DisposableEffect(isSearchActive) {
@@ -123,12 +128,17 @@ fun ChatScreen(
         }
     }
 
-    // Search for users when query changes
+    // Debounced search for users when query changes
     LaunchedEffect(searchQuery) {
         if (searchQuery.isNotBlank()) {
+            isSearchLoading = true
+            delay(500) // Wait for user to finish typing
+            delay(100) // Show loading animation for 0.1s
             viewModel.findUserByEmailOrUsername(searchQuery)
+            isSearchLoading = false
         } else {
             viewModel.clearFoundUser()
+            isSearchLoading = false
         }
     }
 
@@ -137,7 +147,6 @@ fun ChatScreen(
         if (chatSummaries.isNotEmpty()) {
             showInitialLoading = false
         } else {
-            // Show loading for 1 second even if no chats
             delay(1000)
             showInitialLoading = false
         }
@@ -147,7 +156,7 @@ fun ChatScreen(
     fun handleRefresh() {
         isRefreshing = true
         coroutineScope.launch {
-            delay(1000) // Simulate refresh delay
+            delay(1000)
             viewModel.refreshChatSummaries()
             isRefreshing = false
         }
@@ -218,11 +227,33 @@ fun ChatScreen(
                 focusRequester = focusRequester
             )
 
+            // Search Loading Indicator
+            AnimatedVisibility(
+                visible = isSearchLoading && isSearchActive,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = Color(0xFF395B64),
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Loading indicator
+            // Loading indicator only for initial loading (removed duplicate animation)
             AnimatedVisibility(
-                visible = showInitialLoading || isRefreshing || (isSearchActive && isLoading)
+                visible = showInitialLoading,
+                enter = fadeIn(),
+                exit = fadeOut()
             ) {
                 Box(
                     modifier = Modifier
@@ -241,70 +272,81 @@ fun ChatScreen(
             // Chat List
             if (!showInitialLoading) {
                 if (searchResults.isEmpty() && searchQuery.isNotBlank()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn(),
+                        exit = fadeOut()
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "No results",
-                                modifier = Modifier.size(48.dp),
-                                tint = Color(0xFF666666).copy(alpha = 0.5f)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "No chats found",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                    fontSize = 16.sp,
-                                    color = Color(0xFF666666)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = "No results",
+                                    modifier = Modifier.size(48.dp),
+                                    tint = Color(0xFF666666).copy(alpha = 0.5f)
                                 )
-                            )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "No chats found",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                        fontSize = 16.sp,
+                                        color = Color(0xFF666666)
+                                    )
+                                )
+                            }
                         }
                     }
                 } else if (searchResults.isEmpty() && searchQuery.isBlank()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn(),
+                        exit = fadeOut()
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Chat,
-                                contentDescription = "No chats",
-                                modifier = Modifier.size(48.dp),
-                                tint = Color(0xFF666666).copy(alpha = 0.5f)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "No conversations yet",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                    fontSize = 16.sp,
-                                    color = Color(0xFF666666)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Chat,
+                                    contentDescription = "No chats",
+                                    modifier = Modifier.size(48.dp),
+                                    tint = Color(0xFF666666).copy(alpha = 0.5f)
                                 )
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Start a new chat to begin messaging",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                    fontSize = 14.sp,
-                                    color = Color(0xFF666666).copy(alpha = 0.7f)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "No conversations yet",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                        fontSize = 16.sp,
+                                        color = Color(0xFF666666)
+                                    )
                                 )
-                            )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Pull down to refresh or start a new chat",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF666666).copy(alpha = 0.7f)
+                                    )
+                                )
+                            }
                         }
                     }
                 } else {
-                    // Pull-to-refresh state
                     val pullToRefreshState = rememberSwipeRefreshState(isRefreshing)
 
                     SwipeRefresh(
@@ -318,22 +360,35 @@ fun ChatScreen(
                                 .background(Color.White),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            items(searchResults) { result ->
+                            items(searchResults, key = { result ->
                                 when (result) {
-                                    is SearchResult.ExistingChat -> {
-                                        ChatItemCard(
-                                            summary = result.summary,
-                                            onClick = { onNavigateToChat(result.summary.chatId, result.summary.otherUserId) }
-                                        )
-                                    }
-                                    is SearchResult.NewUser -> {
-                                        UserSearchResultCard(
-                                            user = result.user,
-                                            onClick = {
-                                                selectedUser = result.user
-                                                showQuickMessages = true
-                                            }
-                                        )
+                                    is SearchResult.ExistingChat -> result.summary.chatId
+                                    is SearchResult.NewUser -> result.user.userId
+                                }
+                            }) { result ->
+                                AnimatedVisibility(
+                                    visible = true,
+                                    enter = slideInHorizontally { it } + fadeIn(),
+                                    exit = slideOutHorizontally { -it } + fadeOut()
+                                ) {
+                                    when (result) {
+                                        is SearchResult.ExistingChat -> {
+                                            ChatItemCard(
+                                                summary = result.summary,
+                                                onClick = {
+                                                    onNavigateToChat(result.summary.chatId, result.summary.otherUserId)
+                                                }
+                                            )
+                                        }
+                                        is SearchResult.NewUser -> {
+                                            UserSearchResultCard(
+                                                user = result.user,
+                                                onClick = {
+                                                    selectedUser = result.user
+                                                    showQuickMessages = true
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -568,7 +623,7 @@ fun ChatItemCard(
                         fontFamily = AppFonts.KaiseiDecolFontFamily,
                         fontSize = 14.sp,
                         color = Color(0xFF666666),
-                        fontWeight = if (summary.unreadCount > 0) FontWeight.Bold else FontWeight.Normal
+                        fontWeight = FontWeight.Normal
                     ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
