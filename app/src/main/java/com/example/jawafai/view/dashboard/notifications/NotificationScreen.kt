@@ -1,30 +1,40 @@
 package com.example.jawafai.view.dashboard.notifications
 
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Reply
-import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.jawafai.R
 import com.example.jawafai.ui.theme.AppFonts
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -43,61 +53,127 @@ data class ChatNotification(
 enum class ChatPlatform(
     val displayName: String,
     val color: Color,
-    val iconRes: Int? = null // Make iconRes optional since we don't have the drawable files
+    val iconRes: Int? = null
 ) {
     WHATSAPP("WhatsApp", Color(0xFF25D366)),
     INSTAGRAM("Instagram", Color(0xFFE4405F)),
     MESSENGER("Messenger", Color(0xFF0084FF)),
     TELEGRAM("Telegram", Color(0xFF0088CC)),
-    DISCORD("Discord", Color(0xFF5865F2)),
-    SNAPCHAT("Snapchat", Color(0xFFFFFC00)),
-    OTHER("Other", Color(0xFF666666))
+    SMS("SMS", Color(0xFF34C759)),
+    GENERAL("General", Color(0xFF395B64))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotificationScreen() {
-    // Sample chat notifications - Replace with real data from your notification service
-    val chatNotifications = remember {
+fun NotificationScreen(
+    onNavigateBack: () -> Unit
+) {
+    val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusRequester = remember { FocusRequester() }
+
+    // State management
+    var searchQuery by remember { mutableStateOf("") }
+    var isSearchActive by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    var selectedFilter by remember { mutableStateOf<ChatPlatform?>(null) }
+
+    // Handle back press for search
+    DisposableEffect(isSearchActive) {
+        val callback = object : OnBackPressedCallback(isSearchActive) {
+            override fun handleOnBackPressed() {
+                if (isSearchActive) {
+                    searchQuery = ""
+                    isSearchActive = false
+                    keyboardController?.hide()
+                }
+            }
+        }
+        backDispatcher?.addCallback(callback)
+        onDispose {
+            callback.remove()
+        }
+    }
+
+    // Sample notifications data
+    val notifications = remember {
         listOf(
             ChatNotification(
-                "1", ChatPlatform.WHATSAPP, "Priya Sharma", null,
-                "Hey! Are you free for coffee tomorrow?", System.currentTimeMillis() - 300000, false
+                id = "1",
+                platform = ChatPlatform.WHATSAPP,
+                senderName = "Priya Sharma",
+                senderAvatar = null,
+                message = "Hey! How are you doing?",
+                timestamp = System.currentTimeMillis() - 3600000,
+                isRead = false,
+                hasGeneratedReply = true
             ),
             ChatNotification(
-                "2", ChatPlatform.INSTAGRAM, "Rajesh Kumar", null,
-                "Loved your latest post! 🔥", System.currentTimeMillis() - 900000, true, true
+                id = "2",
+                platform = ChatPlatform.INSTAGRAM,
+                senderName = "john_doe_official",
+                senderAvatar = null,
+                message = "Loved your latest post! 🔥",
+                timestamp = System.currentTimeMillis() - 7200000,
+                isRead = false
             ),
             ChatNotification(
-                "3", ChatPlatform.MESSENGER, "Anita Singh", null,
-                "Can you send me the project files?", System.currentTimeMillis() - 1800000, false
+                id = "3",
+                platform = ChatPlatform.MESSENGER,
+                senderName = "Anita Singh",
+                senderAvatar = null,
+                message = "Can we reschedule our meeting?",
+                timestamp = System.currentTimeMillis() - 86400000,
+                isRead = true,
+                hasGeneratedReply = true
             ),
             ChatNotification(
-                "4", ChatPlatform.TELEGRAM, "Vikram Gupta", null,
-                "The meeting has been rescheduled to 3 PM", System.currentTimeMillis() - 3600000, true
+                id = "4",
+                platform = ChatPlatform.TELEGRAM,
+                senderName = "Tech Updates",
+                senderAvatar = null,
+                message = "New Android 15 features released!",
+                timestamp = System.currentTimeMillis() - 172800000,
+                isRead = true
             ),
             ChatNotification(
-                "5", ChatPlatform.WHATSAPP, "Mom", null,
-                "Don't forget to call me tonight", System.currentTimeMillis() - 7200000, false
-            ),
-            ChatNotification(
-                "6", ChatPlatform.DISCORD, "Gaming Squad", null,
-                "Who's up for a game tonight?", System.currentTimeMillis() - 10800000, true
-            ),
-            ChatNotification(
-                "7", ChatPlatform.INSTAGRAM, "Sarah Wilson", null,
-                "Happy Birthday! 🎉🎂", System.currentTimeMillis() - 86400000, true, true
-            ),
-            ChatNotification(
-                "8", ChatPlatform.SNAPCHAT, "Best Friend", null,
-                "Check out this cute cat! 🐱", System.currentTimeMillis() - 172800000, true
+                id = "5",
+                platform = ChatPlatform.SMS,
+                senderName = "Bank Alert",
+                senderAvatar = null,
+                message = "Your account balance is Rs. 25,000",
+                timestamp = System.currentTimeMillis() - 259200000,
+                isRead = true
             )
         )
     }
 
-    // Group notifications: unread first, then read
-    val unreadNotifications = chatNotifications.filter { !it.isRead }
-    val readNotifications = chatNotifications.filter { it.isRead }
+    // Filter notifications based on search and platform filter
+    val filteredNotifications = remember(searchQuery, selectedFilter, notifications) {
+        notifications.filter { notification ->
+            val matchesSearch = if (searchQuery.isBlank()) {
+                true
+            } else {
+                notification.senderName.contains(searchQuery, ignoreCase = true) ||
+                notification.message.contains(searchQuery, ignoreCase = true) ||
+                notification.platform.displayName.contains(searchQuery, ignoreCase = true)
+            }
+
+            val matchesFilter = selectedFilter?.let { filter ->
+                notification.platform == filter
+            } ?: true
+
+            matchesSearch && matchesFilter
+        }
+    }
+
+    // Pull to refresh simulation
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing) {
+            delay(1000) // Simulate refresh
+            isRefreshing = false
+        }
+    }
 
     Scaffold(
         modifier = Modifier
@@ -107,31 +183,47 @@ fun NotificationScreen() {
         topBar = {
             TopAppBar(
                 title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Chat Notifications",
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontFamily = AppFonts.KarlaFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 22.sp,
-                                color = Color(0xFF395B64)
-                            )
+                    Text(
+                        text = "Notifications",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 24.sp,
+                            color = Color(0xFF395B64)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        if (unreadNotifications.isNotEmpty()) {
-                            Badge(
-                                containerColor = Color(0xFF395B64)
-                            ) {
-                                Text(
-                                    text = unreadNotifications.size.toString(),
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontFamily = AppFonts.KarlaFontFamily
-                                )
-                            }
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFF395B64)
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            // Mark all as read functionality
                         }
+                    ) {
+                        Icon(
+                            Icons.Default.DoneAll,
+                            contentDescription = "Mark all as read",
+                            tint = Color(0xFF395B64)
+                        )
+                    }
+                    IconButton(
+                        onClick = {
+                            isRefreshing = true
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            tint = Color(0xFF395B64)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -140,279 +232,261 @@ fun NotificationScreen() {
             )
         }
     ) { paddingValues ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .background(Color.White)
+                .padding(horizontal = 16.dp)
         ) {
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-            }
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Show platforms filter chips
-            item {
-                PlatformFilterChips()
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+            // Search Bar
+            SearchBarContent(
+                query = searchQuery,
+                onQueryChange = {
+                    searchQuery = it
+                    isSearchActive = it.isNotEmpty()
+                },
+                onClear = {
+                    searchQuery = ""
+                    isSearchActive = false
+                    keyboardController?.hide()
+                },
+                isActive = isSearchActive,
+                focusRequester = focusRequester
+            )
 
-            // Unread notifications section
-            if (unreadNotifications.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Platform Filter Chips
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "New Messages",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontFamily = AppFonts.KarlaFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                color = Color(0xFF395B64)
-                            )
+                    FilterChip(
+                        onClick = { selectedFilter = null },
+                        label = { Text("All") },
+                        selected = selectedFilter == null,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF395B64),
+                            selectedLabelColor = Color.White
                         )
+                    )
+                }
+
+                items(ChatPlatform.values().toList()) { platform ->
+                    FilterChip(
+                        onClick = {
+                            selectedFilter = if (selectedFilter == platform) null else platform
+                        },
+                        label = { Text(platform.displayName) },
+                        selected = selectedFilter == platform,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = platform.color,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Loading indicator
+            AnimatedVisibility(visible = isRefreshing) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = Color(0xFF395B64),
+                        modifier = Modifier.size(32.dp),
+                        strokeWidth = 3.dp
+                    )
+                }
+            }
+
+            // Notifications List
+            if (filteredNotifications.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "No notifications",
+                            modifier = Modifier.size(48.dp),
+                            tint = Color(0xFF666666).copy(alpha = 0.5f)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "${unreadNotifications.size} unread",
-                            style = MaterialTheme.typography.bodySmall.copy(
+                            text = if (searchQuery.isNotBlank()) "No notifications found" else "No notifications yet",
+                            style = MaterialTheme.typography.bodyMedium.copy(
                                 fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                fontSize = 12.sp,
+                                fontSize = 16.sp,
                                 color = Color(0xFF666666)
                             )
                         )
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
-
-                items(unreadNotifications) { notification ->
-                    ChatNotificationCard(
-                        notification = notification,
-                        onGenerateReply = { /* Handle reply generation */ },
-                        onMarkAsRead = { /* Handle mark as read */ }
-                    )
-                }
-
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-            }
-
-            // Read notifications section
-            if (readNotifications.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "Earlier",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontFamily = AppFonts.KarlaFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            color = Color(0xFF395B64)
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(filteredNotifications) { notification ->
+                        NotificationCard(
+                            notification = notification,
+                            onReplyClick = { /* Handle reply generation */ },
+                            onMarkAsRead = { /* Handle mark as read */ }
                         )
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
+                    }
 
-                items(readNotifications) { notification ->
-                    ChatNotificationCard(
-                        notification = notification,
-                        onGenerateReply = { /* Handle reply generation */ },
-                        onMarkAsRead = { /* Already read */ }
-                    )
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
                 }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PlatformFilterChips() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // All platforms chip
-        FilterChip(
-            onClick = { /* Filter all */ },
-            label = {
-                Text(
-                    text = "All",
-                    fontFamily = AppFonts.KarlaFontFamily,
-                    fontSize = 12.sp
+fun SearchBarContent(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClear: () -> Unit,
+    isActive: Boolean,
+    focusRequester: FocusRequester
+) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        placeholder = {
+            Text(
+                text = "Search notifications...",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = AppFonts.KaiseiDecolFontFamily,
+                    color = Color(0xFF666666)
                 )
-            },
-            selected = true,
-            colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = Color(0xFF395B64),
-                selectedLabelColor = Color.White
             )
-        )
-
-        // WhatsApp chip
-        FilterChip(
-            onClick = { /* Filter WhatsApp */ },
-            label = {
-                Text(
-                    text = "WhatsApp",
-                    fontFamily = AppFonts.KarlaFontFamily,
-                    fontSize = 12.sp
-                )
-            },
-            selected = false,
-            leadingIcon = {
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .background(ChatPlatform.WHATSAPP.color, CircleShape)
-                )
+        },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "Search",
+                tint = Color(0xFF666666)
+            )
+        },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = onClear) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = "Clear",
+                        tint = Color(0xFF666666)
+                    )
+                }
             }
-        )
-
-        // Instagram chip
-        FilterChip(
-            onClick = { /* Filter Instagram */ },
-            label = {
-                Text(
-                    text = "Instagram",
-                    fontFamily = AppFonts.KarlaFontFamily,
-                    fontSize = 12.sp
-                )
-            },
-            selected = false,
-            leadingIcon = {
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .background(ChatPlatform.INSTAGRAM.color, CircleShape)
-                )
-            }
-        )
-    }
+        },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions.Default.copy(
+            imeAction = ImeAction.Search
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .focusRequester(focusRequester),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = Color(0xFF395B64),
+            unfocusedTextColor = Color(0xFF395B64),
+            cursorColor = Color(0xFF395B64),
+            focusedBorderColor = Color(0xFF395B64),
+            unfocusedBorderColor = Color(0xFF666666).copy(alpha = 0.3f),
+            focusedPlaceholderColor = Color(0xFF666666),
+            unfocusedPlaceholderColor = Color(0xFF666666).copy(alpha = 0.7f)
+        ),
+        shape = RoundedCornerShape(16.dp)
+    )
 }
 
 @Composable
-fun ChatNotificationCard(
+fun NotificationCard(
     notification: ChatNotification,
-    onGenerateReply: () -> Unit,
-    onMarkAsRead: () -> Unit
+    onReplyClick: (String) -> Unit,
+    onMarkAsRead: (String) -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                if (!notification.isRead) {
-                    onMarkAsRead()
-                }
-            },
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (notification.isRead) Color.White else Color(0xFFF0F8FF)
         ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (notification.isRead) 2.dp else 4.dp
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Header row with platform, sender, and time
+            // Header with platform and timestamp
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Platform and sender info
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Platform indicator
                     Box(
                         modifier = Modifier
                             .size(8.dp)
-                            .background(notification.platform.color, CircleShape)
+                            .clip(CircleShape)
+                            .background(notification.platform.color)
                     )
-
                     Spacer(modifier = Modifier.width(8.dp))
-
                     Text(
                         text = notification.platform.displayName,
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontFamily = AppFonts.KarlaFontFamily,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
                             color = notification.platform.color
                         )
                     )
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Text(
-                        text = "•",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF666666)
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Text(
-                        text = notification.senderName,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = AppFonts.KarlaFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = Color(0xFF395B64)
-                        )
-                    )
                 }
 
-                // Timestamp and status
-                Column(
-                    horizontalAlignment = Alignment.End
-                ) {
-                    Text(
-                        text = formatChatTime(notification.timestamp),
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = AppFonts.KaiseiDecolFontFamily,
-                            fontSize = 11.sp,
-                            color = Color(0xFF666666)
-                        )
+                Text(
+                    text = formatTimestamp(notification.timestamp),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                        fontSize = 12.sp,
+                        color = Color(0xFF666666)
                     )
-
-                    if (!notification.isRead) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(Color(0xFF395B64), CircleShape)
-                        )
-                    }
-                }
+                )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Message content
+            // Sender and message
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
-                // Sender avatar or initial
+                // Avatar
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFA5C9CA)),
-                    contentAlignment = Alignment.Center
+                        .background(Color(0xFFA5C9CA))
                 ) {
                     if (notification.senderAvatar != null) {
                         AsyncImage(
@@ -422,83 +496,109 @@ fun ChatNotificationCard(
                             contentScale = ContentScale.Crop
                         )
                     } else {
-                        Text(
-                            text = notification.senderName.take(1).uppercase(),
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontFamily = AppFonts.KarlaFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                color = Color.White
-                            )
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Default Avatar",
+                            modifier = Modifier.align(Alignment.Center),
+                            tint = Color.White
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // Message text
+                // Message content
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
+                    Text(
+                        text = notification.senderName,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = Color(0xFF395B64)
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
                     Text(
                         text = notification.message,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = AppFonts.KaiseiDecolFontFamily,
                             fontSize = 14.sp,
-                            color = Color(0xFF333333)
+                            color = Color(0xFF666666)
                         ),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Action buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Generate Reply button
-                Button(
-                    onClick = onGenerateReply,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (notification.hasGeneratedReply) Color(0xFF4CAF50) else Color(0xFF395B64)
-                    )
-                ) {
-                    Icon(
-                        imageVector = if (notification.hasGeneratedReply) Icons.Default.Reply else Icons.Default.AutoAwesome,
-                        contentDescription = if (notification.hasGeneratedReply) "View Reply" else "Generate Reply",
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (notification.hasGeneratedReply) "View Reply" else "Generate Reply",
-                        fontFamily = AppFonts.KarlaFontFamily,
-                        fontSize = 12.sp
+                // Unread indicator
+                if (!notification.isRead) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF395B64))
                     )
                 }
+            }
 
-                // Mark as read button (only for unread)
-                if (!notification.isRead) {
-                    OutlinedButton(
-                        onClick = onMarkAsRead,
-                        shape = RoundedCornerShape(20.dp),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(
-                            width = 1.dp
-                        ),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF395B64)
-                        )
-                    ) {
-                        Text(
-                            text = "Mark Read",
-                            fontFamily = AppFonts.KarlaFontFamily,
-                            fontSize = 12.sp
-                        )
+            // Action buttons
+            if (!notification.isRead || notification.hasGeneratedReply) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (notification.hasGeneratedReply) {
+                        OutlinedButton(
+                            onClick = { onReplyClick(notification.id) },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFF395B64)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = "Generated Reply",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "View Reply",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = AppFonts.KarlaFontFamily,
+                                    fontSize = 12.sp
+                                )
+                            )
+                        }
+                    }
+
+                    if (!notification.isRead) {
+                        OutlinedButton(
+                            onClick = { onMarkAsRead(notification.id) },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFF666666)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Done,
+                                contentDescription = "Mark as Read",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Mark Read",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = AppFonts.KarlaFontFamily,
+                                    fontSize = 12.sp
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -506,16 +606,19 @@ fun ChatNotificationCard(
     }
 }
 
+// Helper function to format timestamps
 @Composable
-fun formatChatTime(timestamp: Long): String {
+fun formatTimestamp(timestamp: Long): String {
     val now = System.currentTimeMillis()
     val diff = now - timestamp
 
     return when {
-        diff < 60 * 1000 -> "Just now"
+        diff < 60 * 1000 -> "now"
         diff < 60 * 60 * 1000 -> "${diff / (60 * 1000)}m ago"
         diff < 24 * 60 * 60 * 1000 -> "${diff / (60 * 60 * 1000)}h ago"
-        diff < 48 * 60 * 60 * 1000 -> "Yesterday"
-        else -> SimpleDateFormat("MMM dd", Locale.getDefault()).format(Date(timestamp))
+        diff < 48 * 60 * 60 * 1000 -> "yesterday"
+        else -> {
+            SimpleDateFormat("MMM dd", Locale.getDefault()).format(Date(timestamp))
+        }
     }
 }

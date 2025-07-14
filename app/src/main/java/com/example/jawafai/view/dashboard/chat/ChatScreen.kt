@@ -17,8 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,7 +24,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -144,18 +141,13 @@ fun ChatScreen(
         }
     }
 
-    // Pull to refresh setup
-    val pullToRefreshState = rememberPullToRefreshState()
-
-    LaunchedEffect(pullToRefreshState.isRefreshing) {
-        if (pullToRefreshState.isRefreshing) {
-            isRefreshing = true
-            // Simulate refresh delay
-            delay(1000)
-            // Force refresh chat summaries
+    // Handle refresh
+    fun handleRefresh() {
+        isRefreshing = true
+        coroutineScope.launch {
+            delay(1000) // Simulate refresh delay
             viewModel.refreshChatSummaries()
             isRefreshing = false
-            pullToRefreshState.endRefresh()
         }
     }
 
@@ -176,6 +168,17 @@ fun ChatScreen(
                             color = Color(0xFF395B64)
                         )
                     )
+                },
+                actions = {
+                    IconButton(
+                        onClick = { handleRefresh() }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            tint = Color(0xFF395B64)
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.White
@@ -198,158 +201,146 @@ fun ChatScreen(
             }
         }
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Color.White)
                 .padding(paddingValues)
-                .nestedScroll(pullToRefreshState.nestedScrollConnection)
+                .padding(horizontal = 16.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.White)
-                    .padding(horizontal = 16.dp)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Search Bar
+            SearchBarContent(
+                query = searchQuery,
+                onQueryChange = {
+                    searchQuery = it
+                    isSearchActive = it.isNotEmpty()
+                },
+                onClear = {
+                    searchQuery = ""
+                    isSearchActive = false
+                    keyboardController?.hide()
+                    viewModel.clearFoundUser()
+                },
+                isActive = isSearchActive,
+                focusRequester = focusRequester
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Loading indicator
+            AnimatedVisibility(
+                visible = showInitialLoading || isRefreshing || (isSearchActive && isLoading)
             ) {
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Search Bar
-                SearchBarContent(
-                    query = searchQuery,
-                    onQueryChange = {
-                        searchQuery = it
-                        isSearchActive = it.isNotEmpty()
-                    },
-                    onClear = {
-                        searchQuery = ""
-                        isSearchActive = false
-                        keyboardController?.hide()
-                        viewModel.clearFoundUser()
-                    },
-                    isActive = isSearchActive,
-                    focusRequester = focusRequester
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Loading indicator
-                AnimatedVisibility(
-                    visible = showInitialLoading || isRefreshing || (isSearchActive && isLoading)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center
                 ) {
+                    CircularProgressIndicator(
+                        color = Color(0xFF395B64),
+                        modifier = Modifier.size(32.dp),
+                        strokeWidth = 3.dp
+                    )
+                }
+            }
+
+            // Chat List
+            if (!showInitialLoading) {
+                if (searchResults.isEmpty() && searchQuery.isNotBlank()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 16.dp),
+                            .padding(32.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(
-                            color = Color(0xFF395B64),
-                            modifier = Modifier.size(32.dp),
-                            strokeWidth = 3.dp
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "No results",
+                                modifier = Modifier.size(48.dp),
+                                tint = Color(0xFF666666).copy(alpha = 0.5f)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "No chats found",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                    fontSize = 16.sp,
+                                    color = Color(0xFF666666)
+                                )
+                            )
+                        }
                     }
-                }
-
-                // Chat List
-                if (!showInitialLoading) {
-                    if (searchResults.isEmpty() && searchQuery.isNotBlank()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(32.dp),
-                            contentAlignment = Alignment.Center
+                } else if (searchResults.isEmpty() && searchQuery.isBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = "No results",
-                                    modifier = Modifier.size(48.dp),
-                                    tint = Color(0xFF666666).copy(alpha = 0.5f)
+                            Icon(
+                                imageVector = Icons.Rounded.Chat,
+                                contentDescription = "No chats",
+                                modifier = Modifier.size(48.dp),
+                                tint = Color(0xFF666666).copy(alpha = 0.5f)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "No conversations yet",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                    fontSize = 16.sp,
+                                    color = Color(0xFF666666)
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "No chats found",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                        fontSize = 16.sp,
-                                        color = Color(0xFF666666)
-                                    )
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Start a new chat to begin messaging",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF666666).copy(alpha = 0.7f)
                                 )
-                            }
+                            )
                         }
-                    } else if (searchResults.isEmpty() && searchQuery.isBlank()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(32.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Chat,
-                                    contentDescription = "No chats",
-                                    modifier = Modifier.size(48.dp),
-                                    tint = Color(0xFF666666).copy(alpha = 0.5f)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "No conversations yet",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                        fontSize = 16.sp,
-                                        color = Color(0xFF666666)
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.White),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(searchResults) { result ->
+                            when (result) {
+                                is SearchResult.ExistingChat -> {
+                                    ChatItemCard(
+                                        summary = result.summary,
+                                        onClick = { onNavigateToChat(result.summary.chatId, result.summary.otherUserId) }
                                     )
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Start a new chat to begin messaging",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                        fontSize = 14.sp,
-                                        color = Color(0xFF666666).copy(alpha = 0.7f)
+                                }
+                                is SearchResult.NewUser -> {
+                                    UserSearchResultCard(
+                                        user = result.user,
+                                        onClick = {
+                                            selectedUser = result.user
+                                            showQuickMessages = true
+                                        }
                                     )
-                                )
-                            }
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.White),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(searchResults) { result ->
-                                when (result) {
-                                    is SearchResult.ExistingChat -> {
-                                        ChatItemCard(
-                                            summary = result.summary,
-                                            onClick = { onNavigateToChat(result.summary.chatId, result.summary.otherUserId) }
-                                        )
-                                    }
-                                    is SearchResult.NewUser -> {
-                                        UserSearchResultCard(
-                                            user = result.user,
-                                            onClick = {
-                                                selectedUser = result.user
-                                                showQuickMessages = true
-                                            }
-                                        )
-                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-
-            // Pull to refresh indicator
-            PullToRefreshContainer(
-                state = pullToRefreshState,
-                modifier = Modifier.align(Alignment.TopCenter)
-            )
         }
 
         // New Chat Dialog

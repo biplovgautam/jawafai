@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -27,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -59,15 +61,6 @@ class DashboardActivity : ComponentActivity() {
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
 
-
-        // Handle back press to move app to background instead of navigating back
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                // Move task to back which sends app to background (like pressing home button)
-                moveTaskToBack(true)
-            }
-        })
-
         setContent {
             JawafaiTheme {
                 DashboardScreen(
@@ -84,17 +77,6 @@ class DashboardActivity : ComponentActivity() {
                 )
             }
         }
-    }
-
-    // Override the default back button behavior as a fallback for older Android versions
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        // First call super (required to satisfy the Android lint warning)
-        super.onBackPressed()
-
-        // The OnBackPressedDispatcher should handle this on newer Android versions,
-        // but in case it doesn't (on older versions), also move task to back
-        moveTaskToBack(true)
     }
 }
 
@@ -155,7 +137,30 @@ fun DashboardScreen(onLogout: () -> Unit) {
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-    val showBottomBar = items.any { it.route == currentDestination?.route }
+    val currentRoute = currentDestination?.route
+
+    // Determine if we should show bottom bar and handle back press differently
+    val showBottomBar = items.any { it.route == currentRoute }
+    val isInMainScreen = items.any { it.route == currentRoute }
+
+    // Global back press handling
+    BackHandler(
+        enabled = !isInMainScreen,
+        onBack = {
+            if (navController.previousBackStackEntry != null) {
+                navController.popBackStack()
+            }
+        }
+    )
+
+    // Handle back press for main screens (exit app)
+    BackHandler(
+        enabled = isInMainScreen,
+        onBack = {
+            // For main screens, move app to background instead of closing
+            (navController.context as? ComponentActivity)?.moveTaskToBack(true)
+        }
+    )
 
     Scaffold(
         bottomBar = {
@@ -218,12 +223,16 @@ fun DashboardScreen(onLogout: () -> Unit) {
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            composable(BottomNavItem.Profile.route) {
-                ProfileScreen(
-                    onNavigateBack = { navController.popBackStack() },
-                    onLogout = onLogout
+            composable(BottomNavItem.Home.route) {
+                HomeScreen(
+                    onProfileClick = { navController.navigate(BottomNavItem.Profile.route) },
+                    onChatBotClick = { navController.navigate("chatbot") },
+                    onCompletePersonaClick = { navController.navigate("settings/persona") },
+                    onRecentChatClick = { chatId -> navController.navigate("chat_detail/$chatId/") },
+                    onNotificationClick = { navController.navigate(BottomNavItem.Notifications.route) }
                 )
             }
+
             composable(BottomNavItem.Chat.route) {
                 ChatScreen(
                     onNavigateToChat = { chatId, otherUserId ->
@@ -231,7 +240,7 @@ fun DashboardScreen(onLogout: () -> Unit) {
                     }
                 )
             }
-            // Add the missing ChatDetailScreen route
+
             composable(
                 route = "chat_detail/{chatId}/{otherUserId}",
                 arguments = listOf(
@@ -245,26 +254,54 @@ fun DashboardScreen(onLogout: () -> Unit) {
                 ChatDetailScreen(
                     chatId = chatId,
                     otherUserId = otherUserId,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
                 )
             }
-            composable(BottomNavItem.Home.route) {
-                HomeScreen(
-                    onProfileClick = { navController.navigate(BottomNavItem.Profile.route) },
-                    onChatBotClick = { navController.navigate("chatbot") },
-                    onCompletePersonaClick = { navController.navigate("settings/persona") },
-                    onRecentChatClick = { chatId -> navController.navigate("chat_detail/$chatId/") },
-                    onNotificationClick = { navController.navigate(BottomNavItem.Notifications.route) }
+
+            composable(BottomNavItem.Notifications.route) {
+                NotificationScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
                 )
             }
-            // Add ChatBot Screen route (no bottom bar)
+
+            composable(BottomNavItem.Settings.route) {
+                SettingsScreen(
+                    onLogout = onLogout,
+                    onProfileClicked = {
+                        navController.navigate(BottomNavItem.Profile.route)
+                    },
+                    onPersonaClicked = {
+                        navController.navigate("settings/persona")
+                    }
+                )
+            }
+
+            composable(BottomNavItem.Profile.route) {
+                ProfileScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onLogout = onLogout
+                )
+            }
+
+            composable("settings/persona") {
+                PersonaScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
             composable("chatbot") {
                 ChatBotScreen(
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToHistory = { navController.navigate("chatbot_history") }
                 )
             }
-            // Add ChatBot History Screen route (no bottom bar)
+
             composable("chatbot_history") {
                 ChatBotHistoryScreen(
                     onNavigateBack = { navController.popBackStack() },
@@ -274,7 +311,7 @@ fun DashboardScreen(onLogout: () -> Unit) {
                     onNewChatClick = { navController.navigate("chatbot") }
                 )
             }
-            // Add specific conversation route
+
             composable(
                 route = "chatbot_conversation/{conversationId}",
                 arguments = listOf(
@@ -288,29 +325,35 @@ fun DashboardScreen(onLogout: () -> Unit) {
                     onNavigateToHistory = { navController.navigate("chatbot_history") }
                 )
             }
-            composable(BottomNavItem.Notifications.route) {
-                NotificationScreen()
+        }
+    }
+}
+
+// Custom BackHandler composable for better UX
+@Composable
+fun BackHandler(
+    enabled: Boolean = true,
+    onBack: () -> Unit
+) {
+    val currentOnBack by rememberUpdatedState(onBack)
+    val backCallback = remember {
+        object : OnBackPressedCallback(enabled) {
+            override fun handleOnBackPressed() {
+                currentOnBack()
             }
-            composable(BottomNavItem.Settings.route) {
-                SettingsScreen(
-                    onLogout = onLogout,
-                    onProfileClicked = {
-                        navController.navigate(BottomNavItem.Profile.route)
-                    },
-                    onPersonaClicked = {
-                        // Add navigation to the persona settings screen
-                        navController.navigate("settings/persona")
-                    }
-                )
-            }
-            // Add route for PersonaScreen
-            composable("settings/persona") {
-                PersonaScreen(
-                    onNavigateBack = {
-                        navController.navigateUp()
-                    }
-                )
-            }
+        }
+    }
+
+    SideEffect {
+        backCallback.isEnabled = enabled
+    }
+
+    val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+
+    DisposableEffect(backDispatcher, backCallback) {
+        backDispatcher?.addCallback(backCallback)
+        onDispose {
+            backCallback.remove()
         }
     }
 }
