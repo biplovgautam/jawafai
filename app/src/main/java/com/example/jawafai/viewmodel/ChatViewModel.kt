@@ -254,6 +254,19 @@ class ChatViewModel(
         _foundUser.value = null
     }
 
+    // Delete message functionality
+    fun deleteMessage(messageId: String, senderId: String, receiverId: String) {
+        viewModelScope.launch {
+            try {
+                chatRepository.deleteMessage(messageId, senderId, receiverId)
+                println("✅ Message deleted successfully: $messageId")
+            } catch (e: Exception) {
+                println("❌ Error deleting message: ${e.message}")
+                _errorMessage.value = "Error deleting message: ${e.localizedMessage}"
+            }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         // Clean up typing indicator when leaving chat

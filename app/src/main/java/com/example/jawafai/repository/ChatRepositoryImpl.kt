@@ -436,4 +436,40 @@ class ChatRepositoryImpl(
     private fun getChatId(userId1: String, userId2: String): String {
         return if (userId1 < userId2) "${userId1}_${userId2}" else "${userId2}_${userId1}"
     }
+
+    override suspend fun deleteMessage(messageId: String, senderId: String, receiverId: String) = withContext(Dispatchers.IO) {
+        val chatId = getChatId(senderId, receiverId)
+
+        try {
+            // Delete the message from the chat
+            chatsRef.child(chatId).child(messageId).removeValue().await()
+
+            // Update last message if this was the last message
+            val remainingMessagesSnapshot = chatsRef.child(chatId).orderByChild("timestamp").limitToLast(1).get().await()
+
+            if (remainingMessagesSnapshot.exists()) {
+                // There are still messages, update last message to the most recent one
+                val lastMessage = remainingMessagesSnapshot.children.firstOrNull()?.getValue(ChatMessage::class.java)
+                if (lastMessage != null) {
+                    val newLastMessage = LastMessage(
+                        text = lastMessage.text,
+                        timestamp = lastMessage.timestamp,
+                        seen = lastMessage.seen
+                    )
+
+                    lastMessagesRef.child(senderId).child(receiverId).setValue(newLastMessage).await()
+                    lastMessagesRef.child(receiverId).child(senderId).setValue(newLastMessage).await()
+                }
+            } else {
+                // No messages left, remove the chat from last messages
+                lastMessagesRef.child(senderId).child(receiverId).removeValue().await()
+                lastMessagesRef.child(receiverId).child(senderId).removeValue().await()
+            }
+
+            println("✅ Message deleted successfully: $messageId")
+        } catch (e: Exception) {
+            println("❌ Error deleting message: ${e.message}")
+            throw e
+        }
+    }
 }

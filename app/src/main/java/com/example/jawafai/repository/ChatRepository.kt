@@ -27,4 +27,7 @@ interface ChatRepository {
     suspend fun updateTypingStatus(userId: String, typingTo: String, isTyping: Boolean)
     fun getTypingStatus(userId: String): Flow<TypingStatus?>
     fun getLastMessages(userId: String): Flow<Map<String, LastMessage>>
+    
+    // Delete message functionality
+    suspend fun deleteMessage(messageId: String, senderId: String, receiverId: String)
 }

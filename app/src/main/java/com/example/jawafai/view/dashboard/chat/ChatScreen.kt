@@ -344,7 +344,10 @@ private fun ChatList(
     onChatClick: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (chatSummaries.isEmpty()) {
+    // Filter out chats with empty messages
+    val filteredChats = chatSummaries.filter { it.lastMessage.isNotBlank() }
+
+    if (filteredChats.isEmpty()) {
         Box(
             modifier = modifier,
             contentAlignment = Alignment.Center
@@ -381,7 +384,7 @@ private fun ChatList(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            items(chatSummaries, key = { it.chatId }) { chatSummary ->
+            items(filteredChats, key = { it.chatId }) { chatSummary ->
                 AnimatedVisibility(
                     visible = true,
                     enter = slideInHorizontally(
