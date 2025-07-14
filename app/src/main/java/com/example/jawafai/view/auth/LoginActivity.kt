@@ -388,25 +388,41 @@ fun LoginScreen(viewModel: UserViewModel) {
                 )
             }
 
-            // Remember Me Checkbox
+            // Remember Me Checkbox and Forgot Password
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Checkbox(
-                        checked = rememberMe,
-                        onCheckedChange = { rememberMe = it },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = Color(0xFF395B64),
-                            uncheckedColor = Color(0xFF666666)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = rememberMe,
+                            onCheckedChange = { rememberMe = it },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Color(0xFF395B64),
+                                uncheckedColor = Color(0xFF666666)
+                            )
                         )
-                    )
+                        Text(
+                            text = "Remember Me",
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontSize = 14.sp,
+                            color = Color(0xFF666666)
+                        )
+                    }
+
+                    // Forgot Password Text Button
                     Text(
-                        text = "Remember Me",
+                        text = "Forgot Password?",
                         fontFamily = AppFonts.KarlaFontFamily,
                         fontSize = 14.sp,
-                        color = Color(0xFF666666)
+                        color = Color(0xFF395B64),
+                        modifier = Modifier.clickable {
+                            showResetDialog = true
+                        }
                     )
                 }
             }
