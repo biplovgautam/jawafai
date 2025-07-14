@@ -65,6 +65,10 @@ class ChatViewModel(
         }
     }
 
+    fun refreshChatSummaries() {
+        fetchChatSummaries()
+    }
+
     fun getMessagesForChat(senderId: String, receiverId: String) {
         currentChatUserId = receiverId
         viewModelScope.launch {

@@ -1,5 +1,9 @@
 package com.example.jawafai.view.dashboard.chat
 
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,12 +17,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,6 +47,7 @@ import com.example.jawafai.viewmodel.ChatViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -52,6 +63,11 @@ fun ChatScreen(
         factory = ChatViewModelFactory(chatRepository, userRepository, auth)
     )
 
+    val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusRequester = remember { FocusRequester() }
+    val coroutineScope = rememberCoroutineScope()
+
     // Auto-migrate current user to database when screen loads
     LaunchedEffect(Unit) {
         UserMigrationUtils.saveCurrentUserToDatabase()
@@ -59,17 +75,87 @@ fun ChatScreen(
     }
 
     val chatSummaries by viewModel.chatSummaries.collectAsState()
-    var searchQuery by remember { mutableStateOf("") }
-    var isNewChatDialogVisible by remember { mutableStateOf(false) }
+    val foundUser by viewModel.foundUser.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
-    val filteredChats = remember(searchQuery, chatSummaries) {
-        chatSummaries.filter { summary ->
-            if (searchQuery.isBlank()) {
-                true
-            } else {
+    var searchQuery by remember { mutableStateOf("") }
+    var isSearchActive by remember { mutableStateOf(false) }
+    var isNewChatDialogVisible by remember { mutableStateOf(false) }
+    var showQuickMessages by remember { mutableStateOf(false) }
+    var selectedUser by remember { mutableStateOf<com.example.jawafai.repository.UserProfile?>(null) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    var showInitialLoading by remember { mutableStateOf(true) }
+
+    // Handle back press for search
+    DisposableEffect(isSearchActive) {
+        val callback = object : OnBackPressedCallback(isSearchActive) {
+            override fun handleOnBackPressed() {
+                if (isSearchActive) {
+                    searchQuery = ""
+                    isSearchActive = false
+                    keyboardController?.hide()
+                    viewModel.clearFoundUser()
+                }
+            }
+        }
+        backDispatcher?.addCallback(callback)
+        onDispose {
+            callback.remove()
+        }
+    }
+
+    // Combined search results: existing chats + found users
+    val searchResults = remember(searchQuery, chatSummaries, foundUser) {
+        if (searchQuery.isBlank()) {
+            chatSummaries.map { SearchResult.ExistingChat(it) }
+        } else {
+            val filteredChats = chatSummaries.filter { summary ->
                 summary.otherUserName.contains(searchQuery, ignoreCase = true) ||
                 summary.lastMessage.contains(searchQuery, ignoreCase = true)
+            }.map { SearchResult.ExistingChat(it) }
+
+            val userResults = if (foundUser != null) {
+                listOf(SearchResult.NewUser(foundUser!!))
+            } else {
+                emptyList()
             }
+
+            filteredChats + userResults
+        }
+    }
+
+    // Search for users when query changes
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isNotBlank()) {
+            viewModel.findUserByEmailOrUsername(searchQuery)
+        } else {
+            viewModel.clearFoundUser()
+        }
+    }
+
+    // Handle initial loading
+    LaunchedEffect(chatSummaries) {
+        if (chatSummaries.isNotEmpty()) {
+            showInitialLoading = false
+        } else {
+            // Show loading for 1 second even if no chats
+            delay(1000)
+            showInitialLoading = false
+        }
+    }
+
+    // Pull to refresh setup
+    val pullToRefreshState = rememberPullToRefreshState()
+
+    LaunchedEffect(pullToRefreshState.isRefreshing) {
+        if (pullToRefreshState.isRefreshing) {
+            isRefreshing = true
+            // Simulate refresh delay
+            delay(1000)
+            // Force refresh chat summaries
+            viewModel.refreshChatSummaries()
+            isRefreshing = false
+            pullToRefreshState.endRefresh()
         }
     }
 
@@ -91,15 +177,6 @@ fun ChatScreen(
                         )
                     )
                 },
-                actions = {
-                    IconButton(onClick = { isNewChatDialogVisible = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "New Chat",
-                            tint = Color(0xFF395B64)
-                        )
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.White
                 )
@@ -110,48 +187,172 @@ fun ChatScreen(
                 onClick = { isNewChatDialogVisible = true },
                 containerColor = Color(0xFF395B64),
                 contentColor = Color.White,
-                shape = CircleShape
+                shape = CircleShape,
+                modifier = Modifier.size(56.dp)
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Edit,
-                    contentDescription = "New Chat"
+                    contentDescription = "New Chat",
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp)
+                .nestedScroll(pullToRefreshState.nestedScrollConnection)
         ) {
-            // Search Bar
-            SearchBarContent(
-                query = searchQuery,
-                onQueryChange = { searchQuery = it },
-                onSearch = {},
-                onClear = { searchQuery = "" }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Chat List
-            LazyColumn(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.White),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .background(Color.White)
+                    .padding(horizontal = 16.dp)
             ) {
-                items(filteredChats) { summary ->
-                    ChatItemCard(
-                        summary = summary,
-                        onClick = { onNavigateToChat(summary.chatId, summary.otherUserId) }
-                    )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Search Bar
+                SearchBarContent(
+                    query = searchQuery,
+                    onQueryChange = {
+                        searchQuery = it
+                        isSearchActive = it.isNotEmpty()
+                    },
+                    onClear = {
+                        searchQuery = ""
+                        isSearchActive = false
+                        keyboardController?.hide()
+                        viewModel.clearFoundUser()
+                    },
+                    isActive = isSearchActive,
+                    focusRequester = focusRequester
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Loading indicator
+                AnimatedVisibility(
+                    visible = showInitialLoading || isRefreshing || (isSearchActive && isLoading)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color(0xFF395B64),
+                            modifier = Modifier.size(32.dp),
+                            strokeWidth = 3.dp
+                        )
+                    }
+                }
+
+                // Chat List
+                if (!showInitialLoading) {
+                    if (searchResults.isEmpty() && searchQuery.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = "No results",
+                                    modifier = Modifier.size(48.dp),
+                                    tint = Color(0xFF666666).copy(alpha = 0.5f)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "No chats found",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                        fontSize = 16.sp,
+                                        color = Color(0xFF666666)
+                                    )
+                                )
+                            }
+                        }
+                    } else if (searchResults.isEmpty() && searchQuery.isBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Chat,
+                                    contentDescription = "No chats",
+                                    modifier = Modifier.size(48.dp),
+                                    tint = Color(0xFF666666).copy(alpha = 0.5f)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "No conversations yet",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                        fontSize = 16.sp,
+                                        color = Color(0xFF666666)
+                                    )
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Start a new chat to begin messaging",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF666666).copy(alpha = 0.7f)
+                                    )
+                                )
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.White),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(searchResults) { result ->
+                                when (result) {
+                                    is SearchResult.ExistingChat -> {
+                                        ChatItemCard(
+                                            summary = result.summary,
+                                            onClick = { onNavigateToChat(result.summary.chatId, result.summary.otherUserId) }
+                                        )
+                                    }
+                                    is SearchResult.NewUser -> {
+                                        UserSearchResultCard(
+                                            user = result.user,
+                                            onClick = {
+                                                selectedUser = result.user
+                                                showQuickMessages = true
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
+
+            // Pull to refresh indicator
+            PullToRefreshContainer(
+                state = pullToRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
         }
 
+        // New Chat Dialog
         if (isNewChatDialogVisible) {
             NewChatDialog(
                 viewModel = viewModel,
@@ -162,7 +363,47 @@ fun ChatScreen(
                 }
             )
         }
+
+        // Quick Messages Dialog
+        if (showQuickMessages && selectedUser != null) {
+            QuickMessagesDialog(
+                user = selectedUser!!,
+                onDismiss = {
+                    showQuickMessages = false
+                    selectedUser = null
+                },
+                onMessageSelect = { message ->
+                    coroutineScope.launch {
+                        val chatId = viewModel.createChatWithUser(selectedUser!!.userId)
+                        if (chatId != null) {
+                            // Send the quick message
+                            viewModel.sendMessage(selectedUser!!.userId, message)
+                            showQuickMessages = false
+                            selectedUser = null
+                            onNavigateToChat(chatId, selectedUser!!.userId)
+                        }
+                    }
+                },
+                onCustomMessage = {
+                    // Open chat without sending a message
+                    coroutineScope.launch {
+                        val chatId = viewModel.createChatWithUser(selectedUser!!.userId)
+                        if (chatId != null) {
+                            showQuickMessages = false
+                            selectedUser = null
+                            onNavigateToChat(chatId, selectedUser!!.userId)
+                        }
+                    }
+                }
+            )
+        }
     }
+}
+
+// Search result sealed class
+sealed class SearchResult {
+    data class ExistingChat(val summary: ChatSummary) : SearchResult()
+    data class NewUser(val user: com.example.jawafai.repository.UserProfile) : SearchResult()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -170,15 +411,16 @@ fun ChatScreen(
 fun SearchBarContent(
     query: String,
     onQueryChange: (String) -> Unit,
-    onSearch: () -> Unit,
-    onClear: () -> Unit
+    onClear: () -> Unit,
+    isActive: Boolean,
+    focusRequester: FocusRequester
 ) {
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
         placeholder = {
             Text(
-                text = "Search chats...",
+                text = "Search chats or find users...",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = AppFonts.KaiseiDecolFontFamily,
                     color = Color(0xFF666666)
@@ -208,19 +450,23 @@ fun SearchBarContent(
             imeAction = ImeAction.Search
         ),
         keyboardActions = KeyboardActions(
-            onSearch = { onSearch() }
+            onSearch = {
+                // Handle search action if needed
+            }
         ),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .focusRequester(focusRequester),
         colors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = Color(0xFF395B64),
             unfocusedTextColor = Color(0xFF395B64),
             cursorColor = Color(0xFF395B64),
             focusedBorderColor = Color(0xFF395B64),
-            unfocusedBorderColor = Color(0xFF666666).copy(alpha = 0.5f),
+            unfocusedBorderColor = Color(0xFF666666).copy(alpha = 0.3f),
             focusedPlaceholderColor = Color(0xFF666666),
             unfocusedPlaceholderColor = Color(0xFF666666).copy(alpha = 0.7f)
         ),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(16.dp)
     )
 }
 
@@ -233,7 +479,7 @@ fun ChatItemCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -243,27 +489,51 @@ fun ChatItemCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // User Avatar
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFA5C9CA))
-            ) {
-                if (summary.otherUserImageUrl != null) {
-                    AsyncImage(
-                        model = summary.otherUserImageUrl,
-                        contentDescription = "User Avatar",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Default Avatar",
-                        modifier = Modifier.size(28.dp).align(Alignment.Center),
-                        tint = Color.White
-                    )
+            // User Avatar with unread indicator
+            Box {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFA5C9CA))
+                ) {
+                    if (summary.otherUserImageUrl != null) {
+                        AsyncImage(
+                            model = summary.otherUserImageUrl,
+                            contentDescription = "User Avatar",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Default Avatar",
+                            modifier = Modifier.size(28.dp).align(Alignment.Center),
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                // Unread count badge
+                if (summary.unreadCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF395B64))
+                            .align(Alignment.BottomEnd),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (summary.unreadCount > 9) "9+" else summary.unreadCount.toString(),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                fontSize = 10.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
                 }
             }
 
@@ -289,58 +559,248 @@ fun ChatItemCard(
                         modifier = Modifier.weight(1f)
                     )
 
-                    Column(
-                        horizontalAlignment = Alignment.End
-                    ) {
-                        Text(
-                            text = formatTimestamp(summary.lastMessageTimestamp),
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                fontSize = 12.sp,
-                                color = Color(0xFF666666)
-                            )
+                    Text(
+                        text = formatTimestamp(summary.lastMessageTimestamp),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                            fontSize = 12.sp,
+                            color = Color(0xFF666666)
                         )
-
-                        if (summary.unreadCount > 0) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        Color(0xFF395B64),
-                                        CircleShape
-                                    )
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = summary.unreadCount.toString(),
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontFamily = AppFonts.KarlaFontFamily,
-                                        fontSize = 10.sp,
-                                        color = Color.White
-                                    )
-                                )
-                            }
-                        }
-                    }
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                Text(
+                    text = summary.lastMessage.ifEmpty { "No messages yet" },
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                        fontSize = 14.sp,
+                        color = Color(0xFF666666),
+                        fontWeight = if (summary.unreadCount > 0) FontWeight.Bold else FontWeight.Normal
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun UserSearchResultCard(
+    user: com.example.jawafai.repository.UserProfile,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F8FF)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // User Avatar
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFA5C9CA))
+            ) {
+                if (user.profileImageUrl != null) {
+                    AsyncImage(
+                        model = user.profileImageUrl,
+                        contentDescription = "User Avatar",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Default Avatar",
+                        modifier = Modifier.size(28.dp).align(Alignment.Center),
+                        tint = Color.White
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // User Info
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = user.displayName.ifEmpty { user.username },
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color(0xFF395B64)
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Text(
+                    text = user.email,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                        fontSize = 12.sp,
+                        color = Color(0xFF666666)
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Surface(
+                    color = Color(0xFF395B64).copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
-                        text = summary.lastMessage,
-                        style = MaterialTheme.typography.bodyMedium.copy(
+                        text = "Say hi! to start conversation",
+                        style = MaterialTheme.typography.bodySmall.copy(
                             fontFamily = AppFonts.KaiseiDecolFontFamily,
-                            fontSize = 14.sp,
-                            color = Color(0xFF666666),
-                            fontWeight = if (summary.unreadCount > 0) FontWeight.Bold else FontWeight.Normal
+                            fontSize = 12.sp,
+                            color = Color(0xFF395B64),
+                            fontWeight = FontWeight.Medium
                         ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun QuickMessagesDialog(
+    user: com.example.jawafai.repository.UserProfile,
+    onDismiss: () -> Unit,
+    onMessageSelect: (String) -> Unit,
+    onCustomMessage: () -> Unit
+) {
+    val quickMessages = listOf(
+        "Hi! 👋",
+        "Hello! 😊",
+        "Hey there! 🙂"
+    )
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                Text(
+                    text = "Start conversation with ${user.displayName.ifEmpty { user.username }}",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = Color(0xFF395B64)
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Choose a quick message or start typing:",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                        fontSize = 14.sp,
+                        color = Color(0xFF666666)
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Quick message options
+                quickMessages.forEach { message ->
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onMessageSelect(message) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF8F9FA),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            Color(0xFF395B64).copy(alpha = 0.2f)
+                        )
+                    ) {
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                fontSize = 16.sp,
+                                color = Color(0xFF395B64)
+                            ),
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // Custom message option
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onCustomMessage() },
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFF395B64).copy(alpha = 0.1f),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        Color(0xFF395B64).copy(alpha = 0.3f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Custom message",
+                            tint = Color(0xFF395B64),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Start typing your own message...",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                fontSize = 16.sp,
+                                color = Color(0xFF395B64)
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Cancel button
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text(
+                        text = "Cancel",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            color = Color(0xFF666666)
+                        )
                     )
                 }
             }
@@ -366,7 +826,7 @@ fun NewChatDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White)
         ) {
             Column(
@@ -411,7 +871,7 @@ fun NewChatDialog(
                         unfocusedTextColor = Color(0xFF395B64),
                         cursorColor = Color(0xFF395B64),
                         focusedBorderColor = Color(0xFF395B64),
-                        unfocusedBorderColor = Color(0xFF666666).copy(alpha = 0.5f)
+                        unfocusedBorderColor = Color(0xFF666666).copy(alpha = 0.3f)
                     ),
                     shape = RoundedCornerShape(12.dp)
                 )
@@ -451,7 +911,7 @@ fun NewChatDialog(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF395B64)
                         ),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(
@@ -473,63 +933,17 @@ fun NewChatDialog(
                 // Show found user or error
                 if (foundUser != null) {
                     Spacer(modifier = Modifier.height(16.dp))
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                coroutineScope.launch {
-                                    val chatId = viewModel.createChatWithUser(foundUser!!.userId)
-                                    if (chatId != null) {
-                                        onNavigateToChat(chatId, foundUser!!.userId)
-                                    }
+                    UserSearchResultCard(
+                        user = foundUser!!,
+                        onClick = {
+                            coroutineScope.launch {
+                                val chatId = viewModel.createChatWithUser(foundUser!!.userId)
+                                if (chatId != null) {
+                                    onNavigateToChat(chatId, foundUser!!.userId)
                                 }
-                            },
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFA5C9CA))
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = "User Avatar",
-                                    modifier = Modifier.align(Alignment.Center),
-                                    tint = Color.White
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(12.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = foundUser!!.displayName.ifEmpty { foundUser!!.username },
-                                    style = MaterialTheme.typography.bodyLarge.copy(
-                                        fontFamily = AppFonts.KarlaFontFamily,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
-                                        color = Color(0xFF395B64)
-                                    )
-                                )
-                                Text(
-                                    text = foundUser!!.email,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                        fontSize = 14.sp,
-                                        color = Color(0xFF666666)
-                                    )
-                                )
                             }
                         }
-                    }
+                    )
                 }
 
                 if (errorMessage != null) {

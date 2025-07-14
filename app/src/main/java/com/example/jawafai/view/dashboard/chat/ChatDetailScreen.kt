@@ -1,5 +1,7 @@
 package com.example.jawafai.view.dashboard.chat
 
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -18,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
@@ -49,6 +52,22 @@ fun ChatDetailScreen(
         )
     )
 ) {
+    val context = LocalContext.current
+    val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+
+    // Handle back press properly
+    DisposableEffect(backDispatcher) {
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                onNavigateBack()
+            }
+        }
+        backDispatcher?.addCallback(callback)
+        onDispose {
+            callback.remove()
+        }
+    }
+
     val messages by viewModel.messages.collectAsState()
     val typingStatus by viewModel.typingStatus.collectAsState()
     var newMessageText by remember { mutableStateOf("") }
@@ -146,7 +165,7 @@ fun ChatDetailScreen(
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontFamily = AppFonts.KaiseiDecolFontFamily,
                                         fontSize = 12.sp,
-                                        color = Color(0xFF666666),
+                                        color = Color(0xFF4CAF50),
                                         fontStyle = FontStyle.Italic
                                     )
                                 )
