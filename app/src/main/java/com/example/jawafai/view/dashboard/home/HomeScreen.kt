@@ -111,9 +111,9 @@ fun HomeScreen(
     }
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White),
+        modifier = Modifier.fillMaxSize(),
+        // Disable all system window insets to take full screen
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = Color.White,
         topBar = {
             TopAppBar(
@@ -179,15 +179,17 @@ fun HomeScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.White
-                )
+                ),
+                modifier = Modifier.statusBarsPadding() // Add status bar padding to top bar
             )
         }
     ) { paddingValues ->
+        // Use padding values only for the top bar, handle bottom manually
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.White)
-                .padding(paddingValues)
+                .padding(top = paddingValues.calculateTopPadding())
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -237,7 +239,9 @@ fun HomeScreen(
                 )
             }
 
+            // Add bottom padding for navigation bar
             item {
+                Spacer(modifier = Modifier.navigationBarsPadding())
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }

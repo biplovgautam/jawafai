@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.view.WindowCompat
 import com.example.jawafai.JawafaiApplication
 import com.example.jawafai.R
 import com.example.jawafai.repository.UserRepositoryImpl
@@ -68,6 +69,11 @@ class LoginActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Enable full screen immersive mode
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
 
         // Check for auto-logout when app starts
         (application as JawafaiApplication).checkAutoLogout()
@@ -177,75 +183,171 @@ fun LoginScreen(viewModel: UserViewModel) {
     }
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .imePadding(), // Add IME padding for keyboard handling
+        modifier = Modifier.fillMaxSize(),
+        // Disable all system window insets to take full screen
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = Color.White
     ) { paddingValues ->
-        val unused = paddingValues
-        LazyColumn(
+        // Don't use paddingValues to allow full screen usage
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.White)
-                .padding(horizontal = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .statusBarsPadding() // Add status bar padding manually
         ) {
-            item {
-                Spacer(modifier = Modifier.height(20.dp))
-            }
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 32.dp)
+                    .imePadding(), // Handle keyboard properly
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
 
-            // Lottie Animation
-            item {
-                LottieAnimation(
-                    composition = composition,
-                    progress = { progress },
-                    modifier = Modifier.size(180.dp)
-                )
-            }
+                // Lottie Animation
+                item {
+                    LottieAnimation(
+                        composition = composition,
+                        progress = { progress },
+                        modifier = Modifier.size(180.dp)
+                    )
+                }
 
-            // App Title - Using Kadwa font (only exception)
-            item {
-                Text(
-                    text = "जवाफ.AI",
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontFamily = AppFonts.KadwaFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 36.sp,
-                        color = Color(0xFF395B64)
-                    ),
-                    textAlign = TextAlign.Center
-                )
-            }
+                // App Title - Using Kadwa font (only exception)
+                item {
+                    Text(
+                        text = "जवाफ.AI",
+                        style = MaterialTheme.typography.headlineLarge.copy(
+                            fontFamily = AppFonts.KadwaFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 36.sp,
+                            color = Color(0xFF395B64)
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                }
 
-            // Subtitle - Using Karla font
-            item {
-                Text(
-                    text = "signin to continue using ai powered जवाफ",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = AppFonts.KarlaFontFamily,
-                        fontSize = 16.sp,
-                        color = Color(0xFF666666)
-                    ),
-                    textAlign = TextAlign.Center
-                )
-            }
+                // Subtitle - Using Karla font
+                item {
+                    Text(
+                        text = "signin to continue using ai powered जवाफ",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontSize = 16.sp,
+                            color = Color(0xFF666666)
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                }
 
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
-            }
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
 
-            // Email TextField - Fixed height and validation indicator
-            item {
-                Box(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                // Email TextField - Fixed height and validation indicator
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedTextField(
+                            value = email,
+                            onValueChange = { email = it },
+                            label = {
+                                Text(
+                                    "Enter your email",
+                                    fontFamily = AppFonts.KarlaFontFamily,
+                                    color = Color(0xFF666666)
+                                )
+                            },
+                            textStyle = androidx.compose.ui.text.TextStyle(
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                color = Color.Black,
+                                fontSize = 16.sp
+                            ),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Email,
+                                imeAction = ImeAction.Next
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onNext = {
+                                    passwordFocusRequester.requestFocus()
+                            }
+                        ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(64.dp), // Increased height for proper text visibility
+                            shape = RoundedCornerShape(28.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF395B64),
+                                unfocusedBorderColor = Color(0xFFE0E0E0),
+                                focusedLabelColor = Color(0xFF395B64),
+                                unfocusedLabelColor = Color(0xFF666666),
+                                cursorColor = Color(0xFF395B64),
+                                focusedTextColor = Color.Black,
+                                unfocusedTextColor = Color.Black
+                            ),
+                            singleLine = true
+                        )
+
+                        // Email validation indicator
+                        if (email.isNotBlank()) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .padding(end = 16.dp)
+                                    .size(24.dp)
+                                    .background(
+                                        Color(0xFFA5C9CA),
+                                        CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                when (emailValidationState.value) {
+                                    is UserViewModel.EmailValidationState.Checking -> {
+                                        CircularProgressIndicator(
+                                            color = Color.White,
+                                            strokeWidth = 2.dp,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    is UserViewModel.EmailValidationState.Valid -> {
+                                        // Use a proper tick/check mark icon
+                                        Text(
+                                            text = "✓",
+                                            fontFamily = AppFonts.KarlaFontFamily,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = Color.White
+                                        )
+                                    }
+                                    is UserViewModel.EmailValidationState.Invalid -> {
+                                        Icon(
+                                            painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
+                                            contentDescription = "Email doesn't exist",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    else -> {
+                                        // Show nothing for initial state
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Password TextField - Fixed height
+                item {
                     OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it },
+                        value = password,
+                        onValueChange = { password = it },
                         label = {
                             Text(
-                                "Enter your email",
+                                "Enter your password",
                                 fontFamily = AppFonts.KarlaFontFamily,
                                 color = Color(0xFF666666)
                             )
@@ -255,18 +357,35 @@ fun LoginScreen(viewModel: UserViewModel) {
                             color = Color.Black,
                             fontSize = 16.sp
                         ),
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Email,
-                            imeAction = ImeAction.Next
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done
                         ),
                         keyboardActions = KeyboardActions(
-                            onNext = {
-                                passwordFocusRequester.requestFocus()
+                            onDone = {
+                                // Trigger login when Done is pressed
+                                if (email.isNotBlank() && password.isNotBlank()) {
+                                    viewModel.login(email, password)
                             }
+                        }
                         ),
+                        trailingIcon = {
+                            val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                            val description = if (passwordVisible) "Hide password" else "Show password"
+
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = image,
+                                    contentDescription = description,
+                                    tint = Color(0xFF395B64)
+                                )
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(64.dp), // Increased height for proper text visibility
+                            .height(64.dp) // Increased height for proper text visibility
+                            .focusRequester(passwordFocusRequester),
                         shape = RoundedCornerShape(28.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Color(0xFF395B64),
@@ -279,223 +398,118 @@ fun LoginScreen(viewModel: UserViewModel) {
                         ),
                         singleLine = true
                     )
-
-                    // Email validation indicator
-                    if (email.isNotBlank()) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .padding(end = 16.dp)
-                                .size(24.dp)
-                                .background(
-                                    Color(0xFFA5C9CA),
-                                    CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            when (emailValidationState.value) {
-                                is UserViewModel.EmailValidationState.Checking -> {
-                                    CircularProgressIndicator(
-                                        color = Color.White,
-                                        strokeWidth = 2.dp,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                                is UserViewModel.EmailValidationState.Valid -> {
-                                    // Use a proper tick/check mark icon
-                                    Text(
-                                        text = "✓",
-                                        fontFamily = AppFonts.KarlaFontFamily,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                        color = Color.White
-                                    )
-                                }
-                                is UserViewModel.EmailValidationState.Invalid -> {
-                                    Icon(
-                                        painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
-                                        contentDescription = "Email doesn't exist",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                                else -> {
-                                    // Show nothing for initial state
-                                }
-                            }
-                        }
-                    }
                 }
-            }
 
-            // Password TextField - Fixed height
-            item {
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = {
-                        Text(
-                            "Enter your password",
-                            fontFamily = AppFonts.KarlaFontFamily,
-                            color = Color(0xFF666666)
-                        )
-                    },
-                    textStyle = androidx.compose.ui.text.TextStyle(
-                        fontFamily = AppFonts.KarlaFontFamily,
-                        color = Color.Black,
-                        fontSize = 16.sp
-                    ),
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            // Trigger login when Done is pressed
-                            if (email.isNotBlank() && password.isNotBlank()) {
-                                viewModel.login(email, password)
-                            }
-                        }
-                    ),
-                    trailingIcon = {
-                        val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
-                        val description = if (passwordVisible) "Hide password" else "Show password"
-
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = image,
-                                contentDescription = description,
-                                tint = Color(0xFF395B64)
-                            )
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(64.dp) // Increased height for proper text visibility
-                        .focusRequester(passwordFocusRequester),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF395B64),
-                        unfocusedBorderColor = Color(0xFFE0E0E0),
-                        focusedLabelColor = Color(0xFF395B64),
-                        unfocusedLabelColor = Color(0xFF666666),
-                        cursorColor = Color(0xFF395B64),
-                        focusedTextColor = Color.Black,
-                        unfocusedTextColor = Color.Black
-                    ),
-                    singleLine = true
-                )
-            }
-
-            // Remember Me Checkbox and Forgot Password
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                // Remember Me Checkbox and Forgot Password
+                item {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Checkbox(
-                            checked = rememberMe,
-                            onCheckedChange = { rememberMe = it },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = Color(0xFF395B64),
-                                uncheckedColor = Color(0xFF666666)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = rememberMe,
+                                onCheckedChange = { rememberMe = it },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = Color(0xFF395B64),
+                                    uncheckedColor = Color(0xFF666666)
+                                )
                             )
-                        )
+                            Text(
+                                text = "Remember Me",
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                fontSize = 14.sp,
+                                color = Color(0xFF666666)
+                            )
+                        }
+
+                        // Forgot Password Text Button
                         Text(
-                            text = "Remember Me",
+                            text = "Forgot Password?",
                             fontFamily = AppFonts.KarlaFontFamily,
                             fontSize = 14.sp,
-                            color = Color(0xFF666666)
+                            color = Color(0xFF395B64),
+                            modifier = Modifier.clickable {
+                                showResetDialog = true
+                            }
                         )
                     }
-
-                    // Forgot Password Text Button
-                    Text(
-                        text = "Forgot Password?",
-                        fontFamily = AppFonts.KarlaFontFamily,
-                        fontSize = 14.sp,
-                        color = Color(0xFF395B64),
-                        modifier = Modifier.clickable {
-                            showResetDialog = true
-                        }
-                    )
                 }
-            }
 
-            // Sign In Button - Round cornered
-            item {
-                Button(
-                    onClick = {
-                        if (email.isNotBlank() && password.isNotBlank()) {
-                            viewModel.login(email, password)
+                // Sign In Button - Round cornered
+                item {
+                    Button(
+                        onClick = {
+                            if (email.isNotBlank() && password.isNotBlank()) {
+                                viewModel.login(email, password)
+                            } else {
+                                Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF395B64)
+                        ),
+                        enabled = !isLoading
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
                         } else {
-                            Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
+                            Text(
+                                text = "Sign In",
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = Color.White
+                            )
                         }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF395B64)
-                    ),
-                    enabled = !isLoading
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    } else {
+                    }
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // Create Account Text
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
                         Text(
-                            text = "Sign In",
+                            text = "Don't have an account? ",
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontSize = 14.sp,
+                            color = Color(0xFFA5C9CA)
+                        )
+                        Text(
+                            text = "Create an account",
                             fontFamily = AppFonts.KarlaFontFamily,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = Color.White
+                            fontSize = 14.sp,
+                            color = Color(0xFF395B64),
+                            modifier = Modifier.clickable {
+                                // Navigate to sign up screen
+                                Toast.makeText(context, "Navigate to Sign Up", Toast.LENGTH_SHORT).show()
+                            }
                         )
                     }
                 }
-            }
 
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            // Create Account Text
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = "Don't have an account? ",
-                        fontFamily = AppFonts.KarlaFontFamily,
-                        fontSize = 14.sp,
-                        color = Color(0xFFA5C9CA)
-                    )
-                    Text(
-                        text = "Create an account",
-                        fontFamily = AppFonts.KarlaFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = Color(0xFF395B64),
-                        modifier = Modifier.clickable {
-                            // Navigate to sign up screen
-                            Toast.makeText(context, "Navigate to Sign Up", Toast.LENGTH_SHORT).show()
-                        }
-                    )
+                // Add some bottom padding for navigation bar
+                item {
+                    Spacer(modifier = Modifier.navigationBarsPadding())
+                    Spacer(modifier = Modifier.height(40.dp))
                 }
-            }
-
-            // Add some bottom padding for keyboard handling
-            item {
-                Spacer(modifier = Modifier.height(40.dp))
             }
         }
     }

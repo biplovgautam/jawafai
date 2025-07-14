@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
@@ -129,239 +130,213 @@ fun ChatDetailScreen(
     // Filter messages to only show non-empty ones
     val filteredMessages = messages.filter { it.text.isNotBlank() }
 
-    // Use Box with proper z-index for layering
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-    ) {
-        // Main content
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Fixed top bar with proper elevation
-            Surface(
-                shadowElevation = 4.dp,
-                color = Color.White,
-                modifier = Modifier.zIndex(10f) // Ensure it stays on top
-            ) {
-                TopAppBar(
-                    title = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            // User Profile Picture
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFA5C9CA))
-                            ) {
-                                if (otherUserImageUrl != null) {
-                                    AsyncImage(
-                                        model = otherUserImageUrl,
-                                        contentDescription = "User Avatar",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "Default Avatar",
-                                        modifier = Modifier.size(20.dp).align(Alignment.Center),
-                                        tint = Color.White
-                                    )
-                                }
-                            }
-
-                            // User name and typing indicator
-                            Column {
-                                Text(
-                                    text = otherUserName,
-                                    style = MaterialTheme.typography.bodyLarge.copy(
-                                        fontFamily = AppFonts.KarlaFontFamily,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
-                                        color = Color(0xFF395B64)
-                                    )
-                                )
-
-                                // Enhanced typing indicator with animation
-                                AnimatedVisibility(
-                                    visible = typingStatus?.isTyping == true,
-                                    enter = fadeIn(animationSpec = tween(200)) + slideInVertically(
-                                        initialOffsetY = { -it },
-                                        animationSpec = tween(200)
-                                    ),
-                                    exit = fadeOut(animationSpec = tween(200)) + slideOutVertically(
-                                        targetOffsetY = { -it },
-                                        animationSpec = tween(200)
-                                    )
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        // Animated typing dots
-                                        repeat(3) { index ->
-                                            val infiniteTransition = rememberInfiniteTransition(label = "typing")
-                                            val alpha by infiniteTransition.animateFloat(
-                                                initialValue = 0.3f,
-                                                targetValue = 1f,
-                                                animationSpec = infiniteRepeatable(
-                                                    animation = tween(600, delayMillis = index * 200),
-                                                    repeatMode = RepeatMode.Reverse
-                                                ), label = "alpha"
-                                            )
-
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(4.dp)
-                                                    .clip(CircleShape)
-                                                    .background(Color(0xFF4CAF50).copy(alpha = alpha))
-                                            )
-                                        }
-
-                                        Spacer(modifier = Modifier.width(4.dp))
-
-                                        Text(
-                                            text = "typing...",
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                                fontSize = 12.sp,
-                                                color = Color(0xFF4CAF50),
-                                                fontStyle = FontStyle.Italic
-                                            )
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = Color(0xFF395B64)
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.White
-                    )
-                )
-            }
-
-            // Chat messages area
-            Box(
-                modifier = Modifier.weight(1f)
-            ) {
-                if (filteredMessages.isEmpty()) {
-                    // Show empty state when no messages
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        // Disable all system window insets to take full screen
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        containerColor = Color.White,
+        topBar = {
+            // Fixed top bar that always stays visible
+            TopAppBar(
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        // Profile picture
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFA5C9CA))
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = Color(0xFF395B64).copy(alpha = 0.3f)
-                            )
+                            if (otherUserImageUrl != null) {
+                                AsyncImage(
+                                    model = otherUserImageUrl,
+                                    contentDescription = "User Avatar",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Default Avatar",
+                                    modifier = Modifier.align(Alignment.Center),
+                                    tint = Color.White
+                                )
+                            }
+                        }
+
+                        // User name and status
+                        Column {
                             Text(
-                                text = "Start a conversation with $otherUserName",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                    color = Color(0xFF666666)
+                                text = otherUserName,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontFamily = AppFonts.KarlaFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp,
+                                    color = Color(0xFF395B64)
                                 )
                             )
+                            if (typingStatus != null && typingStatus?.isTyping == true) {
+                                Text(
+                                    text = "typing...",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF4CAF50)
+                                    )
+                                )
+                            } else {
+                                Text(
+                                    text = "online",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF666666)
+                                    )
+                                )
+                            }
                         }
                     }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp),
-                        reverseLayout = true,
-                        contentPadding = PaddingValues(vertical = 8.dp)
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFF395B64)
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White
+                ),
+                modifier = Modifier.statusBarsPadding() // Add status bar padding to top bar
+            )
+        },
+        bottomBar = {
+            // Message input bar with proper keyboard handling
+            MessageInputBar(
+                message = newMessageText,
+                onMessageChange = { newMessageText = it },
+                onSendMessage = {
+                    if (newMessageText.isNotBlank() && currentUserId != null) {
+                        viewModel.sendMessage(
+                            receiverId = otherUserId,
+                            message = newMessageText
+                        )
+                        newMessageText = ""
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding() // Handle keyboard properly without pushing top bar offscreen
+                    .navigationBarsPadding() // Add navigation bar padding
+            )
+        }
+    ) { paddingValues ->
+        // Messages list with proper padding handling
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(top = paddingValues.calculateTopPadding())
+        ) {
+            if (filteredMessages.isEmpty()) {
+                // Empty state
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Add typing indicator as a message bubble at the bottom
-                        if (typingStatus?.isTyping == true) {
-                            item {
-                                TypingIndicatorBubble()
-                            }
-                        }
-
-                        items(filteredMessages.sortedByDescending { it.timestamp }) { message ->
-                            MessageBubble(
-                                message = message,
-                                isFromCurrentUser = message.senderId == currentUserId,
-                                onLongPress = {
-                                    selectedMessage = message
-                                    showMessageActions = true
-                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                }
+                        Icon(
+                            imageVector = Icons.Default.Chat,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = Color(0xFF395B64).copy(alpha = 0.3f)
+                        )
+                        Text(
+                            text = "Start your conversation",
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                color = Color(0xFF666666)
                             )
-                        }
+                        )
+                        Text(
+                            text = "Send a message to begin chatting",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                color = Color(0xFF999999)
+                            )
+                        )
                     }
                 }
-            }
-
-            // Fixed message input at bottom
-            Surface(
-                shadowElevation = 8.dp,
-                color = Color.White,
-                modifier = Modifier.zIndex(5f)
-            ) {
-                MessageInput(
-                    value = newMessageText,
-                    onValueChange = { newText ->
-                        newMessageText = newText
-                        // Trigger typing indicator
-                        viewModel.onTextChanged(otherUserId, newText)
-                    },
-                    onSendClick = {
-                        if (newMessageText.isNotBlank()) {
-                            viewModel.sendMessage(otherUserId, newMessageText)
-                            newMessageText = ""
-                        }
+            } else {
+                // Messages list
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    reverseLayout = true,
+                    contentPadding = PaddingValues(
+                        bottom = paddingValues.calculateBottomPadding() + 8.dp,
+                        top = 8.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(filteredMessages.reversed(), key = { it.messageId }) { message ->
+                        MessageBubble(
+                            message = message,
+                            isFromCurrentUser = message.senderId == currentUserId,
+                            onLongPress = {
+                                selectedMessage = message
+                                showMessageActions = true
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                        )
                     }
-                )
+                }
             }
         }
 
-        // Message Actions Popup - positioned above everything
+        // Message actions popup
         if (showMessageActions && selectedMessage != null) {
-            MessageActionsPopup(
-                message = selectedMessage!!,
-                isFromCurrentUser = selectedMessage!!.senderId == currentUserId,
-                onDismiss = {
-                    showMessageActions = false
-                    selectedMessage = null
-                },
-                onCopy = {
-                    clipboardManager.setText(AnnotatedString(selectedMessage!!.text))
-                    showMessageActions = false
-                    selectedMessage = null
-                },
-                onDelete = {
-                    currentUserId?.let { userId ->
-                        viewModel.deleteMessage(
-                            messageId = selectedMessage!!.messageId,
-                            senderId = userId,
-                            receiverId = otherUserId
-                        )
-                    }
+            Popup(
+                alignment = Alignment.Center,
+                properties = PopupProperties(
+                    focusable = true,
+                    dismissOnBackPress = true,
+                    dismissOnClickOutside = true
+                ),
+                onDismissRequest = {
                     showMessageActions = false
                     selectedMessage = null
                 }
-            )
+            ) {
+                MessageActionsPopup(
+                    message = selectedMessage!!,
+                    onCopy = {
+                        clipboardManager.setText(AnnotatedString(selectedMessage!!.text))
+                        showMessageActions = false
+                        selectedMessage = null
+                    },
+                    onDelete = {
+                        if (currentUserId != null) {
+                            viewModel.deleteMessage(selectedMessage!!.messageId, currentUserId, otherUserId)
+                        }
+                        showMessageActions = false
+                        selectedMessage = null
+                    },
+                    onDismiss = {
+                        showMessageActions = false
+                        selectedMessage = null
+                    }
+                )
+            }
         }
     }
 }
@@ -369,33 +344,59 @@ fun ChatDetailScreen(
 @Composable
 fun MessageActionsPopup(
     message: ChatMessage,
-    isFromCurrentUser: Boolean,
-    onDismiss: () -> Unit,
     onCopy: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit
 ) {
-    Popup(
-        onDismissRequest = onDismiss,
-        properties = PopupProperties(
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true
-        )
+    val isFromCurrentUser = message.senderId == FirebaseAuth.getInstance().currentUser?.uid
+
+    Card(
+        modifier = Modifier
+            .wrapContentSize()
+            .padding(16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
-        Card(
-            modifier = Modifier
-                .wrapContentSize()
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            // Copy action
+            Surface(
+                onClick = onCopy,
+                color = Color.Transparent,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                // Copy action
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = "Copy",
+                        tint = Color(0xFF395B64),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = "Copy Message",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            color = Color(0xFF395B64)
+                        )
+                    )
+                }
+            }
+
+            // Delete action (only for current user's messages)
+            if (isFromCurrentUser) {
+                HorizontalDivider(color = Color(0xFFE0E0E0))
+
                 Surface(
-                    onClick = onCopy,
+                    onClick = onDelete,
                     color = Color.Transparent,
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -407,51 +408,18 @@ fun MessageActionsPopup(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ContentCopy,
-                            contentDescription = "Copy",
-                            tint = Color(0xFF395B64),
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            tint = Color(0xFFE53E3E),
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = "Copy Message",
+                            text = "Delete Message",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontFamily = AppFonts.KarlaFontFamily,
-                                color = Color(0xFF395B64)
+                                color = Color(0xFFE53E3E)
                             )
                         )
-                    }
-                }
-
-                // Delete action (only for current user's messages)
-                if (isFromCurrentUser) {
-                    HorizontalDivider(color = Color(0xFFE0E0E0))
-
-                    Surface(
-                        onClick = onDelete,
-                        color = Color.Transparent,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete",
-                                tint = Color(0xFFE53E3E),
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                text = "Delete Message",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontFamily = AppFonts.KarlaFontFamily,
-                                    color = Color(0xFFE53E3E)
-                                )
-                            )
-                        }
                     }
                 }
             }
@@ -610,66 +578,73 @@ fun MessageBubble(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MessageInput(
-    value: String,
-    onValueChange: (String) -> Unit,
-    onSendClick: () -> Unit
+fun MessageInputBar(
+    message: String,
+    onMessageChange: (String) -> Unit,
+    onSendMessage: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.Bottom
+    Surface(
+        color = Color.White,
+        shadowElevation = 8.dp,
+        modifier = modifier
     ) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.weight(1f),
-            placeholder = {
-                Text(
-                    "Type a message...",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = AppFonts.KaiseiDecolFontFamily,
-                        color = Color(0xFF666666)
-                    )
-                )
-            },
-            shape = RoundedCornerShape(24.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color(0xFF395B64),
-                unfocusedTextColor = Color(0xFF395B64),
-                focusedBorderColor = Color(0xFF395B64),
-                unfocusedBorderColor = Color(0xFF666666).copy(alpha = 0.3f),
-                cursorColor = Color(0xFF395B64),
-                focusedPlaceholderColor = Color(0xFF666666),
-                unfocusedPlaceholderColor = Color(0xFF666666).copy(alpha = 0.7f)
-            ),
-            maxLines = 4
-        )
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        Surface(
-            onClick = onSendClick,
-            enabled = value.isNotBlank(),
-            shape = CircleShape,
-            color = if (value.isNotBlank()) {
-                Color(0xFF395B64)
-            } else {
-                Color(0xFF666666).copy(alpha = 0.3f)
-            },
-            modifier = Modifier.size(48.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.Bottom
         ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.fillMaxSize()
+            OutlinedTextField(
+                value = message,
+                onValueChange = onMessageChange,
+                modifier = Modifier.weight(1f),
+                placeholder = {
+                    Text(
+                        "Type a message...",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                            color = Color(0xFF666666)
+                        )
+                    )
+                },
+                shape = RoundedCornerShape(24.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color(0xFF395B64),
+                    unfocusedTextColor = Color(0xFF395B64),
+                    focusedBorderColor = Color(0xFF395B64),
+                    unfocusedBorderColor = Color(0xFF666666).copy(alpha = 0.3f),
+                    cursorColor = Color(0xFF395B64),
+                    focusedPlaceholderColor = Color(0xFF666666),
+                    unfocusedPlaceholderColor = Color(0xFF666666).copy(alpha = 0.7f)
+                ),
+                maxLines = 4
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Surface(
+                onClick = onSendMessage,
+                enabled = message.isNotBlank(),
+                shape = CircleShape,
+                color = if (message.isNotBlank()) {
+                    Color(0xFF395B64)
+                } else {
+                    Color(0xFF666666).copy(alpha = 0.3f)
+                },
+                modifier = Modifier.size(48.dp)
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Send,
-                    contentDescription = "Send",
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "Send",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
     }

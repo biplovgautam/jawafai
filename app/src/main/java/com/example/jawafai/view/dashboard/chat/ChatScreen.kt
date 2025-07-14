@@ -159,9 +159,9 @@ fun ChatScreen(
     }
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White),
+        modifier = Modifier.fillMaxSize(),
+        // Disable all system window insets to take full screen
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = Color.White,
         topBar = {
             TopAppBar(
@@ -178,7 +178,8 @@ fun ChatScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.White
-                )
+                ),
+                modifier = Modifier.statusBarsPadding() // Add status bar padding to top bar
             )
         },
         floatingActionButton = {
@@ -187,7 +188,9 @@ fun ChatScreen(
                 containerColor = Color(0xFF395B64),
                 contentColor = Color.White,
                 shape = CircleShape,
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier
+                    .size(56.dp)
+                    .navigationBarsPadding() // Add navigation bar padding to FAB
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Edit,
@@ -200,7 +203,7 @@ fun ChatScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(top = paddingValues.calculateTopPadding())
         ) {
             SwipeRefresh(
                 state = pullToRefreshState,
@@ -304,7 +307,9 @@ fun ChatScreen(
                         ChatList(
                             chatSummaries = chatSummaries,
                             onChatClick = onNavigateToChat,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .navigationBarsPadding() // Add bottom padding for navigation bar
                         )
                     }
                 }

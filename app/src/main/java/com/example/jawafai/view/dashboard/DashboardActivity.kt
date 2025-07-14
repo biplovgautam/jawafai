@@ -62,6 +62,7 @@ import com.example.jawafai.view.dashboard.settings.SettingsScreen
 class DashboardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Enable full screen immersive mode
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
@@ -168,11 +169,18 @@ fun DashboardScreen(onLogout: () -> Unit) {
     )
 
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        // Disable all system window insets to take full screen
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    // Add bottom navigation bar insets manually
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
                 ) {
                     items.forEach { item ->
                         val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
@@ -221,138 +229,144 @@ fun DashboardScreen(onLogout: () -> Unit) {
             }
         }
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = BottomNavItem.Home.route,
+        val unused = innerPadding // We won't use innerPadding for the main content
+        // Don't use innerPadding to allow full screen usage
+        Box(
             modifier = Modifier
-                .padding(innerPadding)
                 .fillMaxSize()
+                .background(Color.White)
         ) {
-            composable(BottomNavItem.Home.route) {
-                HomeScreen(
-                    onProfileClick = { navController.navigate(BottomNavItem.Profile.route) },
-                    onChatBotClick = { navController.navigate("chatbot") },
-                    onCompletePersonaClick = { navController.navigate("settings/persona") },
-                    onRecentChatClick = { chatId -> navController.navigate("chat_detail/$chatId/") },
-                    onNotificationClick = { navController.navigate(BottomNavItem.Notifications.route) }
-                )
-            }
-
-            composable(BottomNavItem.Chat.route) {
-                ChatScreen(
-                    onNavigateToChat = { chatId, otherUserId ->
-                        navController.navigate("chat_detail/$chatId/$otherUserId")
-                    }
-                )
-            }
-
-            composable(
-                route = "chat_detail/{chatId}/{otherUserId}",
-                arguments = listOf(
-                    navArgument("chatId") { type = NavType.StringType },
-                    navArgument("otherUserId") { type = NavType.StringType }
-                ),
-                enterTransition = {
-                    slideInHorizontally(
-                        initialOffsetX = { fullWidth -> fullWidth },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300))
-                },
-                exitTransition = {
-                    slideOutHorizontally(
-                        targetOffsetX = { fullWidth -> -fullWidth },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
-                },
-                popEnterTransition = {
-                    slideInHorizontally(
-                        initialOffsetX = { fullWidth -> -fullWidth },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300))
-                },
-                popExitTransition = {
-                    slideOutHorizontally(
-                        targetOffsetX = { fullWidth -> fullWidth },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
+            NavHost(
+                navController = navController,
+                startDestination = BottomNavItem.Home.route,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                composable(BottomNavItem.Home.route) {
+                    HomeScreen(
+                        onProfileClick = { navController.navigate(BottomNavItem.Profile.route) },
+                        onChatBotClick = { navController.navigate("chatbot") },
+                        onCompletePersonaClick = { navController.navigate("settings/persona") },
+                        onRecentChatClick = { chatId -> navController.navigate("chat_detail/$chatId/") },
+                        onNotificationClick = { navController.navigate(BottomNavItem.Notifications.route) }
+                    )
                 }
-            ) { backStackEntry ->
-                val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
-                val otherUserId = backStackEntry.arguments?.getString("otherUserId") ?: ""
 
-                ChatDetailScreen(
-                    chatId = chatId,
-                    otherUserId = otherUserId,
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    }
-                )
-            }
+                composable(BottomNavItem.Chat.route) {
+                    ChatScreen(
+                        onNavigateToChat = { chatId, otherUserId ->
+                            navController.navigate("chat_detail/$chatId/$otherUserId")
+                        }
+                    )
+                }
 
-            composable(BottomNavItem.Notifications.route) {
-                NotificationScreen(
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    }
-                )
-            }
-
-            composable(BottomNavItem.Settings.route) {
-                SettingsScreen(
-                    onLogout = onLogout,
-                    onProfileClicked = {
-                        navController.navigate(BottomNavItem.Profile.route)
+                composable(
+                    route = "chat_detail/{chatId}/{otherUserId}",
+                    arguments = listOf(
+                        navArgument("chatId") { type = NavType.StringType },
+                        navArgument("otherUserId") { type = NavType.StringType }
+                    ),
+                    enterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { fullWidth -> fullWidth },
+                            animationSpec = tween(300)
+                        ) + fadeIn(animationSpec = tween(300))
                     },
-                    onPersonaClicked = {
-                        navController.navigate("settings/persona")
-                    }
-                )
-            }
-
-            composable(BottomNavItem.Profile.route) {
-                ProfileScreen(
-                    onNavigateBack = { navController.popBackStack() },
-                    onLogout = onLogout
-                )
-            }
-
-            composable("settings/persona") {
-                PersonaScreen(
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    }
-                )
-            }
-
-            composable("chatbot") {
-                ChatBotScreen(
-                    onNavigateBack = { navController.popBackStack() },
-                    onNavigateToHistory = { navController.navigate("chatbot_history") }
-                )
-            }
-
-            composable("chatbot_history") {
-                ChatBotHistoryScreen(
-                    onNavigateBack = { navController.popBackStack() },
-                    onConversationClick = { conversationId ->
-                        navController.navigate("chatbot_conversation/$conversationId")
+                    exitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { fullWidth -> -fullWidth },
+                            animationSpec = tween(300)
+                        ) + fadeOut(animationSpec = tween(300))
                     },
-                    onNewChatClick = { navController.navigate("chatbot") }
-                )
-            }
+                    popEnterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { fullWidth -> -fullWidth },
+                            animationSpec = tween(300)
+                        ) + fadeIn(animationSpec = tween(300))
+                    },
+                    popExitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { fullWidth -> fullWidth },
+                            animationSpec = tween(300)
+                        ) + fadeOut(animationSpec = tween(300))
+                    }
+                ) { backStackEntry ->
+                    val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
+                    val otherUserId = backStackEntry.arguments?.getString("otherUserId") ?: ""
 
-            composable(
-                route = "chatbot_conversation/{conversationId}",
-                arguments = listOf(
-                    navArgument("conversationId") { type = NavType.StringType }
-                )
-            ) { backStackEntry ->
-                val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
-                ChatBotConversationScreen(
-                    conversationId = conversationId,
-                    onNavigateBack = { navController.popBackStack() },
-                    onNavigateToHistory = { navController.navigate("chatbot_history") }
-                )
+                    ChatDetailScreen(
+                        chatId = chatId,
+                        otherUserId = otherUserId,
+                        onNavigateBack = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+
+                composable(BottomNavItem.Notifications.route) {
+                    NotificationScreen(
+                        onNavigateBack = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+
+                composable(BottomNavItem.Settings.route) {
+                    SettingsScreen(
+                        onLogout = onLogout,
+                        onProfileClicked = {
+                            navController.navigate(BottomNavItem.Profile.route)
+                        },
+                        onPersonaClicked = {
+                            navController.navigate("settings/persona")
+                        }
+                    )
+                }
+
+                composable(BottomNavItem.Profile.route) {
+                    ProfileScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        onLogout = onLogout
+                    )
+                }
+
+                composable("settings/persona") {
+                    PersonaScreen(
+                        onNavigateBack = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+
+                composable("chatbot") {
+                    ChatBotScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToHistory = { navController.navigate("chatbot_history") }
+                    )
+                }
+
+                composable("chatbot_history") {
+                    ChatBotHistoryScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        onConversationClick = { conversationId ->
+                            navController.navigate("chatbot_conversation/$conversationId")
+                        },
+                        onNewChatClick = { navController.navigate("chatbot") }
+                    )
+                }
+
+                composable(
+                    route = "chatbot_conversation/{conversationId}",
+                    arguments = listOf(
+                        navArgument("conversationId") { type = NavType.StringType }
+                    )
+                ) { backStackEntry ->
+                    val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
+                    ChatBotConversationScreen(
+                        conversationId = conversationId,
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToHistory = { navController.navigate("chatbot_history") }
+                    )
+                }
             }
         }
     }
