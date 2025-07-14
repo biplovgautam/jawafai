@@ -75,6 +75,14 @@ dependencies {
     implementation("androidx.compose.runtime:runtime-livedata:1.5.4") // Add this line
     implementation("androidx.compose.material:material-icons-extended")
 
+    // Pull-to-refresh for Compose
+    implementation("androidx.compose.material:material:1.5.4")
+    implementation("com.google.accompanist:accompanist-swiperefresh:0.32.0")
+
+    // Pull-to-refresh for Material 3
+    implementation("androidx.compose.material3:material3:1.1.2")
+    implementation("androidx.compose.foundation:foundation:1.5.4")
+
     // Lifecycle components for ProcessLifecycleOwner
     implementation("androidx.lifecycle:lifecycle-process:2.7.0")
     implementation("androidx.lifecycle:lifecycle-common:2.7.0")

@@ -41,6 +41,8 @@ import com.example.jawafai.ui.theme.AppFonts
 import com.example.jawafai.utils.UserMigrationUtils
 import com.example.jawafai.viewmodel.ChatViewModel
 import com.example.jawafai.viewmodel.ChatViewModelFactory
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -168,17 +170,6 @@ fun ChatScreen(
                             color = Color(0xFF395B64)
                         )
                     )
-                },
-                actions = {
-                    IconButton(
-                        onClick = { handleRefresh() }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                            tint = Color(0xFF395B64)
-                        )
-                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.White
@@ -313,28 +304,37 @@ fun ChatScreen(
                         }
                     }
                 } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.White),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    // Pull-to-refresh state
+                    val pullToRefreshState = rememberSwipeRefreshState(isRefreshing)
+
+                    SwipeRefresh(
+                        state = pullToRefreshState,
+                        onRefresh = { handleRefresh() },
+                        modifier = Modifier.fillMaxSize()
                     ) {
-                        items(searchResults) { result ->
-                            when (result) {
-                                is SearchResult.ExistingChat -> {
-                                    ChatItemCard(
-                                        summary = result.summary,
-                                        onClick = { onNavigateToChat(result.summary.chatId, result.summary.otherUserId) }
-                                    )
-                                }
-                                is SearchResult.NewUser -> {
-                                    UserSearchResultCard(
-                                        user = result.user,
-                                        onClick = {
-                                            selectedUser = result.user
-                                            showQuickMessages = true
-                                        }
-                                    )
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.White),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(searchResults) { result ->
+                                when (result) {
+                                    is SearchResult.ExistingChat -> {
+                                        ChatItemCard(
+                                            summary = result.summary,
+                                            onClick = { onNavigateToChat(result.summary.chatId, result.summary.otherUserId) }
+                                        )
+                                    }
+                                    is SearchResult.NewUser -> {
+                                        UserSearchResultCard(
+                                            user = result.user,
+                                            onClick = {
+                                                selectedUser = result.user
+                                                showQuickMessages = true
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
