@@ -7,6 +7,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -35,7 +36,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -107,6 +107,7 @@ sealed class BottomNavItem(
         contentDescription = "Home"
     )
 
+
     object Chat : BottomNavItem(
         route = "chat",
         selectedIcon = Icons.Filled.Chat,
@@ -156,10 +157,6 @@ fun DashboardScreen(onLogout: () -> Unit) {
     val showBottomBar = items.any { it.route == currentRoute }
     val isInMainScreen = items.any { it.route == currentRoute }
 
-    // State for swipe gestures
-    var swipeOffset by remember { mutableFloatStateOf(0f) }
-    val swipeThreshold = 300f
-
     // Global back press handling
     BackHandler(
         enabled = !isInMainScreen,
@@ -184,7 +181,7 @@ fun DashboardScreen(onLogout: () -> Unit) {
         return items.indexOfFirst { it.route == currentRoute }.takeIf { it >= 0 } ?: 0
     }
 
-    // Helper function to navigate to tab by index
+    // Helper function to navigate to tab by index with smooth animation
     fun navigateToTab(index: Int) {
         if (index in items.indices) {
             val targetRoute = items[index].route
@@ -256,85 +253,63 @@ fun DashboardScreen(onLogout: () -> Unit) {
             }
         }
     ) { paddingValues ->
-        val unused = paddingValues // To avoid unused variable warning
-        // Main content area with enhanced swipe gesture support
+        val unused = paddingValues // Use paddingValues to avoid unused variable warning
+        // Main content area
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.White)
-                .pointerInput(isInMainScreen) {
-                    if (isInMainScreen) {
-                        detectDragGestures(
-                            onDragStart = {
-                                swipeOffset = 0f
-                            },
-                            onDragEnd = {
-                                val currentIndex = getCurrentTabIndex()
-
-                                when {
-                                    swipeOffset > swipeThreshold -> {
-                                        // Swipe right - go to previous tab
-                                        if (currentIndex > 0) {
-                                            navigateToTab(currentIndex - 1)
-                                        }
-                                    }
-                                    swipeOffset < -swipeThreshold -> {
-                                        // Swipe left - go to next tab
-                                        if (currentIndex < items.size - 1) {
-                                            navigateToTab(currentIndex + 1)
-                                        }
-                                    }
-                                }
-                                swipeOffset = 0f
-                            }
-                        ) { change, dragAmount ->
-                            swipeOffset += dragAmount.x
-                            change.consume()
-                        }
-                    }
-                }
         ) {
             NavHost(
                 navController = navController,
                 startDestination = BottomNavItem.Home.route,
                 modifier = Modifier.fillMaxSize()
             ) {
+                // Home Screen (Index 0 - Leftmost)
                 composable(
                     BottomNavItem.Home.route,
                     enterTransition = {
+                        val initialRoute = initialState.destination.route
                         val targetIndex = 0
-                        val initialIndex = items.indexOfFirst { it.route == initialState.destination.route }
+                        val initialIndex = items.indexOfFirst { it.route == initialRoute }
 
-                        if (initialIndex > targetIndex) {
-                            // Coming from right
-                            slideInHorizontally(
-                                initialOffsetX = { fullWidth -> -fullWidth },
-                                animationSpec = tween(400)
-                            ) + fadeIn(animationSpec = tween(400))
-                        } else {
-                            // Coming from left or initial
-                            slideInHorizontally(
-                                initialOffsetX = { fullWidth -> fullWidth },
-                                animationSpec = tween(400)
-                            ) + fadeIn(animationSpec = tween(400))
+                        when {
+                            initialIndex > targetIndex -> {
+                                // Coming from right (Chat/Notifications/Settings to Home)
+                                slideInHorizontally(
+                                    initialOffsetX = { -it },
+                                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                ) + fadeIn(animationSpec = tween(500))
+                            }
+                            else -> {
+                                // Initial load or other transitions
+                                slideInHorizontally(
+                                    initialOffsetX = { it },
+                                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                ) + fadeIn(animationSpec = tween(500))
+                            }
                         }
                     },
                     exitTransition = {
+                        val targetRoute = targetState.destination.route
                         val currentIndex = 0
-                        val targetIndex = items.indexOfFirst { it.route == targetState.destination.route }
+                        val targetIndex = items.indexOfFirst { it.route == targetRoute }
 
-                        if (targetIndex > currentIndex) {
-                            // Going to right
-                            slideOutHorizontally(
-                                targetOffsetX = { fullWidth -> -fullWidth },
-                                animationSpec = tween(400)
-                            ) + fadeOut(animationSpec = tween(400))
-                        } else {
-                            // Going to left
-                            slideOutHorizontally(
-                                targetOffsetX = { fullWidth -> fullWidth },
-                                animationSpec = tween(400)
-                            ) + fadeOut(animationSpec = tween(400))
+                        when {
+                            targetIndex > currentIndex -> {
+                                // Going to right (Home to Chat/Notifications/Settings)
+                                slideOutHorizontally(
+                                    targetOffsetX = { -it },
+                                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                ) + fadeOut(animationSpec = tween(500))
+                            }
+                            else -> {
+                                // Other transitions
+                                slideOutHorizontally(
+                                    targetOffsetX = { it },
+                                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                ) + fadeOut(animationSpec = tween(500))
+                            }
                         }
                     }
                 ) {
@@ -347,137 +322,124 @@ fun DashboardScreen(onLogout: () -> Unit) {
                         },
                         onNotificationClick = { navController.navigate(BottomNavItem.Notifications.route) },
                         onSeeAllChatsClick = {
-                            // Navigate to Chat tab instead of just chat route
                             navigateToTab(1) // Chat is at index 1
                         }
                     )
                 }
 
+                // Chat Screen (Index 1)
                 composable(
                     BottomNavItem.Chat.route,
                     enterTransition = {
+                        val initialRoute = initialState.destination.route
                         val targetIndex = 1
-                        val initialIndex = items.indexOfFirst { it.route == initialState.destination.route }
+                        val initialIndex = items.indexOfFirst { it.route == initialRoute }
 
-                        if (initialIndex > targetIndex) {
-                            // Coming from right
-                            slideInHorizontally(
-                                initialOffsetX = { fullWidth -> fullWidth },
-                                animationSpec = tween(400)
-                            ) + fadeIn(animationSpec = tween(400))
-                        } else {
-                            // Coming from left
-                            slideInHorizontally(
-                                initialOffsetX = { fullWidth -> -fullWidth },
-                                animationSpec = tween(400)
-                            ) + fadeIn(animationSpec = tween(400))
+                        when {
+                            initialIndex < targetIndex -> {
+                                // Coming from left (Home to Chat)
+                                slideInHorizontally(
+                                    initialOffsetX = { it },
+                                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                ) + fadeIn(animationSpec = tween(500))
+                            }
+                            initialIndex > targetIndex -> {
+                                // Coming from right (Notifications/Settings to Chat)
+                                slideInHorizontally(
+                                    initialOffsetX = { -it },
+                                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                ) + fadeIn(animationSpec = tween(500))
+                            }
+                            else -> {
+                                fadeIn(animationSpec = tween(500))
+                            }
                         }
                     },
                     exitTransition = {
+                        val targetRoute = targetState.destination.route
                         val currentIndex = 1
-                        val targetIndex = items.indexOfFirst { it.route == targetState.destination.route }
+                        val targetIndex = items.indexOfFirst { it.route == targetRoute }
 
-                        if (targetIndex > currentIndex) {
-                            // Going to right
-                            slideOutHorizontally(
-                                targetOffsetX = { fullWidth -> -fullWidth },
-                                animationSpec = tween(400)
-                            ) + fadeOut(animationSpec = tween(400))
-                        } else {
-                            // Going to left
-                            slideOutHorizontally(
-                                targetOffsetX = { fullWidth -> fullWidth },
-                                animationSpec = tween(400)
-                            ) + fadeOut(animationSpec = tween(400))
+                        when {
+                            targetIndex < currentIndex -> {
+                                // Going to left (Chat to Home)
+                                slideOutHorizontally(
+                                    targetOffsetX = { it },
+                                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                ) + fadeOut(animationSpec = tween(500))
+                            }
+                            targetIndex > currentIndex -> {
+                                // Going to right (Chat to Notifications/Settings)
+                                slideOutHorizontally(
+                                    targetOffsetX = { -it },
+                                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                ) + fadeOut(animationSpec = tween(500))
+                            }
+                            else -> {
+                                fadeOut(animationSpec = tween(500))
+                            }
                         }
                     }
                 ) {
                     ChatScreen(
                         onNavigateToChat = { chatId, otherUserId ->
                             navController.navigate("chat_detail/$chatId/$otherUserId")
-                        }
+                        },
+                        onNavigateToChatBot = { navController.navigate("chatbot") }
                     )
                 }
 
-                composable(
-                    route = "chat_detail/{chatId}/{otherUserId}",
-                    arguments = listOf(
-                        navArgument("chatId") { type = NavType.StringType },
-                        navArgument("otherUserId") { type = NavType.StringType }
-                    ),
-                    enterTransition = {
-                        slideInHorizontally(
-                            initialOffsetX = { fullWidth -> fullWidth },
-                            animationSpec = tween(400)
-                        ) + fadeIn(animationSpec = tween(400))
-                    },
-                    exitTransition = {
-                        slideOutHorizontally(
-                            targetOffsetX = { fullWidth -> -fullWidth },
-                            animationSpec = tween(400)
-                        ) + fadeOut(animationSpec = tween(400))
-                    },
-                    popEnterTransition = {
-                        slideInHorizontally(
-                            initialOffsetX = { fullWidth -> -fullWidth },
-                            animationSpec = tween(400)
-                        ) + fadeIn(animationSpec = tween(400))
-                    },
-                    popExitTransition = {
-                        slideOutHorizontally(
-                            targetOffsetX = { fullWidth -> fullWidth },
-                            animationSpec = tween(400)
-                        ) + fadeOut(animationSpec = tween(400))
-                    }
-                ) { backStackEntry ->
-                    val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
-                    val otherUserId = backStackEntry.arguments?.getString("otherUserId") ?: ""
-
-                    ChatDetailScreen(
-                        chatId = chatId,
-                        otherUserId = otherUserId,
-                        onNavigateBack = {
-                            navController.popBackStack()
-                        }
-                    )
-                }
-
+                // Notifications Screen (Index 2)
                 composable(
                     BottomNavItem.Notifications.route,
                     enterTransition = {
+                        val initialRoute = initialState.destination.route
                         val targetIndex = 2
-                        val initialIndex = items.indexOfFirst { it.route == initialState.destination.route }
+                        val initialIndex = items.indexOfFirst { it.route == initialRoute }
 
-                        if (initialIndex > targetIndex) {
-                            // Coming from right
-                            slideInHorizontally(
-                                initialOffsetX = { fullWidth -> fullWidth },
-                                animationSpec = tween(400)
-                            ) + fadeIn(animationSpec = tween(400))
-                        } else {
-                            // Coming from left
-                            slideInHorizontally(
-                                initialOffsetX = { fullWidth -> -fullWidth },
-                                animationSpec = tween(400)
-                            ) + fadeIn(animationSpec = tween(400))
+                        when {
+                            initialIndex < targetIndex -> {
+                                // Coming from left (Home/Chat to Notifications)
+                                slideInHorizontally(
+                                    initialOffsetX = { it },
+                                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                ) + fadeIn(animationSpec = tween(500))
+                            }
+                            initialIndex > targetIndex -> {
+                                // Coming from right (Settings to Notifications)
+                                slideInHorizontally(
+                                    initialOffsetX = { -it },
+                                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                ) + fadeIn(animationSpec = tween(500))
+                            }
+                            else -> {
+                                fadeIn(animationSpec = tween(500))
+                            }
                         }
                     },
                     exitTransition = {
+                        val targetRoute = targetState.destination.route
                         val currentIndex = 2
-                        val targetIndex = items.indexOfFirst { it.route == targetState.destination.route }
+                        val targetIndex = items.indexOfFirst { it.route == targetRoute }
 
-                        if (targetIndex > currentIndex) {
-                            // Going to right
-                            slideOutHorizontally(
-                                targetOffsetX = { fullWidth -> -fullWidth },
-                                animationSpec = tween(400)
-                            ) + fadeOut(animationSpec = tween(400))
-                        } else {
-                            // Going to left
-                            slideOutHorizontally(
-                                targetOffsetX = { fullWidth -> fullWidth },
-                                animationSpec = tween(400)
-                            ) + fadeOut(animationSpec = tween(400))
+                        when {
+                            targetIndex < currentIndex -> {
+                                // Going to left (Notifications to Home/Chat)
+                                slideOutHorizontally(
+                                    targetOffsetX = { it },
+                                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                ) + fadeOut(animationSpec = tween(500))
+                            }
+                            targetIndex > currentIndex -> {
+                                // Going to right (Notifications to Settings)
+                                slideOutHorizontally(
+                                    targetOffsetX = { -it },
+                                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                ) + fadeOut(animationSpec = tween(500))
+                            }
+                            else -> {
+                                fadeOut(animationSpec = tween(500))
+                            }
                         }
                     }
                 ) {
@@ -488,42 +450,51 @@ fun DashboardScreen(onLogout: () -> Unit) {
                     )
                 }
 
+                // Settings Screen (Index 3 - Rightmost)
                 composable(
                     BottomNavItem.Settings.route,
                     enterTransition = {
+                        val initialRoute = initialState.destination.route
                         val targetIndex = 3
-                        val initialIndex = items.indexOfFirst { it.route == initialState.destination.route }
+                        val initialIndex = items.indexOfFirst { it.route == initialRoute }
 
-                        if (initialIndex > targetIndex) {
-                            // Coming from right (shouldn't happen as this is the rightmost)
-                            slideInHorizontally(
-                                initialOffsetX = { fullWidth -> fullWidth },
-                                animationSpec = tween(400)
-                            ) + fadeIn(animationSpec = tween(400))
-                        } else {
-                            // Coming from left
-                            slideInHorizontally(
-                                initialOffsetX = { fullWidth -> -fullWidth },
-                                animationSpec = tween(400)
-                            ) + fadeIn(animationSpec = tween(400))
+                        when {
+                            initialIndex < targetIndex -> {
+                                // Coming from left (Home/Chat/Notifications to Settings)
+                                slideInHorizontally(
+                                    initialOffsetX = { it },
+                                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                ) + fadeIn(animationSpec = tween(500))
+                            }
+                            else -> {
+                                // Other transitions
+                                slideInHorizontally(
+                                    initialOffsetX = { -it },
+                                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                ) + fadeIn(animationSpec = tween(500))
+                            }
                         }
                     },
                     exitTransition = {
+                        val targetRoute = targetState.destination.route
                         val currentIndex = 3
-                        val targetIndex = items.indexOfFirst { it.route == targetState.destination.route }
+                        val targetIndex = items.indexOfFirst { it.route == targetRoute }
 
-                        if (targetIndex > currentIndex) {
-                            // Going to right (shouldn't happen as this is the rightmost)
-                            slideOutHorizontally(
-                                targetOffsetX = { fullWidth -> -fullWidth },
-                                animationSpec = tween(400)
-                            ) + fadeOut(animationSpec = tween(400))
-                        } else {
-                            // Going to left
-                            slideOutHorizontally(
-                                targetOffsetX = { fullWidth -> fullWidth },
-                                animationSpec = tween(400)
-                            ) + fadeOut(animationSpec = tween(400))
+                        when {
+                            targetIndex < currentIndex -> {
+                                // Going to left (Settings to Home/Chat/Notifications)
+                                slideOutHorizontally(
+                                    targetOffsetX = { it },
+                                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                ) + fadeOut(animationSpec = tween(500))
+                            }
+                            else -> {
+                                // Other transitions
+                                slideOutHorizontally(
+                                    targetOffsetX = { -it },
+                                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                                ) + fadeOut(animationSpec = tween(500))
+                            }
                         }
                     }
                 ) {
@@ -538,6 +509,51 @@ fun DashboardScreen(onLogout: () -> Unit) {
                     )
                 }
 
+                // Non-main screens with standard transitions
+                composable(
+                    route = "chat_detail/{chatId}/{otherUserId}",
+                    arguments = listOf(
+                        navArgument("chatId") { type = NavType.StringType },
+                        navArgument("otherUserId") { type = NavType.StringType }
+                    ),
+                    enterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { it },
+                            animationSpec = tween(400, easing = FastOutSlowInEasing)
+                        ) + fadeIn(animationSpec = tween(400))
+                    },
+                    exitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { -it },
+                            animationSpec = tween(400, easing = FastOutSlowInEasing)
+                        ) + fadeOut(animationSpec = tween(400))
+                    },
+                    popEnterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { -it },
+                            animationSpec = tween(400, easing = FastOutSlowInEasing)
+                        ) + fadeIn(animationSpec = tween(400))
+                    },
+                    popExitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { it },
+                            animationSpec = tween(400, easing = FastOutSlowInEasing)
+                        ) + fadeOut(animationSpec = tween(400))
+                    },
+                    ) { backStackEntry ->
+                    val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
+                    val otherUserId = backStackEntry.arguments?.getString("otherUserId") ?: ""
+
+                    ChatDetailScreen(
+                        chatId = chatId,
+                        otherUserId = otherUserId,
+                        onNavigateBack = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+
+                // Other screens with similar smooth transitions
                 composable(BottomNavItem.Profile.route) {
                     ProfileScreen(
                         onNavigateBack = { navController.popBackStack() },

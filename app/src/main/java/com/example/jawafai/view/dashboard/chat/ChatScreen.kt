@@ -38,6 +38,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.airbnb.lottie.compose.*
+import com.example.jawafai.R
 import com.example.jawafai.model.ChatSummary
 import com.example.jawafai.repository.ChatRepositoryImpl
 import com.example.jawafai.repository.UserRepositoryImpl
@@ -57,7 +59,8 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ChatScreen(
-    onNavigateToChat: (chatId: String, otherUserId: String) -> Unit
+    onNavigateToChat: (chatId: String, otherUserId: String) -> Unit,
+    onNavigateToChatBot: () -> Unit = {}
 ) {
     val auth = FirebaseAuth.getInstance()
     val chatRepository = remember { ChatRepositoryImpl() }
@@ -188,6 +191,13 @@ fun ChatScreen(
             )
         },
         floatingActionButton = {
+            // Lottie animation for bot
+            val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.bot))
+            val progress by animateLottieCompositionAsState(
+                composition,
+                iterations = LottieConstants.IterateForever
+            )
+
             Box(
                 modifier = Modifier
                     .padding(
@@ -197,16 +207,21 @@ fun ChatScreen(
                     )
             ) {
                 FloatingActionButton(
-                    onClick = { isNewChatDialogVisible = true },
-                    containerColor = Color(0xFF395B64),
-                    contentColor = Color.White,
-                    shape = CircleShape,
-                    modifier = Modifier.size(56.dp)
+                    onClick = { onNavigateToChatBot() },
+                    containerColor = Color.Transparent,
+                    contentColor = Color.Transparent,
+                    elevation = FloatingActionButtonDefaults.elevation(
+                        defaultElevation = 0.dp,
+                        pressedElevation = 0.dp,
+                        focusedElevation = 0.dp,
+                        hoveredElevation = 0.dp
+                    ),
+                    modifier = Modifier.size(100.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Edit,
-                        contentDescription = "New Chat",
-                        modifier = Modifier.size(24.dp)
+                    LottieAnimation(
+                        composition = composition,
+                        progress = { progress },
+                        modifier = Modifier.size(90.dp)
                     )
                 }
             }
