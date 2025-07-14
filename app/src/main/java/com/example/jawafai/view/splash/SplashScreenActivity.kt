@@ -66,7 +66,7 @@ fun SplashScreen(
     // Final countdown after connection is established
     LaunchedEffect(startFinalCountdown) {
         if (startFinalCountdown) {
-            delay(3000) // Show splash for 3 seconds after connection (reduced from 5 seconds)
+            delay(1000) // Show splash for 3 seconds after connection (reduced from 5 seconds)
             val destination = checkUserState()
             onNavigate(destination)
         }
@@ -265,7 +265,7 @@ fun SplashScreen(
     // Timeout mechanism for retry button
     LaunchedEffect(isRetrying) {
         if (isRetrying) {
-            delay(3000) // Wait 3 seconds
+            delay(2000) // Wait 3 seconds
             if (!isConnected) {
                 isRetrying = false // Reset retry state if still no connection
             }

@@ -13,6 +13,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -33,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -59,6 +61,7 @@ import com.example.jawafai.view.dashboard.settings.PersonaScreen
 import com.example.jawafai.view.dashboard.settings.ProfileScreen
 import com.example.jawafai.view.dashboard.settings.SettingsScreen
 import com.example.jawafai.utils.WithNetworkMonitoring
+import kotlinx.coroutines.launch
 
 class DashboardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -153,6 +156,10 @@ fun DashboardScreen(onLogout: () -> Unit) {
     val showBottomBar = items.any { it.route == currentRoute }
     val isInMainScreen = items.any { it.route == currentRoute }
 
+    // State for swipe gestures
+    var swipeOffset by remember { mutableFloatStateOf(0f) }
+    val swipeThreshold = 300f
+
     // Global back press handling
     BackHandler(
         enabled = !isInMainScreen,
@@ -172,19 +179,39 @@ fun DashboardScreen(onLogout: () -> Unit) {
         }
     )
 
+    // Helper function to get current tab index
+    fun getCurrentTabIndex(): Int {
+        return items.indexOfFirst { it.route == currentRoute }.takeIf { it >= 0 } ?: 0
+    }
+
+    // Helper function to navigate to tab by index
+    fun navigateToTab(index: Int) {
+        if (index in items.indices) {
+            val targetRoute = items[index].route
+            if (currentRoute != targetRoute) {
+                navController.navigate(targetRoute) {
+                    popUpTo(navController.graph.findStartDestination().id) {
+                        saveState = true
+                    }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            }
+        }
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        // Disable all system window insets to take full screen
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    // Add bottom navigation bar insets manually
+                    containerColor = Color(0xFFE7F6F2),
+                    contentColor = Color(0xFF395B64),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .navigationBarsPadding()
+                        // Remove the bottom padding to attach directly to bottom
+//                        .navigationBarsPadding()
                 ) {
                     items.forEach { item ->
                         val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
@@ -206,24 +233,20 @@ fun DashboardScreen(onLogout: () -> Unit) {
                                                 .width(16.dp)
                                                 .height(2.dp)
                                                 .clip(CircleShape)
-                                                .background(MaterialTheme.colorScheme.onPrimary)
+                                                .background(Color(0xFF395B64))
                                         )
                                     }
                                 }
                             },
                             selected = selected,
                             onClick = {
-                                navController.navigate(item.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
+                                if (currentRoute != item.route) {
+                                    navigateToTab(items.indexOf(item))
                                 }
                             },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-                                unselectedIconColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
+                                selectedIconColor = Color(0xFF395B64),
+                                unselectedIconColor = Color(0xFF666666),
                                 indicatorColor = Color.Transparent
                             ),
                             alwaysShowLabel = false
@@ -232,30 +255,143 @@ fun DashboardScreen(onLogout: () -> Unit) {
                 }
             }
         }
-    ) { innerPadding ->
-        val unused = innerPadding // We won't use innerPadding for the main content
-        // Don't use innerPadding to allow full screen usage
+    ) { paddingValues ->
+        val unused = paddingValues // To avoid unused variable warning
+        // Main content area with enhanced swipe gesture support
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.White)
+                .pointerInput(isInMainScreen) {
+                    if (isInMainScreen) {
+                        detectDragGestures(
+                            onDragStart = {
+                                swipeOffset = 0f
+                            },
+                            onDragEnd = {
+                                val currentIndex = getCurrentTabIndex()
+
+                                when {
+                                    swipeOffset > swipeThreshold -> {
+                                        // Swipe right - go to previous tab
+                                        if (currentIndex > 0) {
+                                            navigateToTab(currentIndex - 1)
+                                        }
+                                    }
+                                    swipeOffset < -swipeThreshold -> {
+                                        // Swipe left - go to next tab
+                                        if (currentIndex < items.size - 1) {
+                                            navigateToTab(currentIndex + 1)
+                                        }
+                                    }
+                                }
+                                swipeOffset = 0f
+                            }
+                        ) { change, dragAmount ->
+                            swipeOffset += dragAmount.x
+                            change.consume()
+                        }
+                    }
+                }
         ) {
             NavHost(
                 navController = navController,
                 startDestination = BottomNavItem.Home.route,
                 modifier = Modifier.fillMaxSize()
             ) {
-                composable(BottomNavItem.Home.route) {
+                composable(
+                    BottomNavItem.Home.route,
+                    enterTransition = {
+                        val targetIndex = 0
+                        val initialIndex = items.indexOfFirst { it.route == initialState.destination.route }
+
+                        if (initialIndex > targetIndex) {
+                            // Coming from right
+                            slideInHorizontally(
+                                initialOffsetX = { fullWidth -> -fullWidth },
+                                animationSpec = tween(400)
+                            ) + fadeIn(animationSpec = tween(400))
+                        } else {
+                            // Coming from left or initial
+                            slideInHorizontally(
+                                initialOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(400)
+                            ) + fadeIn(animationSpec = tween(400))
+                        }
+                    },
+                    exitTransition = {
+                        val currentIndex = 0
+                        val targetIndex = items.indexOfFirst { it.route == targetState.destination.route }
+
+                        if (targetIndex > currentIndex) {
+                            // Going to right
+                            slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> -fullWidth },
+                                animationSpec = tween(400)
+                            ) + fadeOut(animationSpec = tween(400))
+                        } else {
+                            // Going to left
+                            slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(400)
+                            ) + fadeOut(animationSpec = tween(400))
+                        }
+                    }
+                ) {
                     HomeScreen(
                         onProfileClick = { navController.navigate(BottomNavItem.Profile.route) },
                         onChatBotClick = { navController.navigate("chatbot") },
                         onCompletePersonaClick = { navController.navigate("settings/persona") },
-                        onRecentChatClick = { chatId -> navController.navigate("chat_detail/$chatId/") },
-                        onNotificationClick = { navController.navigate(BottomNavItem.Notifications.route) }
+                        onRecentChatClick = { chatId, otherUserId ->
+                            navController.navigate("chat_detail/$chatId/$otherUserId")
+                        },
+                        onNotificationClick = { navController.navigate(BottomNavItem.Notifications.route) },
+                        onSeeAllChatsClick = {
+                            // Navigate to Chat tab instead of just chat route
+                            navigateToTab(1) // Chat is at index 1
+                        }
                     )
                 }
 
-                composable(BottomNavItem.Chat.route) {
+                composable(
+                    BottomNavItem.Chat.route,
+                    enterTransition = {
+                        val targetIndex = 1
+                        val initialIndex = items.indexOfFirst { it.route == initialState.destination.route }
+
+                        if (initialIndex > targetIndex) {
+                            // Coming from right
+                            slideInHorizontally(
+                                initialOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(400)
+                            ) + fadeIn(animationSpec = tween(400))
+                        } else {
+                            // Coming from left
+                            slideInHorizontally(
+                                initialOffsetX = { fullWidth -> -fullWidth },
+                                animationSpec = tween(400)
+                            ) + fadeIn(animationSpec = tween(400))
+                        }
+                    },
+                    exitTransition = {
+                        val currentIndex = 1
+                        val targetIndex = items.indexOfFirst { it.route == targetState.destination.route }
+
+                        if (targetIndex > currentIndex) {
+                            // Going to right
+                            slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> -fullWidth },
+                                animationSpec = tween(400)
+                            ) + fadeOut(animationSpec = tween(400))
+                        } else {
+                            // Going to left
+                            slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(400)
+                            ) + fadeOut(animationSpec = tween(400))
+                        }
+                    }
+                ) {
                     ChatScreen(
                         onNavigateToChat = { chatId, otherUserId ->
                             navController.navigate("chat_detail/$chatId/$otherUserId")
@@ -272,26 +408,26 @@ fun DashboardScreen(onLogout: () -> Unit) {
                     enterTransition = {
                         slideInHorizontally(
                             initialOffsetX = { fullWidth -> fullWidth },
-                            animationSpec = tween(300)
-                        ) + fadeIn(animationSpec = tween(300))
+                            animationSpec = tween(400)
+                        ) + fadeIn(animationSpec = tween(400))
                     },
                     exitTransition = {
                         slideOutHorizontally(
                             targetOffsetX = { fullWidth -> -fullWidth },
-                            animationSpec = tween(300)
-                        ) + fadeOut(animationSpec = tween(300))
+                            animationSpec = tween(400)
+                        ) + fadeOut(animationSpec = tween(400))
                     },
                     popEnterTransition = {
                         slideInHorizontally(
                             initialOffsetX = { fullWidth -> -fullWidth },
-                            animationSpec = tween(300)
-                        ) + fadeIn(animationSpec = tween(300))
+                            animationSpec = tween(400)
+                        ) + fadeIn(animationSpec = tween(400))
                     },
                     popExitTransition = {
                         slideOutHorizontally(
                             targetOffsetX = { fullWidth -> fullWidth },
-                            animationSpec = tween(300)
-                        ) + fadeOut(animationSpec = tween(300))
+                            animationSpec = tween(400)
+                        ) + fadeOut(animationSpec = tween(400))
                     }
                 ) { backStackEntry ->
                     val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
@@ -306,7 +442,45 @@ fun DashboardScreen(onLogout: () -> Unit) {
                     )
                 }
 
-                composable(BottomNavItem.Notifications.route) {
+                composable(
+                    BottomNavItem.Notifications.route,
+                    enterTransition = {
+                        val targetIndex = 2
+                        val initialIndex = items.indexOfFirst { it.route == initialState.destination.route }
+
+                        if (initialIndex > targetIndex) {
+                            // Coming from right
+                            slideInHorizontally(
+                                initialOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(400)
+                            ) + fadeIn(animationSpec = tween(400))
+                        } else {
+                            // Coming from left
+                            slideInHorizontally(
+                                initialOffsetX = { fullWidth -> -fullWidth },
+                                animationSpec = tween(400)
+                            ) + fadeIn(animationSpec = tween(400))
+                        }
+                    },
+                    exitTransition = {
+                        val currentIndex = 2
+                        val targetIndex = items.indexOfFirst { it.route == targetState.destination.route }
+
+                        if (targetIndex > currentIndex) {
+                            // Going to right
+                            slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> -fullWidth },
+                                animationSpec = tween(400)
+                            ) + fadeOut(animationSpec = tween(400))
+                        } else {
+                            // Going to left
+                            slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(400)
+                            ) + fadeOut(animationSpec = tween(400))
+                        }
+                    }
+                ) {
                     NotificationScreen(
                         onNavigateBack = {
                             navController.popBackStack()
@@ -314,7 +488,45 @@ fun DashboardScreen(onLogout: () -> Unit) {
                     )
                 }
 
-                composable(BottomNavItem.Settings.route) {
+                composable(
+                    BottomNavItem.Settings.route,
+                    enterTransition = {
+                        val targetIndex = 3
+                        val initialIndex = items.indexOfFirst { it.route == initialState.destination.route }
+
+                        if (initialIndex > targetIndex) {
+                            // Coming from right (shouldn't happen as this is the rightmost)
+                            slideInHorizontally(
+                                initialOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(400)
+                            ) + fadeIn(animationSpec = tween(400))
+                        } else {
+                            // Coming from left
+                            slideInHorizontally(
+                                initialOffsetX = { fullWidth -> -fullWidth },
+                                animationSpec = tween(400)
+                            ) + fadeIn(animationSpec = tween(400))
+                        }
+                    },
+                    exitTransition = {
+                        val currentIndex = 3
+                        val targetIndex = items.indexOfFirst { it.route == targetState.destination.route }
+
+                        if (targetIndex > currentIndex) {
+                            // Going to right (shouldn't happen as this is the rightmost)
+                            slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> -fullWidth },
+                                animationSpec = tween(400)
+                            ) + fadeOut(animationSpec = tween(400))
+                        } else {
+                            // Going to left
+                            slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(400)
+                            ) + fadeOut(animationSpec = tween(400))
+                        }
+                    }
+                ) {
                     SettingsScreen(
                         onLogout = onLogout,
                         onProfileClicked = {

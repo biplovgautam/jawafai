@@ -32,8 +32,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.jawafai.R
+import com.example.jawafai.repository.ChatRepositoryImpl
 import com.example.jawafai.repository.UserRepositoryImpl
 import com.example.jawafai.ui.theme.AppFonts
+import com.example.jawafai.viewmodel.ChatViewModel
+import com.example.jawafai.viewmodel.ChatViewModelFactory
 import com.example.jawafai.viewmodel.UserViewModel
 import com.example.jawafai.viewmodel.UserViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
@@ -66,19 +69,25 @@ fun HomeScreen(
     onProfileClick: () -> Unit = {},
     onChatBotClick: () -> Unit = {},
     onCompletePersonaClick: () -> Unit = {},
-    onRecentChatClick: (String) -> Unit = {},
-    onNotificationClick: (String) -> Unit = {}
+    onRecentChatClick: (String, String) -> Unit = { _, _ -> },
+    onNotificationClick: (String) -> Unit = {},
+    onSeeAllChatsClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
-    // Initialize ViewModel
+    // Initialize ViewModels
     val auth = FirebaseAuth.getInstance()
     val firestore = FirebaseFirestore.getInstance()
     val repository = UserRepositoryImpl(auth, firestore)
     val userViewModel = remember { UserViewModelFactory(repository, auth).create(UserViewModel::class.java) }
 
-    // Observe user profile
+    // Initialize ChatViewModel for recent chats
+    val chatRepository = remember { ChatRepositoryImpl() }
+    val chatViewModel = remember { ChatViewModelFactory(chatRepository, repository, auth).create(ChatViewModel::class.java) }
+
+    // Observe user profile and chat summaries
     val userProfile by userViewModel.userProfile.observeAsState()
+    val chatSummaries by chatViewModel.chatSummaries.collectAsState()
 
     // Store profile data in local variables to avoid smart cast issues
     val currentUserProfile = userProfile
@@ -92,16 +101,12 @@ fun HomeScreen(
         userViewModel.fetchUserProfile()
     }
 
-    // Sample data - Replace with real data from your repository
-    val recentChats = remember {
-        listOf(
-            ChatPreview("1", "Priya Sharma", null, "Thanks for the help!", System.currentTimeMillis() - 3600000, 2),
-            ChatPreview("2", "Rajesh Kumar", null, "See you tomorrow!", System.currentTimeMillis() - 86400000, 0),
-            ChatPreview("3", "Anita Singh", null, "Great meeting today", System.currentTimeMillis() - 172800000, 1),
-            ChatPreview("4", "Vikram Gupta", null, "How's the project going?", System.currentTimeMillis() - 259200000, 0)
-        )
+    // Get recent chats (only take first 3-4 for home screen)
+    val recentChats = remember(chatSummaries) {
+        chatSummaries.filter { it.lastMessage.isNotBlank() }.take(3)
     }
 
+    // Sample notifications data - Replace with real data from your repository
     val notifications = remember {
         listOf(
             Notification("1", "Persona Update", "Complete your persona for better responses", System.currentTimeMillis() - 7200000, true),
@@ -227,7 +232,8 @@ fun HomeScreen(
             item {
                 RecentChatsSection(
                     chats = recentChats,
-                    onChatClick = onRecentChatClick
+                    onChatClick = onRecentChatClick,
+                    onSeeAllClick = onSeeAllChatsClick
                 )
             }
 
@@ -390,8 +396,9 @@ fun ChatBotSection(onChatBotClick: () -> Unit) {
 
 @Composable
 fun RecentChatsSection(
-    chats: List<ChatPreview>,
-    onChatClick: (String) -> Unit
+    chats: List<com.example.jawafai.model.ChatSummary>,
+    onChatClick: (String, String) -> Unit,
+    onSeeAllClick: () -> Unit = {}
 ) {
     Column {
         Row(
@@ -409,10 +416,10 @@ fun RecentChatsSection(
                 )
             )
             TextButton(
-                onClick = { /* Navigate to all chats */ }
+                onClick = onSeeAllClick
             ) {
                 Text(
-                    text = "View All",
+                    text = "See All",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = AppFonts.KarlaFontFamily,
                         fontSize = 14.sp,
@@ -424,25 +431,51 @@ fun RecentChatsSection(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        chats.take(4).forEach { chat ->
-            ChatPreviewItem(
-                chat = chat,
-                onClick = onChatClick
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+        if (chats.isEmpty()) {
+            // Show empty state
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No recent chats",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                            fontSize = 14.sp,
+                            color = Color(0xFF666666)
+                        )
+                    )
+                }
+            }
+        } else {
+            chats.forEach { chat ->
+                RecentChatItem(
+                    chat = chat,
+                    onClick = { onChatClick(chat.chatId, chat.otherUserId) }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
     }
 }
 
 @Composable
-fun ChatPreviewItem(
-    chat: ChatPreview,
-    onClick: (String) -> Unit
+fun RecentChatItem(
+    chat: com.example.jawafai.model.ChatSummary,
+    onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick(chat.id) },
+            .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -460,9 +493,9 @@ fun ChatPreviewItem(
                     .clip(CircleShape)
                     .background(Color(0xFFA5C9CA))
             ) {
-                if (chat.userImageUrl != null) {
+                if (chat.otherUserImageUrl != null) {
                     AsyncImage(
-                        model = chat.userImageUrl,
+                        model = chat.otherUserImageUrl,
                         contentDescription = "User Avatar",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
@@ -489,7 +522,7 @@ fun ChatPreviewItem(
                     verticalAlignment = Alignment.Top
                 ) {
                     Text(
-                        text = chat.userName,
+                        text = chat.otherUserName,
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontFamily = AppFonts.KarlaFontFamily,
                             fontWeight = FontWeight.Bold,
@@ -503,7 +536,7 @@ fun ChatPreviewItem(
                         horizontalAlignment = Alignment.End
                     ) {
                         Text(
-                            text = formatTimestamp(chat.timestamp),
+                            text = formatTimestamp(chat.lastMessageTimestamp),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = AppFonts.KaiseiDecolFontFamily,
                                 fontSize = 12.sp,

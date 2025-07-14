@@ -30,4 +30,7 @@ interface ChatRepository {
     
     // Delete message functionality
     suspend fun deleteMessage(messageId: String, senderId: String, receiverId: String)
+
+    // Delete entire chat functionality
+    suspend fun deleteChat(currentUserId: String, otherUserId: String)
 }

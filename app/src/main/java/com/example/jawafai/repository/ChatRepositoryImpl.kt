@@ -472,4 +472,26 @@ class ChatRepositoryImpl(
             throw e
         }
     }
+
+    override suspend fun deleteChat(currentUserId: String, otherUserId: String) = withContext(Dispatchers.IO) {
+        val chatId = getChatId(currentUserId, otherUserId)
+
+        try {
+            // Delete all messages in the chat
+            chatsRef.child(chatId).removeValue().await()
+
+            // Remove last message entries for both users
+            lastMessagesRef.child(currentUserId).child(otherUserId).removeValue().await()
+            lastMessagesRef.child(otherUserId).child(currentUserId).removeValue().await()
+
+            // Remove typing status entries
+            typingStatusRef.child(currentUserId).removeValue().await()
+            typingStatusRef.child(otherUserId).removeValue().await()
+
+            println("✅ Chat deleted successfully: $chatId")
+        } catch (e: Exception) {
+            println("❌ Error deleting chat: ${e.message}")
+            throw e
+        }
+    }
 }
