@@ -91,20 +91,18 @@ class ChatRepositoryImpl(
 
         try {
             // Mark all messages from the other user as seen
-            val messagesSnapshot = chatsRef.child(chatId)
-                .orderByChild("receiverId")
-                .equalTo(currentUserId)
-                .get().await()
+            val messagesSnapshot = chatsRef.child(chatId).get().await()
 
             messagesSnapshot.children.forEach { messageSnapshot ->
                 val message = messageSnapshot.getValue(ChatMessage::class.java)
-                if (message != null && !message.seen) {
+                if (message != null && message.receiverId == currentUserId && !message.seen) {
+                    // Mark this specific message as seen
                     chatsRef.child(chatId).child(message.messageId).child("seen").setValue(true)
                 }
             }
 
-            // Update last message as seen
-            lastMessagesRef.child(currentUserId).child(receiverId).child("seen").setValue(true)
+            // Update last message as seen for the current user
+            lastMessagesRef.child(currentUserId).child(if (currentUserId == senderId) receiverId else senderId).child("seen").setValue(true)
 
             println("✅ Messages marked as seen for chat: $chatId")
         } catch (e: Exception) {
@@ -142,22 +140,55 @@ class ChatRepositoryImpl(
                             ?: "Unknown User"
                         val otherUserImageUrl = userSnapshot.child("profileImageUrl").getValue(String::class.java)
 
-                        summaries.add(
-                            ChatSummary(
-                                chatId = getChatId(userId, otherUserId),
-                                otherUserId = otherUserId,
-                                otherUserName = otherUserName,
-                                otherUserImageUrl = otherUserImageUrl,
-                                lastMessage = lastMessage.text,
-                                lastMessageTimestamp = lastMessage.timestamp,
-                                isLastMessageSeen = lastMessage.seen
-                            )
-                        )
+                        // Count unread messages for this chat
+                        val chatId = getChatId(userId, otherUserId)
+                        chatsRef.child(chatId).orderByChild("receiverId").equalTo(userId).get().addOnSuccessListener { messagesSnapshot ->
+                            var unreadCount = 0
+                            messagesSnapshot.children.forEach { messageSnapshot ->
+                                val message = messageSnapshot.getValue(ChatMessage::class.java)
+                                if (message != null && !message.seen && message.receiverId == userId) {
+                                    unreadCount++
+                                }
+                            }
 
-                        processedCount++
-                        if (processedCount == totalCount) {
-                            val sortedSummaries = summaries.sortedByDescending { it.lastMessageTimestamp }
-                            trySend(sortedSummaries).isSuccess
+                            summaries.add(
+                                ChatSummary(
+                                    chatId = chatId,
+                                    otherUserId = otherUserId,
+                                    otherUserName = otherUserName,
+                                    otherUserImageUrl = otherUserImageUrl,
+                                    lastMessage = lastMessage.text,
+                                    lastMessageTimestamp = lastMessage.timestamp,
+                                    isLastMessageSeen = lastMessage.seen,
+                                    unreadCount = unreadCount
+                                )
+                            )
+
+                            processedCount++
+                            if (processedCount == totalCount) {
+                                val sortedSummaries = summaries.sortedByDescending { it.lastMessageTimestamp }
+                                trySend(sortedSummaries).isSuccess
+                            }
+                        }.addOnFailureListener {
+                            // If counting fails, still add the summary without unread count
+                            summaries.add(
+                                ChatSummary(
+                                    chatId = chatId,
+                                    otherUserId = otherUserId,
+                                    otherUserName = otherUserName,
+                                    otherUserImageUrl = otherUserImageUrl,
+                                    lastMessage = lastMessage.text,
+                                    lastMessageTimestamp = lastMessage.timestamp,
+                                    isLastMessageSeen = lastMessage.seen,
+                                    unreadCount = 0
+                                )
+                            )
+
+                            processedCount++
+                            if (processedCount == totalCount) {
+                                val sortedSummaries = summaries.sortedByDescending { it.lastMessageTimestamp }
+                                trySend(sortedSummaries).isSuccess
+                            }
                         }
                     }.addOnFailureListener {
                         processedCount++

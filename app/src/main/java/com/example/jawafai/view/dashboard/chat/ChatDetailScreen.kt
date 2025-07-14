@@ -10,29 +10,30 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.jawafai.model.ChatMessage
 import com.example.jawafai.repository.ChatRepositoryImpl
 import com.example.jawafai.repository.UserRepositoryImpl
+import com.example.jawafai.ui.theme.AppFonts
 import com.example.jawafai.viewmodel.ChatViewModel
 import com.example.jawafai.viewmodel.ChatViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.*
-
-// UI constants
-private val darkTeal = Color(0xFF365A61)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,13 +56,12 @@ fun ChatDetailScreen(
 
     // Get user info for the other user
     var otherUserName by remember { mutableStateOf("Chat") }
-    var isLoadingUserInfo by remember { mutableStateOf(true) }
+    var otherUserImageUrl by remember { mutableStateOf<String?>(null) }
 
     // Load messages when screen opens
     LaunchedEffect(chatId, currentUserId) {
         if (currentUserId != null) {
             try {
-                // Use the new method signature: getMessagesForChat(senderId, receiverId)
                 viewModel.getMessagesForChat(currentUserId, otherUserId)
                 viewModel.markMessagesAsSeen(currentUserId, otherUserId)
             } catch (e: Exception) {
@@ -79,6 +79,7 @@ fun ChatDetailScreen(
                 otherUserName = userProfile.displayName.ifEmpty {
                     userProfile.username.ifEmpty { userProfile.email }
                 }
+                otherUserImageUrl = userProfile.profileImageUrl
                 println("🔍 DEBUG: ChatDetailScreen - Set user name to: $otherUserName")
             } else {
                 println("🔍 DEBUG: ChatDetailScreen - Could not find user with ID: $otherUserId")
@@ -87,30 +88,69 @@ fun ChatDetailScreen(
         } catch (e: Exception) {
             println("🔍 DEBUG: ChatDetailScreen - Error loading user info: ${e.message}")
             otherUserName = "Unknown User"
-        } finally {
-            isLoadingUserInfo = false
         }
     }
 
     Scaffold(
-        containerColor = darkTeal,
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White),
+        containerColor = Color.White,
         topBar = {
-            CenterAlignedTopAppBar(
+            TopAppBar(
                 title = {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = otherUserName,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                        // Show typing indicator in the title area
-                        if (typingStatus?.isTyping == true) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // User Profile Picture
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFA5C9CA))
+                        ) {
+                            if (otherUserImageUrl != null) {
+                                AsyncImage(
+                                    model = otherUserImageUrl,
+                                    contentDescription = "User Avatar",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Default Avatar",
+                                    modifier = Modifier.size(20.dp).align(Alignment.Center),
+                                    tint = Color.White
+                                )
+                            }
+                        }
+
+                        // User name and typing indicator
+                        Column {
                             Text(
-                                text = "typing...",
-                                color = Color.White.copy(alpha = 0.7f),
-                                fontSize = 12.sp,
-                                fontStyle = FontStyle.Italic
+                                text = otherUserName,
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontFamily = AppFonts.KarlaFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = Color(0xFF395B64)
+                                )
                             )
+
+                            // Show typing indicator in the title area
+                            if (typingStatus?.isTyping == true) {
+                                Text(
+                                    text = "typing...",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF666666),
+                                        fontStyle = FontStyle.Italic
+                                    )
+                                )
+                            }
                         }
                     }
                 },
@@ -119,12 +159,12 @@ fun ChatDetailScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = Color.White
+                            tint = Color(0xFF395B64)
                         )
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = darkTeal
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White
                 )
             )
         },
@@ -145,27 +185,32 @@ fun ChatDetailScreen(
             )
         }
     ) { paddingValues ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(darkTeal)
+                .background(Color.White)
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp),
-            reverseLayout = true,
-            contentPadding = PaddingValues(vertical = 8.dp)
         ) {
-            // Add typing indicator as a message bubble at the bottom
-            if (typingStatus?.isTyping == true) {
-                item {
-                    TypingIndicatorBubble()
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                reverseLayout = true,
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                // Add typing indicator as a message bubble at the bottom
+                if (typingStatus?.isTyping == true) {
+                    item {
+                        TypingIndicatorBubble()
+                    }
                 }
-            }
 
-            items(messages.sortedByDescending { it.timestamp }) { message ->
-                MessageBubble(
-                    message = message,
-                    isFromCurrentUser = message.senderId == currentUserId
-                )
+                items(messages.sortedByDescending { it.timestamp }) { message ->
+                    MessageBubble(
+                        message = message,
+                        isFromCurrentUser = message.senderId == currentUserId
+                    )
+                }
             }
         }
     }
@@ -186,8 +231,8 @@ fun TypingIndicatorBubble() {
                 bottomStart = 4.dp,
                 bottomEnd = 20.dp
             ),
-            color = Color.White.copy(alpha = 0.15f),
-            tonalElevation = 2.dp,
+            color = Color(0xFFF0F0F0),
+            shadowElevation = 2.dp,
             modifier = Modifier.widthIn(max = 100.dp)
         ) {
             Row(
@@ -196,11 +241,12 @@ fun TypingIndicatorBubble() {
             ) {
                 // Animated dots for typing indicator
                 repeat(3) { index ->
-                    val alpha by rememberInfiniteTransition(label = "typing").animateFloat(
+                    val infiniteTransition = rememberInfiniteTransition(label = "typing")
+                    val alpha by infiniteTransition.animateFloat(
                         initialValue = 0.3f,
                         targetValue = 1f,
                         animationSpec = infiniteRepeatable(
-                            animation = tween(600),
+                            animation = tween(600, delayMillis = index * 200),
                             repeatMode = RepeatMode.Reverse
                         ), label = "alpha"
                     )
@@ -209,7 +255,7 @@ fun TypingIndicatorBubble() {
                         modifier = Modifier
                             .size(8.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = alpha))
+                            .background(Color(0xFF666666).copy(alpha = alpha))
                     )
 
                     if (index < 2) {
@@ -237,50 +283,64 @@ fun MessageBubble(message: ChatMessage, isFromCurrentUser: Boolean) {
                 bottomEnd = if (isFromCurrentUser) 4.dp else 20.dp
             ),
             color = if (isFromCurrentUser) {
-                MaterialTheme.colorScheme.primary
+                Color(0xFF395B64)
             } else {
-                Color.White.copy(alpha = 0.15f)
+                Color(0xFFF0F0F0)
             },
-            tonalElevation = 2.dp,
-            modifier = Modifier
-                .widthIn(max = 280.dp)
+            shadowElevation = 2.dp,
+            modifier = Modifier.widthIn(max = 280.dp)
         ) {
             Column(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 Text(
                     text = message.text,
-                    color = if (isFromCurrentUser) {
-                        Color.White
-                    } else {
-                        Color.White
-                    },
-                    fontSize = 16.sp,
-                    lineHeight = 20.sp
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                        fontSize = 16.sp,
+                        lineHeight = 20.sp,
+                        color = if (isFromCurrentUser) {
+                            Color.White
+                        } else {
+                            Color(0xFF333333)
+                        }
+                    )
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = formatMessageTime(message.timestamp),
-                        color = if (isFromCurrentUser) {
-                            Color.White.copy(alpha = 0.7f)
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                            fontSize = 12.sp,
+                            color = if (isFromCurrentUser) {
+                                Color.White.copy(alpha = 0.7f)
                         } else {
-                            Color.White.copy(alpha = 0.6f)
-                        },
-                        fontSize = 12.sp
+                            Color(0xFF666666)
+                        }
+                        )
                     )
 
                     // Show "seen" indicator for sent messages
-                    if (isFromCurrentUser && message.seen) {
+                    if (isFromCurrentUser) {
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "✓✓",
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 10.sp
+                            text = if (message.seen) "✓✓" else "✓",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                fontSize = 10.sp,
+                                color = if (message.seen) {
+                                    Color(0xFF4CAF50) // Green for seen
+                                } else {
+                                    Color.White.copy(alpha = 0.7f)
+                                }
+                            )
                         )
                     }
                 }
@@ -297,8 +357,8 @@ fun MessageInput(
     onSendClick: () -> Unit
 ) {
     Surface(
-        color = darkTeal,
-        tonalElevation = 8.dp
+        color = Color.White,
+        shadowElevation = 8.dp
     ) {
         Row(
             modifier = Modifier
@@ -313,18 +373,21 @@ fun MessageInput(
                 placeholder = {
                     Text(
                         "Type a message...",
-                        color = Color.White.copy(alpha = 0.6f)
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                            color = Color(0xFF666666)
+                        )
                     )
                 },
                 shape = RoundedCornerShape(24.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color.White.copy(alpha = 0.5f),
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                    cursorColor = Color.White,
-                    focusedPlaceholderColor = Color.White.copy(alpha = 0.6f),
-                    unfocusedPlaceholderColor = Color.White.copy(alpha = 0.4f)
+                    focusedTextColor = Color(0xFF395B64),
+                    unfocusedTextColor = Color(0xFF395B64),
+                    focusedBorderColor = Color(0xFF395B64),
+                    unfocusedBorderColor = Color(0xFF666666).copy(alpha = 0.3f),
+                    cursorColor = Color(0xFF395B64),
+                    focusedPlaceholderColor = Color(0xFF666666),
+                    unfocusedPlaceholderColor = Color(0xFF666666).copy(alpha = 0.7f)
                 ),
                 maxLines = 4
             )
@@ -336,9 +399,9 @@ fun MessageInput(
                 enabled = value.isNotBlank(),
                 shape = CircleShape,
                 color = if (value.isNotBlank()) {
-                    MaterialTheme.colorScheme.primary
+                    Color(0xFF395B64)
                 } else {
-                    Color.White.copy(alpha = 0.3f)
+                    Color(0xFF666666).copy(alpha = 0.3f)
                 },
                 modifier = Modifier.size(48.dp)
             ) {
