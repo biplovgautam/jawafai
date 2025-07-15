@@ -50,9 +50,7 @@ import com.example.jawafai.ui.theme.JawafaiTheme
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.view.WindowCompat
 import com.example.jawafai.view.auth.LoginActivity
-import com.example.jawafai.view.dashboard.chat.ChatBotConversationScreen
 import com.example.jawafai.view.dashboard.chat.ChatBotScreen
-import com.example.jawafai.view.dashboard.chat.ChatBotHistoryScreen
 import com.example.jawafai.view.dashboard.chat.ChatDetailScreen
 import com.example.jawafai.view.dashboard.chat.ChatScreen
 import com.example.jawafai.view.dashboard.home.HomeScreen
@@ -571,32 +569,7 @@ fun DashboardScreen(onLogout: () -> Unit) {
 
                 composable("chatbot") {
                     ChatBotScreen(
-                        onNavigateBack = { navController.popBackStack() },
-                        onNavigateToHistory = { navController.navigate("chatbot_history") }
-                    )
-                }
-
-                composable("chatbot_history") {
-                    ChatBotHistoryScreen(
-                        onNavigateBack = { navController.popBackStack() },
-                        onConversationClick = { conversationId ->
-                            navController.navigate("chatbot_conversation/$conversationId")
-                        },
-                        onNewChatClick = { navController.navigate("chatbot") }
-                    )
-                }
-
-                composable(
-                    route = "chatbot_conversation/{conversationId}",
-                    arguments = listOf(
-                        navArgument("conversationId") { type = NavType.StringType }
-                    )
-                ) { backStackEntry ->
-                    val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
-                    ChatBotConversationScreen(
-                        conversationId = conversationId,
-                        onNavigateBack = { navController.popBackStack() },
-                        onNavigateToHistory = { navController.navigate("chatbot_history") }
+                        onNavigateBack = { navController.popBackStack() }
                     )
                 }
             }

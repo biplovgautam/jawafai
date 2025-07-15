@@ -47,8 +47,7 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatBotScreen(
-    onNavigateBack: () -> Unit,
-    onNavigateToHistory: () -> Unit = {}
+    onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
 
@@ -58,11 +57,12 @@ fun ChatBotScreen(
     val repository = UserRepositoryImpl(auth, firestore)
     val userViewModel = remember { UserViewModelFactory(repository, auth).create(UserViewModel::class.java) }
 
-    // State for chatbot functionality
+    // State for chatbot functionality - SESSION ONLY (no database persistence)
     var messages by remember { mutableStateOf<List<ChatBotMessageModel>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
     var isTyping by remember { mutableStateOf(false) }
     var messageText by remember { mutableStateOf("") }
+    var showNewChatDialog by remember { mutableStateOf(false) }
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val listState = rememberLazyListState()
@@ -80,20 +80,21 @@ fun ChatBotScreen(
         // Add user message
         val userMessage = ChatBotMessageModel(
             id = java.util.UUID.randomUUID().toString(),
-            conversationId = "current_conversation",
+            conversationId = "current_session", // Changed from "current_conversation" to "current_session"
             message = message,
             isFromUser = true,
             timestamp = System.currentTimeMillis()
         )
 
-        messages = messages + userMessage
+        // Add message and enforce 10 message limit
+        messages = (messages + userMessage).takeLast(10)
         isTyping = true
 
         // Use GroqApiManager for real AI responses
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
             try {
-                // Convert existing messages to GroqApiManager format
-                val chatHistory = com.example.jawafai.managers.GroqApiManager.convertToChatMessages(messages.dropLast(1))
+                // Convert existing messages to GroqApiManager format (use only last 5 pairs for context)
+                val chatHistory = com.example.jawafai.managers.GroqApiManager.convertToChatMessages(messages.takeLast(10).dropLast(1))
 
                 // Get response from Groq API
                 val response = com.example.jawafai.managers.GroqApiManager.getChatResponse(
@@ -105,7 +106,7 @@ fun ChatBotScreen(
                 val aiMessage = if (response.success && response.message != null) {
                     ChatBotMessageModel(
                         id = java.util.UUID.randomUUID().toString(),
-                        conversationId = "current_conversation",
+                        conversationId = "current_session",
                         message = response.message,
                         isFromUser = false,
                         timestamp = System.currentTimeMillis()
@@ -117,34 +118,68 @@ fun ChatBotScreen(
 
                     ChatBotMessageModel(
                         id = java.util.UUID.randomUUID().toString(),
-                        conversationId = "current_conversation",
+                        conversationId = "current_session",
                         message = "Debug: API Error - $errorMsg. Please check logs for details.",
                         isFromUser = false,
                         timestamp = System.currentTimeMillis()
                     )
                 }
 
-                messages = messages + aiMessage
+                // Add AI message and enforce 10 message limit
+                messages = (messages + aiMessage).takeLast(10)
                 isTyping = false
             } catch (e: Exception) {
                 Log.e("ChatBotScreen", "Exception in sendMessage: ${e.message}", e)
                 val errorMessage = ChatBotMessageModel(
                     id = java.util.UUID.randomUUID().toString(),
-                    conversationId = "current_conversation",
+                    conversationId = "current_session",
                     message = "Debug: Exception - ${e.message}. Please check logs for details.",
                     isFromUser = false,
                     timestamp = System.currentTimeMillis()
                 )
-                messages = messages + errorMessage
+                messages = (messages + errorMessage).takeLast(10)
                 isTyping = false
             }
         }
     }
 
-    // Function to create new conversation
+    // Function to create new conversation - clears session
     fun createNewConversation() {
         messages = emptyList()
         messageText = ""
+        isTyping = false
+    }
+
+    // Function to show new chat confirmation dialog
+    fun showNewChatConfirmation() {
+        showNewChatDialog = true
+    }
+
+    // New chat confirmation dialog
+    if (showNewChatDialog) {
+        AlertDialog(
+            onDismissRequest = { showNewChatDialog = false },
+            title = { Text("Start New Chat") },
+            text = { Text("Are you sure you want to start a new chat? This will clear the current conversation.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        createNewConversation()
+                        showNewChatDialog = false
+                    }
+                ) {
+                    Text("Yes, start new chat")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showNewChatDialog = false }
+                ) {
+                    Text("Cancel")
+                }
+            },
+            modifier = Modifier.padding(16.dp)
+        )
     }
 
     Column(
@@ -212,21 +247,10 @@ fun ChatBotScreen(
                 }
             },
             actions = {
-                // History button
-                IconButton(
-                    onClick = { onNavigateToHistory() }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.History,
-                        contentDescription = "Chat History",
-                        tint = Color(0xFF395B64)
-                    )
-                }
-
                 // New chat button
                 IconButton(
                     onClick = {
-                        createNewConversation()
+                        showNewChatConfirmation()
                     }
                 ) {
                     Icon(
