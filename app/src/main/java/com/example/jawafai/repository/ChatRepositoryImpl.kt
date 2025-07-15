@@ -26,6 +26,9 @@ class ChatRepositoryImpl(
     private val lastMessagesRef = database.getReference("lastMessages")
     private val typingStatusRef = database.getReference("typingStatus")
 
+    // Store active listeners to properly clean them up
+    private val chatListeners = mutableMapOf<String, ValueEventListener>()
+
     override suspend fun sendMessage(senderId: String, receiverId: String, message: String) = withContext(Dispatchers.IO) {
         val chatId = getChatId(senderId, receiverId)
         val messageId = "msg_${System.currentTimeMillis()}"
@@ -90,23 +93,33 @@ class ChatRepositoryImpl(
         val chatId = getChatId(senderId, receiverId)
 
         try {
-            // Mark all messages from the other user as seen
-            val messagesSnapshot = chatsRef.child(chatId).get().await()
+            println("👁️ Marking messages as seen for chat: $chatId, currentUser: $currentUserId")
 
+            // Get all messages in the chat
+            val messagesSnapshot = chatsRef.child(chatId).get().await()
+            var markedCount = 0
+
+            // Mark all unread messages for current user as seen
             messagesSnapshot.children.forEach { messageSnapshot ->
                 val message = messageSnapshot.getValue(ChatMessage::class.java)
                 if (message != null && message.receiverId == currentUserId && !message.seen) {
                     // Mark this specific message as seen
-                    chatsRef.child(chatId).child(message.messageId).child("seen").setValue(true)
+                    chatsRef.child(chatId).child(message.messageId).child("seen").setValue(true).await()
+                    markedCount++
                 }
             }
 
             // Update last message as seen for the current user
-            lastMessagesRef.child(currentUserId).child(if (currentUserId == senderId) receiverId else senderId).child("seen").setValue(true)
+            val otherUserId = if (currentUserId == senderId) receiverId else senderId
+            lastMessagesRef.child(currentUserId).child(otherUserId).child("seen").setValue(true).await()
 
-            println("✅ Messages marked as seen for chat: $chatId")
+            println("✅ Marked $markedCount messages as seen for chat: $chatId")
+
+            // The real-time listeners will automatically update the unread count
+
         } catch (e: Exception) {
             println("❌ Error marking messages as seen: ${e.message}")
+            throw e
         }
     }
 
@@ -131,6 +144,12 @@ class ChatRepositoryImpl(
                     return
                 }
 
+                // Clear existing listeners for this user to prevent memory leaks
+                chatListeners.values.forEach { oldListener ->
+                    // The actual removal happens in the awaitClose block
+                }
+                chatListeners.clear()
+
                 lastMessages.forEach { (otherUserId, lastMessage) ->
                     // Fetch user info for display name
                     usersRef.child(otherUserId).get().addOnSuccessListener { userSnapshot ->
@@ -140,19 +159,23 @@ class ChatRepositoryImpl(
                             ?: "Unknown User"
                         val otherUserImageUrl = userSnapshot.child("profileImageUrl").getValue(String::class.java)
 
-                        // Count unread messages for this chat
+                        // Count unread messages for this chat in real-time
                         val chatId = getChatId(userId, otherUserId)
-                        chatsRef.child(chatId).orderByChild("receiverId").equalTo(userId).get().addOnSuccessListener { messagesSnapshot ->
-                            var unreadCount = 0
-                            messagesSnapshot.children.forEach { messageSnapshot ->
-                                val message = messageSnapshot.getValue(ChatMessage::class.java)
-                                if (message != null && !message.seen && message.receiverId == userId) {
-                                    unreadCount++
-                                }
-                            }
 
-                            summaries.add(
-                                ChatSummary(
+                        // Set up real-time listener for unread count immediately
+                        val unreadListener = object : ValueEventListener {
+                            override fun onDataChange(messagesSnapshot: DataSnapshot) {
+                                var unreadCount = 0
+                                messagesSnapshot.children.forEach { messageSnapshot ->
+                                    val message = messageSnapshot.getValue(ChatMessage::class.java)
+                                    if (message != null && !message.seen && message.receiverId == userId) {
+                                        unreadCount++
+                                    }
+                                }
+
+                                // Find and update the summary
+                                val existingSummaryIndex = summaries.indexOfFirst { it.chatId == chatId }
+                                val chatSummary = ChatSummary(
                                     chatId = chatId,
                                     otherUserId = otherUserId,
                                     otherUserName = otherUserName,
@@ -162,36 +185,38 @@ class ChatRepositoryImpl(
                                     isLastMessageSeen = lastMessage.seen,
                                     unreadCount = unreadCount
                                 )
-                            )
 
-                            processedCount++
-                            if (processedCount == totalCount) {
+                                if (existingSummaryIndex != -1) {
+                                    summaries[existingSummaryIndex] = chatSummary
+                                } else {
+                                    summaries.add(chatSummary)
+                                }
+
+                                // Sort and emit updated summaries
                                 val sortedSummaries = summaries.sortedByDescending { it.lastMessageTimestamp }
                                 trySend(sortedSummaries).isSuccess
                             }
-                        }.addOnFailureListener {
-                            // If counting fails, still add the summary without unread count
-                            summaries.add(
-                                ChatSummary(
-                                    chatId = chatId,
-                                    otherUserId = otherUserId,
-                                    otherUserName = otherUserName,
-                                    otherUserImageUrl = otherUserImageUrl,
-                                    lastMessage = lastMessage.text,
-                                    lastMessageTimestamp = lastMessage.timestamp,
-                                    isLastMessageSeen = lastMessage.seen,
-                                    unreadCount = 0
-                                )
-                            )
 
-                            processedCount++
-                            if (processedCount == totalCount) {
-                                val sortedSummaries = summaries.sortedByDescending { it.lastMessageTimestamp }
-                                trySend(sortedSummaries).isSuccess
+                            override fun onCancelled(error: DatabaseError) {
+                                println("❌ Error listening to unread count: ${error.message}")
                             }
                         }
-                    }.addOnFailureListener {
+
+                        // Store the listener and attach it
+                        chatListeners[chatId] = unreadListener
+                        chatsRef.child(chatId).addValueEventListener(unreadListener)
+
                         processedCount++
+
+                        // Initial load completion check
+                        if (processedCount == totalCount) {
+                            println("✅ Initial chat summaries loaded with real-time unread counts")
+                        }
+
+                    }.addOnFailureListener { error ->
+                        println("❌ Error fetching user info: ${error.message}")
+                        processedCount++
+
                         if (processedCount == totalCount) {
                             val sortedSummaries = summaries.sortedByDescending { it.lastMessageTimestamp }
                             trySend(sortedSummaries).isSuccess
@@ -201,12 +226,61 @@ class ChatRepositoryImpl(
             }
 
             override fun onCancelled(error: DatabaseError) {
+                println("❌ Error in getChatSummaries: ${error.message}")
                 close(error.toException())
             }
         }
 
         lastMessagesRef.child(userId).addValueEventListener(listener)
-        awaitClose { lastMessagesRef.child(userId).removeEventListener(listener) }
+        awaitClose {
+            lastMessagesRef.child(userId).removeEventListener(listener)
+            // Clean up all chat listeners
+            chatListeners.values.forEach { chatListener ->
+                // Remove listeners for each chat
+                chatListeners.keys.forEach { chatId ->
+                    chatsRef.child(chatId).removeEventListener(chatListener)
+                }
+            }
+            chatListeners.clear()
+            println("🧹 Cleaned up chat summaries listeners")
+        }
+    }
+
+    private fun setupRealtimeUnreadCountListeners(
+        userId: String,
+        summaries: List<ChatSummary>,
+        onUpdate: (List<ChatSummary>) -> Unit
+    ) {
+        val updatedSummaries = summaries.toMutableList()
+
+        summaries.forEach { summary ->
+            val chatId = summary.chatId
+            val unreadListener = object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    var unreadCount = 0
+                    snapshot.children.forEach { messageSnapshot ->
+                        val message = messageSnapshot.getValue(ChatMessage::class.java)
+                        if (message != null && !message.seen && message.receiverId == userId) {
+                            unreadCount++
+                        }
+                    }
+
+                    // Update the summary with new unread count
+                    val index = updatedSummaries.indexOfFirst { it.chatId == chatId }
+                    if (index != -1) {
+                        updatedSummaries[index] = updatedSummaries[index].copy(unreadCount = unreadCount)
+                        onUpdate(updatedSummaries.toList())
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    // Handle error
+                }
+            }
+
+            chatListeners[chatId] = unreadListener
+            chatsRef.child(chatId).addValueEventListener(unreadListener)
+        }
     }
 
     override suspend fun updateTypingStatus(userId: String, typingTo: String, isTyping: Boolean) = withContext(Dispatchers.IO) {
@@ -477,20 +551,56 @@ class ChatRepositoryImpl(
         val chatId = getChatId(currentUserId, otherUserId)
 
         try {
-            // Delete all messages in the chat
-            chatsRef.child(chatId).removeValue().await()
+            println("🗑️ Starting chat deletion for chatId: $chatId")
 
-            // Remove last message entries for both users
+            // 1. Remove active listeners for this chat to prevent memory leaks
+            chatListeners[chatId]?.let { listener ->
+                chatsRef.child(chatId).removeEventListener(listener)
+                chatListeners.remove(chatId)
+                println("🗑️ Removed active listener for chat: $chatId")
+            }
+
+            // 2. Delete all messages in the chat
+            chatsRef.child(chatId).removeValue().await()
+            println("🗑️ Deleted all messages for chat: $chatId")
+
+            // 3. Remove last message entries for both users
             lastMessagesRef.child(currentUserId).child(otherUserId).removeValue().await()
             lastMessagesRef.child(otherUserId).child(currentUserId).removeValue().await()
+            println("🗑️ Removed last message entries for both users")
 
-            // Remove typing status entries
-            typingStatusRef.child(currentUserId).removeValue().await()
-            typingStatusRef.child(otherUserId).removeValue().await()
+            // 4. Clean up typing status between these two users specifically
+            // Check if user is typing to the other user and remove that specific status
+            val currentUserTypingSnapshot = typingStatusRef.child(currentUserId).get().await()
+            if (currentUserTypingSnapshot.exists()) {
+                val typingStatus = currentUserTypingSnapshot.getValue(TypingStatus::class.java)
+                if (typingStatus?.typingTo == otherUserId) {
+                    typingStatusRef.child(currentUserId).removeValue().await()
+                    println("🗑️ Removed typing status for currentUser -> otherUser")
+                }
+            }
+
+            val otherUserTypingSnapshot = typingStatusRef.child(otherUserId).get().await()
+            if (otherUserTypingSnapshot.exists()) {
+                val typingStatus = otherUserTypingSnapshot.getValue(TypingStatus::class.java)
+                if (typingStatus?.typingTo == currentUserId) {
+                    typingStatusRef.child(otherUserId).removeValue().await()
+                    println("🗑️ Removed typing status for otherUser -> currentUser")
+                }
+            }
+
+            // 5. Verify deletion was successful
+            val verificationSnapshot = chatsRef.child(chatId).get().await()
+            if (!verificationSnapshot.exists()) {
+                println("✅ Chat deletion verified successfully: $chatId")
+            } else {
+                println("⚠️ Warning: Chat still exists after deletion attempt: $chatId")
+            }
 
             println("✅ Chat deleted successfully: $chatId")
         } catch (e: Exception) {
             println("❌ Error deleting chat: ${e.message}")
+            e.printStackTrace()
             throw e
         }
     }

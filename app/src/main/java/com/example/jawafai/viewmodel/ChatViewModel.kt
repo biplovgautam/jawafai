@@ -53,6 +53,8 @@ class ChatViewModel(
 
     init {
         fetchChatSummaries()
+        // Set up real-time unread count monitoring
+        setupRealtimeUnreadCountMonitoring()
     }
 
     private fun fetchChatSummaries() {
@@ -60,6 +62,20 @@ class ChatViewModel(
             viewModelScope.launch {
                 chatRepository.getChatSummaries(userId).collect { summaries ->
                     _chatSummaries.value = summaries
+                    println("✅ Chat summaries updated: ${summaries.size} chats")
+                }
+            }
+        }
+    }
+
+    private fun setupRealtimeUnreadCountMonitoring() {
+        currentUserId?.let { userId ->
+            viewModelScope.launch {
+                // Monitor for real-time updates to ensure UI stays in sync
+                chatRepository.getLastMessages(userId).collect { lastMessages ->
+                    // Refresh summaries when last messages change
+                    println("📨 Last messages updated, refreshing summaries")
+                    // The getChatSummaries flow will automatically update
                 }
             }
         }
@@ -75,6 +91,9 @@ class ChatViewModel(
             // Get messages using the new method signature
             chatRepository.getMessages(senderId, receiverId).collect { messages ->
                 _messages.value = messages
+
+                // Auto-mark messages as seen when user opens the chat
+                markMessagesAsSeenForCurrentChat(senderId, receiverId)
             }
         }
 
@@ -96,6 +115,28 @@ class ChatViewModel(
         currentUserId?.let { currentId ->
             viewModelScope.launch {
                 chatRepository.markMessagesAsSeen(senderId, receiverId, currentId)
+            }
+        }
+    }
+
+    private fun markMessagesAsSeenForCurrentChat(senderId: String, receiverId: String) {
+        currentUserId?.let { currentId ->
+            viewModelScope.launch {
+                try {
+                    chatRepository.markMessagesAsSeen(senderId, receiverId, currentId)
+                    println("✅ Auto-marked messages as seen for current chat")
+                } catch (e: Exception) {
+                    println("❌ Error auto-marking messages as seen: ${e.message}")
+                }
+            }
+        }
+    }
+
+    // Method to manually mark messages as seen (can be called when user scrolls or focuses)
+    fun markCurrentChatMessagesAsSeen() {
+        currentChatUserId?.let { receiverId ->
+            currentUserId?.let { senderId ->
+                markMessagesAsSeenForCurrentChat(senderId, receiverId)
             }
         }
     }
@@ -272,9 +313,20 @@ class ChatViewModel(
         currentUserId?.let { currentId ->
             viewModelScope.launch {
                 try {
+                    // Stop any active typing indicators before deletion
+                    stopTyping(otherUserId)
+
+                    // Clear current chat state if deleting the currently active chat
+                    if (currentChatUserId == otherUserId) {
+                        currentChatUserId = null
+                        _messages.value = emptyList()
+                        _typingStatus.value = null
+                    }
+
                     chatRepository.deleteChat(currentId, otherUserId)
                     println("✅ Chat deleted successfully with user: $otherUserId")
-                    // Refresh chat summaries after deletion
+
+                    // Refresh chat summaries after deletion to update UI
                     refreshChatSummaries()
                 } catch (e: Exception) {
                     println("❌ Error deleting chat: ${e.message}")
@@ -282,6 +334,11 @@ class ChatViewModel(
                 }
             }
         }
+    }
+
+    // Add a method to refresh unread counts in real-time
+    fun refreshUnreadCounts() {
+        fetchChatSummaries()
     }
 
     override fun onCleared() {

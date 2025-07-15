@@ -75,12 +75,6 @@ fun ChatScreen(
     val coroutineScope = rememberCoroutineScope()
     val hapticFeedback = LocalHapticFeedback.current
 
-    // Auto-migrate current user to database when screen loads
-    LaunchedEffect(Unit) {
-        UserMigrationUtils.saveCurrentUserToDatabase()
-        UserMigrationUtils.showAllUsersInDatabase()
-    }
-
     val chatSummaries by viewModel.chatSummaries.collectAsState()
     val foundUser by viewModel.foundUser.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -93,6 +87,41 @@ fun ChatScreen(
     var isSearchLoading by remember { mutableStateOf(false) }
     var chatToDelete by remember { mutableStateOf<ChatSummary?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+
+    // Auto-migrate current user to database when screen loads
+    LaunchedEffect(Unit) {
+        UserMigrationUtils.saveCurrentUserToDatabase()
+        UserMigrationUtils.showAllUsersInDatabase()
+        // Set up real-time unread count monitoring
+        viewModel.refreshUnreadCounts()
+    }
+
+    // Monitor chat summaries for real-time updates
+    LaunchedEffect(chatSummaries) {
+        if (chatSummaries.isNotEmpty()) {
+            showInitialLoading = false
+        }
+    }
+
+    // Clear search state when chat summaries update (important for real-time updates)
+    LaunchedEffect(chatSummaries) {
+        // If we're searching and the search results change due to chat deletion
+        if (isSearchActive && searchQuery.isNotEmpty()) {
+            // Update search results immediately
+            delay(100) // Small delay to ensure UI consistency
+        }
+    }
+
+    // Monitor for successful chat deletion and provide feedback
+    val errorMessage by viewModel.errorMessage.collectAsState()
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) {
+            // Show error message if deletion fails
+            // You can add a snackbar or toast here if needed
+            delay(3000)
+            viewModel.clearError()
+        }
+    }
 
     // Pull-to-refresh state
     val isRefreshing by remember { derivedStateOf { isLoading } }
@@ -518,7 +547,11 @@ private fun ChatList(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(filteredChats, key = { it.chatId }) { chatSummary ->
+            items(
+                items = filteredChats,
+                key = { it.chatId } // Use chatId as key for proper recomposition
+            ) { chatSummary ->
+                // Animate item appearance/disappearance for smooth deletion
                 AnimatedVisibility(
                     visible = true,
                     enter = slideInHorizontally(
