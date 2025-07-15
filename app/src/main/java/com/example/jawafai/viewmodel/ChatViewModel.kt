@@ -107,6 +107,8 @@ class ChatViewModel(
                 // Stop typing indicator when sending message
                 stopTyping(receiverId)
                 chatRepository.sendMessage(senderId, receiverId, message)
+
+                // Notification sending via FCM removed as per new requirements
             }
         }
     }

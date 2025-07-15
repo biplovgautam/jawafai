@@ -1,6 +1,7 @@
 package com.example.jawafai.view.dashboard
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -66,6 +67,10 @@ import kotlinx.coroutines.launch
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.appcompat.app.AlertDialog
+import com.example.jawafai.viewmodel.UserViewModel
+import com.example.jawafai.viewmodel.UserViewModelFactory
+import com.example.jawafai.repository.UserRepositoryImpl
+import com.google.firebase.firestore.FirebaseFirestore
 
 class DashboardActivity : ComponentActivity() {
     // Permission request codes
@@ -93,6 +98,13 @@ class DashboardActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
+
+        // Initialize UserViewModel for FCM token update
+        val auth = FirebaseAuth.getInstance()
+        val firestore = FirebaseFirestore.getInstance()
+        val repository = UserRepositoryImpl(auth, firestore)
+        val userViewModel = UserViewModel(repository, auth)
+        userViewModel.updateFcmTokenForCurrentUser()
 
         setContent {
             JawafaiTheme {
@@ -135,6 +147,8 @@ class DashboardActivity : ComponentActivity() {
                 }
             }
         }
+
+
     }
 
     // Helper to check all permissions
@@ -173,6 +187,7 @@ class DashboardActivity : ComponentActivity() {
             }
         }
     }
+
 }
 
 // Define navigation items for bottom navigation

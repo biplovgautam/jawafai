@@ -366,4 +366,33 @@ class UserRepositoryImpl @Inject constructor(
         Log.d(TAG, "Uploading image through CloudinaryManager for URI: $imageUri")
         return CloudinaryManager.uploadImage(imageUri)
     }
+
+    override suspend fun updateFcmToken(userId: String, fcmToken: String) {
+        withContext(Dispatchers.IO) {
+            try {
+                // Update in Firestore
+                usersCollection.document(userId).set(mapOf("fcmToken" to fcmToken), SetOptions.merge()).await()
+                // Update in Realtime Database
+                usersRef.child(userId).child("fcmToken").setValue(fcmToken).await()
+                Log.d(TAG, "FCM token updated for user $userId")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to update FCM token for user $userId: ${e.message}", e)
+            }
+        }
+    }
+
+    override suspend fun findUserById(userId: String): UserModel? = withContext(Dispatchers.IO) {
+        try {
+            val doc = usersCollection.document(userId).get().await()
+            if (doc.exists()) {
+                val data = doc.data ?: return@withContext null
+                com.example.jawafai.model.UserModel.fromMap(data)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching user by id: ${e.message}", e)
+            null
+        }
+    }
 }

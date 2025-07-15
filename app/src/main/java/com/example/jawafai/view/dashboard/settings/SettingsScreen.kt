@@ -7,6 +7,7 @@ import android.os.Build
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -42,6 +43,10 @@ import android.provider.Settings
 import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
+import com.google.firebase.messaging.FirebaseMessaging
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 
 data class SettingsItemData(
     val icon: ImageVector,
@@ -172,6 +177,7 @@ fun SettingsScreen(
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun SettingsContent(
     modifier: Modifier = Modifier,
@@ -256,6 +262,82 @@ fun SettingsContent(
                 )
             )
             PermissionsSection(permissions = permissions)
+        }
+
+        // FCM Token Section
+        item {
+            val context = LocalContext.current
+            val clipboardManager = LocalClipboardManager.current
+            var fcmToken by remember { mutableStateOf("") }
+            var showCopiedToast by remember { mutableStateOf(false) }
+
+            // Fetch FCM token once
+            LaunchedEffect(Unit) {
+                FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+                    fcmToken = token
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    .background(Color(0xFFF8F9FA), RoundedCornerShape(12.dp))
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "FCM Token",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF395B64)
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                if (fcmToken.isNotBlank()) {
+                    Text(
+                        text = fcmToken,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                            color = Color(0xFF666666)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.White)
+                            .padding(8.dp)
+                            .combinedClickable(
+                                onClick = {},
+                                onLongClick = {
+                                    clipboardManager.setText(AnnotatedString(fcmToken))
+                                    showCopiedToast = true
+                                }
+                            )
+                    )
+                    if (showCopiedToast) {
+                        LaunchedEffect(Unit) {
+                            Toast.makeText(context, "FCM token copied!", Toast.LENGTH_SHORT).show()
+                            showCopiedToast = false
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Long press to copy",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF999999),
+                            fontSize = 12.sp
+                        )
+                    )
+                } else {
+                    Text(
+                        text = "Fetching token...",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF999999),
+                            fontSize = 12.sp
+                        )
+                    )
+                }
+            }
         }
 
         // App Settings Section

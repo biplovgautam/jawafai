@@ -33,6 +33,8 @@ android {
         buildConfigField("String", "CLOUDINARY_API_KEY", "\"${localProperties.getProperty("cloudinary.apiKey")}\"")
         buildConfigField("String", "CLOUDINARY_API_SECRET", "\"${localProperties.getProperty("cloudinary.apiSecret")}\"")
         buildConfigField("String", "GROQ_API_KEY", "\"${localProperties.getProperty("groq.apiKey")}\"")
+        buildConfigField("String", "FCM_SERVER_KEY", "\"${localProperties.getProperty("fcmServerKey")}\"")
+
     }
 
     buildTypes {
