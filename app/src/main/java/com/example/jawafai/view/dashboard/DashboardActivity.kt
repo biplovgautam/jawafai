@@ -1,6 +1,9 @@
 package com.example.jawafai.view.dashboard
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
@@ -60,10 +63,32 @@ import com.example.jawafai.view.dashboard.settings.ProfileScreen
 import com.example.jawafai.view.dashboard.settings.SettingsScreen
 import com.example.jawafai.utils.WithNetworkMonitoring
 import kotlinx.coroutines.launch
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.appcompat.app.AlertDialog
 
 class DashboardActivity : ComponentActivity() {
+    // Permission request codes
+    private val PERMISSION_REQUEST_CODE = 2002
+    private var permissionToRequest: String? = null
+
+    // Helper to map permission keys to Android permission strings
+    private fun getAndroidPermission(key: String): String? = when (key) {
+        "POST_NOTIFICATIONS" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.POST_NOTIFICATIONS else null
+        "READ_MEDIA_IMAGES" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES else null
+        "READ_EXTERNAL_STORAGE" -> if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_EXTERNAL_STORAGE else null
+        "INTERNET" -> Manifest.permission.INTERNET
+        else -> null
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Request notification permission if not granted (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2001)
+            }
+        }
         // Enable full screen immersive mode
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
@@ -73,6 +98,26 @@ class DashboardActivity : ComponentActivity() {
             JawafaiTheme {
                 // Wrap dashboard with network monitoring
                 WithNetworkMonitoring {
+                    // --- Permission state management ---
+                    var permissionsStatus by remember { mutableStateOf(checkAllPermissions()) }
+                    val activity = this@DashboardActivity
+
+                    fun requestPermission(key: String) {
+                        val perm = getAndroidPermission(key)
+                        if (perm != null && ActivityCompat.checkSelfPermission(activity, perm) != PackageManager.PERMISSION_GRANTED) {
+                            permissionToRequest = key
+                            ActivityCompat.requestPermissions(activity, arrayOf(perm), PERMISSION_REQUEST_CODE)
+                        }
+                    }
+
+                    // Update permissionsStatus when activity resumes
+                    DisposableEffect(Unit) {
+                        onResumePermissionsCheck = {
+                            permissionsStatus = checkAllPermissions()
+                        }
+                        onDispose { onResumePermissionsCheck = null }
+                    }
+
                     DashboardScreen(
                         onLogout = {
                             // Sign out from Firebase
@@ -83,9 +128,48 @@ class DashboardActivity : ComponentActivity() {
                             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                             startActivity(intent)
                             finish() // Close dashboard activity
-                        }
+                        },
+                        permissionsStatus = permissionsStatus,
+                        onRequestPermission = ::requestPermission
                     )
                 }
+            }
+        }
+    }
+
+    // Helper to check all permissions
+    private fun checkAllPermissions(): Map<String, Boolean> {
+        val map = mutableMapOf<String, Boolean>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            map["POST_NOTIFICATIONS"] = ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            map["READ_MEDIA_IMAGES"] = ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED
+        } else {
+            map["READ_EXTERNAL_STORAGE"] = ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        }
+        map["INTERNET"] = ActivityCompat.checkSelfPermission(this, Manifest.permission.INTERNET) == PackageManager.PERMISSION_GRANTED
+        return map
+    }
+
+    // Used to trigger permission re-check on resume
+    private var onResumePermissionsCheck: (() -> Unit)? = null
+    override fun onResume() {
+        super.onResume()
+        onResumePermissionsCheck?.invoke()
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            onResumePermissionsCheck?.invoke()
+        } else if (requestCode == 2001) {
+            val denied = permissions.zip(grantResults.toTypedArray()).filter { it.second != PackageManager.PERMISSION_GRANTED }
+            if (denied.isNotEmpty()) {
+                AlertDialog.Builder(this)
+                    .setTitle("Notification Permission Required")
+                    .setMessage("Notification permission is required to receive chat notifications. Please enable it in settings.")
+                    .setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
+                    .show()
             }
         }
     }
@@ -138,7 +222,11 @@ sealed class BottomNavItem(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen(onLogout: () -> Unit) {
+fun DashboardScreen(
+    onLogout: () -> Unit,
+    permissionsStatus: Map<String, Boolean>,
+    onRequestPermission: (String) -> Unit
+) {
     val navController = rememberNavController()
     val items = listOf(
         BottomNavItem.Home,
@@ -503,7 +591,9 @@ fun DashboardScreen(onLogout: () -> Unit) {
                         },
                         onPersonaClicked = {
                             navController.navigate("settings/persona")
-                        }
+                        },
+                        permissionsStatus = permissionsStatus,
+                        onRequestPermission = onRequestPermission
                     )
                 }
 
@@ -609,5 +699,5 @@ fun BackHandler(
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun DashboardScreenPreview() {
-    DashboardScreen(onLogout = {})
+    DashboardScreen(onLogout = {}, permissionsStatus = emptyMap(), onRequestPermission = {})
 }

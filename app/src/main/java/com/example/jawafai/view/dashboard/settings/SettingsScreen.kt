@@ -1,5 +1,9 @@
 package com.example.jawafai.view.dashboard.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.Manifest
+import android.os.Build
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,6 +38,10 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.runtime.livedata.observeAsState
 import kotlinx.coroutines.tasks.await
+import android.provider.Settings
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.app.ActivityCompat
 
 data class SettingsItemData(
     val icon: ImageVector,
@@ -43,12 +51,16 @@ data class SettingsItemData(
     val tint: Color = Color.Unspecified
 )
 
+data class PermissionStatus(val name: String, val granted: Boolean, val request: () -> Unit)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onLogout: () -> Unit,
     onProfileClicked: () -> Unit,
     onPersonaClicked: () -> Unit,
+    onRequestPermission: (String) -> Unit,
+    permissionsStatus: Map<String, Boolean>,
     viewModel: UserViewModel = viewModel(
         factory = UserViewModelFactory(
             UserRepositoryImpl(FirebaseAuth.getInstance(), FirebaseFirestore.getInstance()),
@@ -57,9 +69,22 @@ fun SettingsScreen(
     )
 ) {
     val userProfile by viewModel.userProfile.observeAsState()
-
-    // Track if persona is completed
     val personaCompleted = remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    // --- Permission launcher for notifications ---
+    val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        onRequestPermission("POST_NOTIFICATIONS")
+    }
+
+    // --- Permission launcher for storage/media ---
+    val storageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            onRequestPermission("READ_MEDIA_IMAGES")
+        } else {
+            onRequestPermission("READ_EXTERNAL_STORAGE")
+        }
+    }
 
     // Fetch user profile when the screen is first composed
     LaunchedEffect(Unit) {
@@ -116,7 +141,33 @@ fun SettingsScreen(
             onProfileClicked = onProfileClicked,
             onPersonaClicked = onPersonaClicked,
             userModel = userProfile,
-            personaCompleted = personaCompleted.value
+            personaCompleted = personaCompleted.value,
+            permissionsStatus = permissionsStatus,
+            onRequestPermission = { key ->
+                if (key == "POST_NOTIFICATIONS" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    if (context is android.app.Activity) {
+                        val shouldShowRationale = ActivityCompat.shouldShowRequestPermissionRationale(
+                            context, Manifest.permission.POST_NOTIFICATIONS
+                        )
+                        if (!shouldShowRationale && permissionsStatus["POST_NOTIFICATIONS"] == false) {
+                            // User denied with Don't Ask Again, open app settings
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = android.net.Uri.fromParts("package", context.packageName, null)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
+                        } else {
+                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                } else if (key == "READ_MEDIA_IMAGES") {
+                    storageLauncher.launch(Manifest.permission.READ_MEDIA_IMAGES)
+                } else if (key == "READ_EXTERNAL_STORAGE") {
+                    storageLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+                } else {
+                    onRequestPermission(key)
+                }
+            }
         )
     }
 }
@@ -128,7 +179,9 @@ fun SettingsContent(
     onProfileClicked: () -> Unit,
     onPersonaClicked: () -> Unit,
     userModel: UserModel?,
-    personaCompleted: Boolean
+    personaCompleted: Boolean,
+    permissionsStatus: Map<String, Boolean>,
+    onRequestPermission: (String) -> Unit
 ) {
     val userEmail = userModel?.email ?: "User"
     val userName = userModel?.let {
@@ -174,6 +227,35 @@ fun SettingsContent(
                 onClick = onPersonaClicked,
                 completed = personaCompleted
             )
+        }
+        // Permissions Section
+        item {
+            val permissions = listOf(
+                PermissionStatus(
+                    name = "Notifications",
+                    granted = permissionsStatus["POST_NOTIFICATIONS"] == true,
+                    request = { onRequestPermission("POST_NOTIFICATIONS") }
+                ),
+                PermissionStatus(
+                    name = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) "Media Images" else "External Storage",
+                    granted = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU)
+                        permissionsStatus["READ_MEDIA_IMAGES"] == true
+                    else
+                        permissionsStatus["READ_EXTERNAL_STORAGE"] == true,
+                    request = {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU)
+                            onRequestPermission("READ_MEDIA_IMAGES")
+                        else
+                            onRequestPermission("READ_EXTERNAL_STORAGE")
+                    }
+                ),
+                PermissionStatus(
+                    name = "Internet",
+                    granted = permissionsStatus["INTERNET"] == true,
+                    request = { onRequestPermission("INTERNET") }
+                )
+            )
+            PermissionsSection(permissions = permissions)
         }
 
         // App Settings Section
@@ -402,6 +484,72 @@ fun PersonaCard(
                 tint = Color(0xFF395B64),
                 modifier = Modifier.size(24.dp)
             )
+        }
+    }
+}
+
+@Composable
+fun PermissionsSection(
+    permissions: List<PermissionStatus>
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Text(
+            text = "Permissions",
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontFamily = AppFonts.KarlaFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = Color(0xFF395B64)
+            ),
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        permissions.forEach { perm ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (perm.granted) Icons.Filled.Check else Icons.Outlined.Warning,
+                        contentDescription = null,
+                        tint = if (perm.granted) Color(0xFF4CAF50) else Color(0xFFFF9800),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = perm.name,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 16.sp,
+                            color = Color(0xFF395B64)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (!perm.granted) {
+                        Button(
+                            onClick = perm.request,
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFA5C9CA))
+                        ) {
+                            Text("Grant")
+                        }
+                    }
+                }
+            }
         }
     }
 }
