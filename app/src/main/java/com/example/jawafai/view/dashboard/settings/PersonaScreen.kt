@@ -4,21 +4,23 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.jawafai.ui.theme.AppFonts
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import kotlin.collections.iterator
 
 /**
  * Composable screen for the Persona Settings.
@@ -152,7 +154,7 @@ fun PersonaScreen(
                             .await()
                     }
 
-                    snackbarHostState.showSnackbar("Persona saved!")
+                    snackbarHostState.showSnackbar("Persona saved successfully!")
                 }
             } catch (e: Exception) {
                 snackbarHostState.showSnackbar("Failed to save: ${e.message}")
@@ -163,26 +165,53 @@ fun PersonaScreen(
     }
 
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        containerColor = Color.White,
         topBar = {
             TopAppBar(
-                title = { Text("Your Persona") },
+                title = {
+                    Text(
+                        text = "Your Persona",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 24.sp,
+                            color = Color(0xFF395B64)
+                        )
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = "Back",
+                            tint = Color(0xFF395B64)
                         )
                     }
                 },
                 actions = {
-                    // Save button in top bar
                     Button(
                         onClick = { savePersona() },
-                        enabled = !isLoading.value
+                        enabled = !isLoading.value,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF395B64)
+                        )
                     ) {
-                        Text("Save")
+                        Text(
+                            text = "Save",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White
+                ),
+                modifier = Modifier.statusBarsPadding()
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
@@ -190,32 +219,91 @@ fun PersonaScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(top = padding.calculateTopPadding())
+                .padding(horizontal = 16.dp)
         ) {
             if (isLoading.value) {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center)
-                )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier.padding(24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    color = Color(0xFF395B64)
+                                )
+                                Text(
+                                    text = "Loading your persona...",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                        color = Color(0xFF666666)
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Introduction text
                     item {
-                        Text(
-                            "Tell us about yourself so we can personalize your experience",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(bottom = 16.dp)
-                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // Introduction card
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp)
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "Personalize Your Experience",
+                                        style = MaterialTheme.typography.headlineSmall.copy(
+                                            fontFamily = AppFonts.KarlaFontFamily,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 20.sp,
+                                            color = Color(0xFF395B64)
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Tell us about yourself so we can personalize your AI responses to match your style and preferences.",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                            fontSize = 14.sp,
+                                            color = Color(0xFF666666)
+                                        )
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     // Questions
                     items(questions.size) { index ->
                         val question = questions[index]
-                        PersonaQuestionItem(
+                        PersonaQuestionCard(
                             question = question,
                             answer = currentAnswers.value[question.id] ?: "",
                             onAnswerChanged = { answer ->
@@ -227,7 +315,10 @@ fun PersonaScreen(
                     }
 
                     // Bottom spacing
-                    item { Spacer(modifier = Modifier.height(80.dp)) }
+                    item {
+                        Spacer(modifier = Modifier.navigationBarsPadding())
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
                 }
             }
         }
@@ -235,74 +326,107 @@ fun PersonaScreen(
 }
 
 @Composable
-fun PersonaQuestionItem(
+fun PersonaQuestionCard(
     question: PersonaQuestion,
     answer: String,
     onAnswerChanged: (String) -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth()
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        // Question prompt
-        Text(
-            text = question.prompt,
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            // Question prompt
+            Text(
+                text = question.prompt,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontFamily = AppFonts.KarlaFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color(0xFF395B64)
+                )
+            )
 
-        // Answer input based on question type
-        when (question.type) {
-            QuestionType.SINGLE_CHOICE -> {
-                Column(
-                    modifier = Modifier
-                        .selectableGroup()
-                        .fillMaxWidth()
-                ) {
-                    question.options?.forEach { option ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .selectable(
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Answer input based on question type
+            when (question.type) {
+                QuestionType.SINGLE_CHOICE -> {
+                    Column(
+                        modifier = Modifier
+                            .selectableGroup()
+                            .fillMaxWidth()
+                    ) {
+                        question.options?.forEach { option ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .selectable(
+                                        selected = (option == answer),
+                                        onClick = { onAnswerChanged(option) },
+                                        role = Role.RadioButton
+                                    )
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
                                     selected = (option == answer),
-                                    onClick = { onAnswerChanged(option) },
-                                    role = Role.RadioButton
+                                    onClick = null, // null because the parent is selectable
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = Color(0xFF395B64),
+                                        unselectedColor = Color(0xFF666666)
+                                    )
                                 )
-                                .padding(horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = (option == answer),
-                                onClick = null // null because the parent is selectable
-                            )
-                            Text(
-                                text = option,
-                                modifier = Modifier.padding(start = 16.dp)
-                            )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = option,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF395B64)
+                                    )
+                                )
+                            }
                         }
                     }
                 }
+                QuestionType.FREE_TEXT -> {
+                    OutlinedTextField(
+                        value = answer,
+                        onValueChange = onAnswerChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = {
+                            Text(
+                                "Your answer",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                    color = Color(0xFF666666)
+                                )
+                            )
+                        },
+                        minLines = 3,
+                        maxLines = 5,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF395B64),
+                            unfocusedBorderColor = Color(0xFFE0E0E0),
+                            focusedTextColor = Color(0xFF395B64),
+                            unfocusedTextColor = Color(0xFF395B64),
+                            cursorColor = Color(0xFF395B64)
+                        ),
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                            fontSize = 14.sp
+                        )
+                    )
+                }
             }
-            QuestionType.FREE_TEXT -> {
-                OutlinedTextField(
-                    value = answer,
-                    onValueChange = onAnswerChanged,
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Your answer") },
-                    minLines = 3
-                )
-            }
-        }
-
-        // Show "required" text if question is required
-        if (question.required) {
-            Text(
-                text = "* Required",
-                color = MaterialTheme.colorScheme.error,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(top = 4.dp)
-            )
         }
     }
 }

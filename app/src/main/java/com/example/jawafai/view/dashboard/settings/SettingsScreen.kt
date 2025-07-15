@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -21,10 +22,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.jawafai.model.UserModel
 import com.example.jawafai.repository.UserRepositoryImpl
+import com.example.jawafai.ui.theme.AppFonts
 import com.example.jawafai.viewmodel.UserViewModel
 import com.example.jawafai.viewmodel.UserViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
@@ -73,44 +76,47 @@ fun SettingsScreen(
                     .get()
                     .await()
 
-                // Consider persona completed if there are at least 5 answers
                 personaCompleted.value = !personaData.isEmpty && personaData.size() >= 5
             }
         } catch (e: Exception) {
-            // If we can't fetch persona data, assume it's not completed
             personaCompleted.value = false
         }
     }
 
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        containerColor = Color.White,
         topBar = {
-            CenterAlignedTopAppBar(
+            TopAppBar(
                 title = {
                     Text(
-                        "Settings",
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White  // Using white text for better contrast
+                        text = "Settings",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 24.sp,
+                            color = Color(0xFF395B64)
+                        )
                     )
                 },
-                // This makes the top bar transparent to blend with the content
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = Color.White
-                )
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White
+                ),
+                modifier = Modifier.statusBarsPadding()
             )
-        },
-        // Apply system bar padding to the Scaffold content
-        modifier = Modifier
-            .background(MaterialTheme.colorScheme.primary), // Setting same background as Home
-        containerColor = Color.Transparent // Making Scaffold transparent to show the background color
+        }
     ) { paddingValues ->
         SettingsContent(
-            modifier = Modifier.padding(paddingValues),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = paddingValues.calculateTopPadding())
+                .background(Color.White),
             onLogout = onLogout,
             onProfileClicked = onProfileClicked,
             onPersonaClicked = onPersonaClicked,
             userModel = userProfile,
-            personaCompleted = personaCompleted.value // Pass the direct value
+            personaCompleted = personaCompleted.value
         )
     }
 }
@@ -122,7 +128,7 @@ fun SettingsContent(
     onProfileClicked: () -> Unit,
     onPersonaClicked: () -> Unit,
     userModel: UserModel?,
-    personaCompleted: Boolean // Receive the direct value
+    personaCompleted: Boolean
 ) {
     val userEmail = userModel?.email ?: "User"
     val userName = userModel?.let {
@@ -131,159 +137,333 @@ fun SettingsContent(
     val profileImage = userModel?.imageUrl
 
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp)
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
         // Profile Section
         item {
-            UserProfileSection(
+            UserProfileCard(
                 name = userName,
                 email = userEmail,
                 profileImageUrl = profileImage ?: "",
-                onClick = onProfileClicked // Navigate to profile screen
+                onClick = onProfileClicked
             )
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp, horizontal = 16.dp))
         }
 
-        // Persona Section - Moved to be right after Profile section
+        // Persona Section
         item {
-            SettingsSectionTitle(title = "Persona")
+            Text(
+                text = "Personalization",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = AppFonts.KarlaFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Color(0xFF395B64)
+                )
+            )
         }
 
         item {
-            PersonaSettingsItem(
-                title = "Your Persona",
-                subtitle = if (personaCompleted) "Persona completed" else "Complete your persona",
+            PersonaCard(
                 onClick = onPersonaClicked,
                 completed = personaCompleted
             )
         }
 
-        item { HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp, horizontal = 16.dp)) }
-
-        // Account Settings
+        // App Settings Section
         item {
-            SettingsSectionTitle(title = "Account")
-        }
-
-        item {
-            SettingsItem(
-                item = SettingsItemData(
-                    icon = Icons.Outlined.Lock,
-                    title = "Privacy",
-                    subtitle = "Manage your privacy settings",
-                    onClick = { /* Navigate to privacy settings */ }
+            Text(
+                text = "App Settings",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = AppFonts.KarlaFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Color(0xFF395B64)
                 )
             )
         }
 
         item {
-            SettingsItem(
-                item = SettingsItemData(
-                    icon = Icons.Outlined.Notifications,
-                    title = "Notifications",
-                    subtitle = "Configure notification preferences",
-                    onClick = { /* Navigate to notification settings */ }
+            SettingsCard {
+                SettingsItem(
+                    item = SettingsItemData(
+                        icon = Icons.Outlined.Lock,
+                        title = "Privacy",
+                        subtitle = "Manage your privacy settings",
+                        onClick = { /* Navigate to privacy settings */ }
+                    )
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = Color(0xFFE0E0E0)
+                )
+
+                SettingsItem(
+                    item = SettingsItemData(
+                        icon = Icons.Outlined.Notifications,
+                        title = "Notifications",
+                        subtitle = "Configure notification preferences",
+                        onClick = { /* Navigate to notification settings */ }
+                    )
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = Color(0xFFE0E0E0)
+                )
+
+                SettingsItem(
+                    item = SettingsItemData(
+                        icon = Icons.Outlined.Info,
+                        title = "About",
+                        subtitle = "App information and version",
+                        onClick = { /* Show about info */ }
+                    )
+                )
+            }
+        }
+
+        // Account Actions
+        item {
+            Text(
+                text = "Account",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = AppFonts.KarlaFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Color(0xFF395B64)
                 )
             )
         }
 
-        item { HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp, horizontal = 16.dp)) }
-
-        // App Settings
         item {
-            SettingsSectionTitle(title = "App Settings")
+            LogoutCard(onLogout = onLogout)
         }
 
+        // Add bottom padding for navigation bar
         item {
-            SettingsItem(
-                item = SettingsItemData(
-                    icon = Icons.Outlined.Info,
-                    title = "About",
-                    subtitle = "App information and version",
-                    onClick = { /* Show about info */ }
-                )
-            )
-        }
-
-        item { HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp, horizontal = 16.dp)) }
-
-        // Logout
-        item {
-            SettingsItem(
-                item = SettingsItemData(
-                    icon = Icons.AutoMirrored.Filled.ExitToApp,
-                    title = "Logout",
-                    onClick = onLogout,
-                    tint = MaterialTheme.colorScheme.error
-                )
-            )
+            Spacer(modifier = Modifier.navigationBarsPadding())
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
 
 @Composable
-fun UserProfileSection(
+fun UserProfileCard(
     name: String,
     email: String,
     profileImageUrl: String,
     onClick: () -> Unit
 ) {
-    Row(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        // Profile image
-        Image(
-            painter = rememberAsyncImagePainter(
-                model = profileImageUrl.ifEmpty { "https://ui-avatars.com/api/?name=$name" }
-            ),
-            contentDescription = "Profile picture",
+        Row(
             modifier = Modifier
-                .size(64.dp)
-                .clip(CircleShape),
-            contentScale = ContentScale.Crop
-        )
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Profile image
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFA5C9CA))
+            ) {
+                Image(
+                    painter = rememberAsyncImagePainter(
+                        model = profileImageUrl.ifEmpty { "https://ui-avatars.com/api/?name=$name&background=A5C9CA&color=ffffff" }
+                    ),
+                    contentDescription = "Profile picture",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
 
-        Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
-        // User info
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = name,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
+            // User info
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        color = Color(0xFF395B64)
+                    )
+                )
 
-            Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-            Text(
-                text = email,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                Text(
+                    text = email,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                        fontSize = 14.sp,
+                        color = Color(0xFF666666)
+                    )
+                )
+            }
+
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "Edit Profile",
+                tint = Color(0xFF395B64),
+                modifier = Modifier.size(24.dp)
             )
         }
-
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = "Edit Profile",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
 @Composable
-fun SettingsSectionTitle(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-    )
+fun PersonaCard(
+    onClick: () -> Unit,
+    completed: Boolean
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (completed) Color(0xFFF0F8FF) else Color(0xFFF8F9FA)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Icon
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (completed) Color(0xFF395B64) else Color(0xFFA5C9CA)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (completed) Icons.Filled.Check else Icons.Outlined.Person,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Text content
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "Your Persona",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = Color(0xFF395B64)
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = if (completed) "Persona completed" else "Complete your persona for better responses",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                        fontSize = 14.sp,
+                        color = Color(0xFF666666)
+                    )
+                )
+            }
+
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "Navigate",
+                tint = Color(0xFF395B64),
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingsCard(
+    content: @Composable () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        content()
+    }
+}
+
+@Composable
+fun LogoutCard(onLogout: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onLogout() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF5F5)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Text(
+                text = "Logout",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontFamily = AppFonts.KarlaFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.error
+                )
+            )
+        }
+    }
 }
 
 @Composable
@@ -292,14 +472,14 @@ fun SettingsItem(item: SettingsItemData) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = item.onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Icon
         Icon(
             imageVector = item.icon,
             contentDescription = null,
-            tint = if (item.tint != Color.Unspecified) item.tint else MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = if (item.tint != Color.Unspecified) item.tint else Color(0xFF395B64),
             modifier = Modifier.size(24.dp)
         )
 
@@ -311,69 +491,32 @@ fun SettingsItem(item: SettingsItemData) {
         ) {
             Text(
                 text = item.title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (item.tint != Color.Unspecified) item.tint else MaterialTheme.colorScheme.onSurface
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontFamily = AppFonts.KarlaFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 16.sp,
+                    color = if (item.tint != Color.Unspecified) item.tint else Color(0xFF395B64)
+                )
             )
 
             if (item.subtitle != null) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = item.subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                        fontSize = 14.sp,
+                        color = Color(0xFF666666)
+                    )
                 )
             }
         }
-    }
-}
 
-@Composable
-fun PersonaSettingsItem(
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-    completed: Boolean
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Icon - Person icon in normal state, check icon when completed
-        Icon(
-            imageVector = if (completed) Icons.Filled.Check else Icons.Outlined.Person,
-            contentDescription = null,
-            tint = if (completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(24.dp)
-        )
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        // Text content
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-            )
-
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        // Arrow icon for navigation
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = "Navigate",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            tint = Color(0xFF666666),
+            modifier = Modifier.size(20.dp)
         )
     }
 }
