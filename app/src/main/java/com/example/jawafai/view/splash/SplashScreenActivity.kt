@@ -1,23 +1,35 @@
 package com.example.jawafai.view.splash
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.Lifecycle
 import com.example.jawafai.R
 import com.example.jawafai.ui.theme.AppFonts
 import com.example.jawafai.utils.rememberNetworkConnectivity
+import com.example.jawafai.utils.NotificationPermissionUtils
 import kotlinx.coroutines.delay
 import com.airbnb.lottie.compose.*
 
@@ -26,6 +38,8 @@ fun SplashScreen(
     onNavigate: (String) -> Unit,
     checkUserState: () -> String
 ) {
+    val context = LocalContext.current
+
     // Lottie animation composition
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.live_chatbot))
     val progress by animateLottieCompositionAsState(
@@ -40,6 +54,37 @@ fun SplashScreen(
     var isRetrying by remember { mutableStateOf(false) }
     var connectionEstablished by remember { mutableStateOf(false) }
     var startFinalCountdown by remember { mutableStateOf(false) }
+
+    // Notification permission states
+    var notificationPermissionRequested by remember { mutableStateOf(false) }
+    var notificationPermissionGranted by remember { mutableStateOf(false) }
+    var showNotificationListenerDialog by remember { mutableStateOf(false) }
+    var notificationListenerEnabled by remember { mutableStateOf(false) }
+    var permissionsCheckComplete by remember { mutableStateOf(false) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            notificationPermissionGranted = granted
+            // After basic notification permission, check notification listener
+            if (granted) {
+                notificationListenerEnabled = NotificationPermissionUtils.isNotificationListenerEnabled(context)
+                if (!notificationListenerEnabled) {
+                    showNotificationListenerDialog = true
+                } else {
+                    permissionsCheckComplete = true
+                }
+            } else {
+                // If basic notification permission is denied, still check notification listener
+                notificationListenerEnabled = NotificationPermissionUtils.isNotificationListenerEnabled(context)
+                if (!notificationListenerEnabled) {
+                    showNotificationListenerDialog = true
+                } else {
+                    permissionsCheckComplete = true
+                }
+            }
+        }
+    )
 
     // Check internet connection after initial delay
     LaunchedEffect(Unit) {
@@ -63,10 +108,59 @@ fun SplashScreen(
         }
     }
 
-    // Final countdown after connection is established
-    LaunchedEffect(startFinalCountdown) {
-        if (startFinalCountdown) {
-            delay(1000) // Show splash for 3 seconds after connection (reduced from 5 seconds)
+    // Request notification permissions at the start
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !notificationPermissionRequested) {
+            notificationPermissionRequested = true
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            notificationPermissionGranted = true // Not needed on older versions
+            // Check notification listener permission directly
+            notificationListenerEnabled = NotificationPermissionUtils.isNotificationListenerEnabled(context)
+            if (!notificationListenerEnabled) {
+                showNotificationListenerDialog = true
+            } else {
+                permissionsCheckComplete = true
+            }
+        }
+    }
+
+    // Check notification listener permission when returning from settings
+    LaunchedEffect(showNotificationListenerDialog) {
+        if (!showNotificationListenerDialog) {
+            // User returned from settings, check again
+            notificationListenerEnabled = NotificationPermissionUtils.isNotificationListenerEnabled(context)
+            if (notificationListenerEnabled) {
+                permissionsCheckComplete = true
+            }
+        }
+    }
+
+    // Add lifecycle awareness to detect when user returns from settings
+    DisposableEffect(Unit) {
+        val activity = context as? ComponentActivity
+        val lifecycleObserver = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && showNotificationListenerDialog) {
+                // User returned from settings, check permission again
+                notificationListenerEnabled = NotificationPermissionUtils.isNotificationListenerEnabled(context)
+                if (notificationListenerEnabled) {
+                    showNotificationListenerDialog = false
+                    permissionsCheckComplete = true
+                }
+            }
+        }
+
+        activity?.lifecycle?.addObserver(lifecycleObserver)
+
+        onDispose {
+            activity?.lifecycle?.removeObserver(lifecycleObserver)
+        }
+    }
+
+    // Wait for all permissions and connection before starting final countdown
+    LaunchedEffect(permissionsCheckComplete, startFinalCountdown) {
+        if (permissionsCheckComplete && startFinalCountdown) {
+            delay(1000)
             val destination = checkUserState()
             onNavigate(destination)
         }
@@ -88,7 +182,7 @@ fun SplashScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White), // Changed to white background
+            .background(Color.White),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -111,7 +205,7 @@ fun SplashScreen(
                     fontFamily = AppFonts.KadwaFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 32.sp,
-                    lineHeight = 32.sp, // 100% line height
+                    lineHeight = 32.sp,
                     letterSpacing = 0.sp,
                     color = Color(0xFF395B64)
                 )
@@ -126,7 +220,7 @@ fun SplashScreen(
                     fontFamily = AppFonts.KarlaFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
-                    lineHeight = 15.sp, // 100% line height
+                    lineHeight = 15.sp,
                     letterSpacing = 0.sp,
                     color = Color(0xFF395B64)
                 )
@@ -182,7 +276,7 @@ fun SplashScreen(
         if (showNoInternetDialog) {
             AlertDialog(
                 onDismissRequest = { /* Don't allow dismissal */ },
-                containerColor = Color(0xFFE7F6F2), // Updated background color to #E7F6F2
+                containerColor = Color(0xFFE7F6F2),
                 title = {
                     Text(
                         text = "No Internet Connection",
@@ -253,6 +347,73 @@ fun SplashScreen(
                 }
             )
         }
+
+        // Notification Listener Permission Dialog
+        if (showNotificationListenerDialog) {
+            AlertDialog(
+                onDismissRequest = { /* Don't allow dismissal */ },
+                containerColor = Color(0xFFE7F6F2),
+                title = {
+                    Text(
+                        text = "Notification Access Required",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                            color = Color(0xFF395B64)
+                        )
+                    )
+                },
+                text = {
+                    Text(
+                        text = "जवाफ.AI needs access to read notifications from other apps to provide AI-powered reply suggestions. Please enable notification access in the settings.",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                            color = Color(0xFF666666)
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            NotificationPermissionUtils.openNotificationAccessSettings(context)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF395B64)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Open Settings",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = AppFonts.KaiseiDecolFontFamily
+                            )
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showNotificationListenerDialog = false
+                            permissionsCheckComplete = true // Continue without notification access
+                        }
+                    ) {
+                        Text(
+                            text = "Skip",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                color = Color(0xFF666666)
+                            )
+                        )
+                    }
+                }
+            )
+        }
     }
 
     // Reset retry state when connection is restored or after timeout
@@ -265,10 +426,8 @@ fun SplashScreen(
     // Timeout mechanism for retry button
     LaunchedEffect(isRetrying) {
         if (isRetrying) {
-            delay(2000) // Wait 3 seconds
-            if (!isConnected) {
-                isRetrying = false // Reset retry state if still no connection
-            }
+            delay(3000) // Wait 3 seconds before enabling retry button again
+            isRetrying = false
         }
     }
 }

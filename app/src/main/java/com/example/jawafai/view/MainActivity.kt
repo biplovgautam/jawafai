@@ -1,21 +1,15 @@
 package com.example.jawafai.view
 
-import android.Manifest
-import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.jawafai.ui.theme.JawafaiTheme
-import com.example.jawafai.utils.WithNetworkMonitoring
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.view.WindowCompat
 import com.example.jawafai.view.auth.LoginActivity
@@ -24,7 +18,9 @@ import com.example.jawafai.view.dashboard.DashboardActivity
 import com.example.jawafai.view.splash.OnboardingScreen
 import com.example.jawafai.view.splash.SplashScreen
 import com.example.jawafai.view.splash.WelcomeScreen
-import androidx.core.app.ActivityCompat
+import com.example.jawafai.utils.WithNetworkMonitoring
+import com.example.jawafai.utils.NotificationPermissionUtils
+import android.util.Log
 
 class MainActivity : ComponentActivity() {
 
@@ -33,6 +29,7 @@ class MainActivity : ComponentActivity() {
         const val PREFS_NAME = "JawafaiPrefs"
         const val PREF_HAS_SEEN_ONBOARDING = "hasSeenOnboarding"
         const val PREF_REMEMBER_ME = "rememberMe"
+        private const val TAG = "MainActivity"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,13 +39,14 @@ class MainActivity : ComponentActivity() {
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
 
-        // Request all required permissions at launch
-        requestAllPermissions()
-
         // Check SharedPreferences
         val sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val hasSeenOnboarding = sharedPreferences.getBoolean(PREF_HAS_SEEN_ONBOARDING, false)
         val rememberMe = sharedPreferences.getBoolean(PREF_REMEMBER_ME, false)
+
+        // Check notification listener permission status
+        val notificationListenerEnabled = NotificationPermissionUtils.isNotificationListenerEnabled(this)
+        Log.d(TAG, "Notification Listener Permission: $notificationListenerEnabled")
 
         // Check if user is logged in
         val auth = FirebaseAuth.getInstance()
@@ -228,46 +226,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun requestAllPermissions() {
-        val permissions = mutableListOf(
-            Manifest.permission.INTERNET
-        )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
-        } else {
-            permissions.add(Manifest.permission.READ_MEDIA_IMAGES)
-        }
-        val notGranted = permissions.filter {
-            ActivityCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
-        if (notGranted.isNotEmpty()) {
-            ActivityCompat.requestPermissions(this, notGranted.toTypedArray(), 1001)
-        }
-    }
-
-    @Suppress("DEPRECATION")
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 1001) {
-            val denied = permissions.zip(grantResults.toTypedArray()).filter { it.second != PackageManager.PERMISSION_GRANTED }
-            if (denied.isNotEmpty()) {
-                AlertDialog.Builder(this)
-                    .setTitle("Permissions Required")
-                    .setMessage("Some permissions are required for the app to function properly. Please enable them in settings.")
-                    .setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
-                    .show()
-            }
-        }
-    }
-
     override fun onResume() {
         super.onResume()
         // Check auto-logout when app is resumed
         val sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val rememberMe = sharedPreferences.getBoolean(PREF_REMEMBER_ME, false)
+
+        // Check notification listener permission status when app resumes
+        val notificationListenerEnabled = NotificationPermissionUtils.isNotificationListenerEnabled(this)
+        Log.d(TAG, "onResume - Notification Listener Permission: $notificationListenerEnabled")
 
         if (!rememberMe && FirebaseAuth.getInstance().currentUser != null) {
             // Auto logout if Remember Me is not checked

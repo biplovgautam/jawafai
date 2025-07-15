@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.jawafai.R
+import com.example.jawafai.service.NotificationMemoryStore
 import com.example.jawafai.ui.theme.AppFonts
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -78,26 +79,35 @@ fun NotificationScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     var selectedFilter by remember { mutableStateOf<ChatPlatform?>(null) }
 
-    // Handle back press for search
-    DisposableEffect(isSearchActive) {
-        val callback = object : OnBackPressedCallback(isSearchActive) {
-            override fun handleOnBackPressed() {
-                if (isSearchActive) {
-                    searchQuery = ""
-                    isSearchActive = false
-                    keyboardController?.hide()
-                }
-            }
-        }
-        backDispatcher?.addCallback(callback)
-        onDispose {
-            callback.remove()
-        }
+    // Observe external notifications from NotificationMemoryStore
+    val externalNotifications = NotificationMemoryStore.notifications
+
+    // Map external notifications to ChatNotification for display
+    val liveNotifications = externalNotifications.map {
+        ChatNotification(
+            id = it.time.toString(),
+            platform = when {
+                it.packageName.contains("whatsapp", true) -> ChatPlatform.WHATSAPP
+                it.packageName.contains("instagram", true) -> ChatPlatform.INSTAGRAM
+                it.packageName.contains("messenger", true) -> ChatPlatform.MESSENGER
+                it.packageName.contains("telegram", true) -> ChatPlatform.TELEGRAM
+                it.packageName.contains("sms", true) -> ChatPlatform.SMS
+                else -> ChatPlatform.GENERAL
+            },
+            senderName = it.title.ifBlank { it.packageName },
+            senderAvatar = null,
+            message = it.text,
+            timestamp = it.time,
+            isRead = false
+        )
     }
 
-    // Sample notifications data
-    val notifications = remember {
-        listOf(
+    // Combine live notifications with sample notifications for now
+    val notifications = remember(liveNotifications) {
+        // Only show live notifications, comment out sample notifications
+        liveNotifications
+        /*
+        if (liveNotifications.isNotEmpty()) liveNotifications else listOf(
             ChatNotification(
                 id = "1",
                 platform = ChatPlatform.WHATSAPP,
@@ -146,6 +156,7 @@ fun NotificationScreen(
                 isRead = true
             )
         )
+        */
     }
 
     // Filter notifications based on search and platform filter
