@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -37,6 +39,7 @@ import com.example.jawafai.viewmodel.UserViewModel
 import com.example.jawafai.viewmodel.UserViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,6 +57,8 @@ fun ProfileScreen(
 
     var isEditing by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var isUploadingImage by remember { mutableStateOf(false) }
+    var uploadProgress by remember { mutableStateOf(0f) }
 
     // Form state
     var firstName by remember { mutableStateOf(TextFieldValue("")) }
@@ -61,16 +66,32 @@ fun ProfileScreen(
     var username by remember { mutableStateOf(TextFieldValue("")) }
     var bio by remember { mutableStateOf(TextFieldValue("")) }
     var imageUrl by remember { mutableStateOf("") }
+    var tempImageUri by remember { mutableStateOf<Uri?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val focusManager = LocalFocusManager.current
+    val coroutineScope = rememberCoroutineScope()
 
-    // Image picker launcher
+    // Image picker launcher with improved error handling
     val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        uri?.let {
-            viewModel.uploadProfileImage(it) { url ->
+        uri?.let { selectedUri ->
+            isUploadingImage = true
+            tempImageUri = selectedUri
+
+            viewModel.uploadProfileImage(selectedUri) { url ->
+                isUploadingImage = false
                 if (url != null) {
                     imageUrl = url
+                    tempImageUri = null
+                } else {
+                    // Show error message if upload fails
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar(
+                            message = "Image upload failed. Please try again.",
+                            actionLabel = "Retry"
+                        )
+                    }
+                    tempImageUri = null
                 }
             }
         }
@@ -85,6 +106,13 @@ fun ProfileScreen(
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) {
             galleryLauncher.launch("image/*")
+        } else {
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    message = "Permission required to select images",
+                    actionLabel = "OK"
+                )
+            }
         }
     }
 
@@ -116,7 +144,9 @@ fun ProfileScreen(
                     focusManager.clearFocus()
                 }
             }
-            is UserViewModel.UserOperationResult.Error -> snackbarHostState.showSnackbar(result.message)
+            is UserViewModel.UserOperationResult.Error -> {
+                snackbarHostState.showSnackbar(result.message)
+            }
             else -> {}
         }
     }
@@ -124,8 +154,20 @@ fun ProfileScreen(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        containerColor = Color.White,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = Color(0xFFF8F9FA),
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                snackbar = { snackbarData ->
+                    Snackbar(
+                        snackbarData = snackbarData,
+                        containerColor = Color(0xFF395B64),
+                        contentColor = Color.White,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            )
+        },
         topBar = {
             TopAppBar(
                 title = {
@@ -149,37 +191,40 @@ fun ProfileScreen(
                     }
                 },
                 actions = {
-                    TextButton(
-                        onClick = {
-                            if (isEditing) {
-                                userProfile?.let {
-                                    val updatedUser = it.copy(
-                                        firstName = firstName.text,
-                                        lastName = lastName.text,
-                                        username = username.text,
-                                        bio = bio.text,
-                                        imageUrl = imageUrl
-                                    )
-                                    viewModel.updateUser(updatedUser)
-                                }
-                            }
-                            isEditing = !isEditing
-                        },
-                        enabled = userState !is UserViewModel.UserOperationResult.Loading
+                    AnimatedVisibility(
+                        visible = !isUploadingImage && userState !is UserViewModel.UserOperationResult.Loading
                     ) {
-                        Text(
-                            text = if (isEditing) "Save" else "Edit",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontFamily = AppFonts.KarlaFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                color = Color(0xFF395B64)
+                        TextButton(
+                            onClick = {
+                                if (isEditing) {
+                                    userProfile?.let {
+                                        val updatedUser = it.copy(
+                                            firstName = firstName.text,
+                                            lastName = lastName.text,
+                                            username = username.text,
+                                            bio = bio.text,
+                                            imageUrl = imageUrl
+                                        )
+                                        viewModel.updateUser(updatedUser)
+                                    }
+                                }
+                                isEditing = !isEditing
+                            }
+                        ) {
+                            Text(
+                                text = if (isEditing) "Save" else "Edit",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontFamily = AppFonts.KarlaFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = Color(0xFF395B64)
+                                )
                             )
-                        )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = Color(0xFFF8F9FA)
                 ),
                 modifier = Modifier.statusBarsPadding()
             )
@@ -189,7 +234,7 @@ fun ProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = paddingValues.calculateTopPadding())
-                .background(Color.White)
+                .background(Color(0xFFF8F9FA))
         ) {
             Column(
                 modifier = Modifier
@@ -200,99 +245,188 @@ fun ProfileScreen(
             ) {
                 Spacer(Modifier.height(24.dp))
 
-                // Profile Image Card
+                // Enhanced Profile Image Card
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(enabled = isEditing) {
+                        .clickable(enabled = isEditing && !isUploadingImage) {
                             permissionLauncher.launch(permission)
                         },
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
-                    Box(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Box(
-                            contentAlignment = Alignment.BottomEnd
+                            contentAlignment = Alignment.Center
                         ) {
-                            AsyncImage(
-                                model = imageUrl.ifEmpty { "https://ui-avatars.com/api/?name=${firstName.text}+${lastName.text}&background=A5C9CA&color=ffffff" },
-                                contentDescription = "Profile Picture",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .size(120.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFA5C9CA))
-                            )
-                            if (isEditing) {
-                                Box(
+                            Box(
+                                contentAlignment = Alignment.BottomEnd
+                            ) {
+                                // Profile Image
+                                AsyncImage(
+                                    model = tempImageUri ?: imageUrl.ifEmpty {
+                                        "https://ui-avatars.com/api/?name=${firstName.text}+${lastName.text}&background=A5C9CA&color=ffffff&size=300"
+                                    },
+                                    contentDescription = "Profile Picture",
+                                    contentScale = ContentScale.Crop,
                                     modifier = Modifier
-                                        .size(36.dp)
+                                        .size(140.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFF395B64)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "Edit Image",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                        .background(Color(0xFFA5C9CA))
+                                )
+
+                                // Edit button overlay
+                                if (isEditing) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF395B64))
+                                            .clickable(enabled = !isUploadingImage) {
+                                                permissionLauncher.launch(permission)
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isUploadingImage) {
+                                            CircularProgressIndicator(
+                                                color = Color.White,
+                                                modifier = Modifier.size(20.dp),
+                                                strokeWidth = 2.dp
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Default.Edit,
+                                                contentDescription = "Edit Image",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
+
+                            // Upload progress overlay
+                            if (isUploadingImage) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(140.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.Black.copy(alpha = 0.5f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        CircularProgressIndicator(
+                                            color = Color.White,
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(
+                                            text = "Uploading...",
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = Color.White,
+                                                fontFamily = AppFonts.KarlaFontFamily,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+
+                        // User name display
+                        Text(
+                            text = "${firstName.text} ${lastName.text}".trim().ifEmpty { username.text },
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 20.sp,
+                                color = Color(0xFF395B64)
+                            ),
+                            textAlign = TextAlign.Center
+                        )
+
+                        if (isEditing) {
+                            Text(
+                                text = "Tap image to change",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                    color = Color(0xFF666666),
+                                    fontSize = 12.sp
+                                ),
+                                textAlign = TextAlign.Center
+                            )
                         }
                     }
                 }
 
                 Spacer(Modifier.height(24.dp))
 
-                // User Info Card
+                // Enhanced User Info Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
                     ) {
-                        Text(
-                            text = "Personal Information",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontFamily = AppFonts.KarlaFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                color = Color(0xFF395B64)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = Color(0xFF395B64),
+                                modifier = Modifier.size(24.dp)
                             )
-                        )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = "Personal Information",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontFamily = AppFonts.KarlaFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp,
+                                    color = Color(0xFF395B64)
+                                )
+                            )
+                        }
 
                         ProfileTextField(
                             label = "First Name",
                             value = firstName,
                             onValueChange = { firstName = it },
-                            enabled = isEditing
+                            enabled = isEditing,
+                            icon = Icons.Default.Person
                         )
 
                         ProfileTextField(
                             label = "Last Name",
                             value = lastName,
                             onValueChange = { lastName = it },
-                            enabled = isEditing
+                            enabled = isEditing,
+                            icon = Icons.Default.Person
                         )
 
                         ProfileTextField(
                             label = "Username",
                             value = username,
                             onValueChange = { username = it },
-                            enabled = isEditing
+                            enabled = isEditing,
+                            icon = Icons.Default.AccountCircle
                         )
 
                         ProfileTextField(
@@ -301,7 +435,8 @@ fun ProfileScreen(
                             onValueChange = { bio = it },
                             enabled = isEditing,
                             singleLine = false,
-                            minLines = 3
+                            minLines = 3,
+                            icon = Icons.Default.Info
                         )
 
                         userProfile?.let { profile ->
@@ -315,6 +450,13 @@ fun ProfileScreen(
                                             fontFamily = AppFonts.KaiseiDecolFontFamily,
                                             color = Color(0xFF666666)
                                         )
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Email,
+                                        contentDescription = null,
+                                        tint = Color(0xFF666666)
                                     )
                                 },
                                 enabled = false,
@@ -332,28 +474,39 @@ fun ProfileScreen(
 
                 Spacer(Modifier.height(24.dp))
 
-                // Account Actions Card
+                // Enhanced Account Actions Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(20.dp),
+                            .padding(24.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Text(
-                            text = "Account Actions",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontFamily = AppFonts.KarlaFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                color = Color(0xFF395B64)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = null,
+                                tint = Color(0xFF395B64),
+                                modifier = Modifier.size(24.dp)
                             )
-                        )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = "Account Actions",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontFamily = AppFonts.KarlaFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp,
+                                    color = Color(0xFF395B64)
+                                )
+                            )
+                        }
 
                         Button(
                             onClick = onLogout,
@@ -361,8 +514,15 @@ fun ProfileScreen(
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF395B64)
-                            )
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
                         ) {
+                            Icon(
+                                imageVector = Icons.Default.ExitToApp,
+                                contentDescription = null,
+                                tint = Color.White
+                            )
+                            Spacer(Modifier.width(8.dp))
                             Text(
                                 text = "Logout",
                                 style = MaterialTheme.typography.bodyMedium.copy(
@@ -380,8 +540,17 @@ fun ProfileScreen(
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = MaterialTheme.colorScheme.error
+                            ),
+                            border = ButtonDefaults.outlinedButtonBorder.copy(
+                                brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.error)
                             )
                         ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(Modifier.width(8.dp))
                             Text(
                                 text = "Delete Account",
                                 style = MaterialTheme.typography.bodyMedium.copy(
@@ -400,6 +569,7 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
+            // Enhanced Loading overlay
             if (userState is UserViewModel.UserOperationResult.Loading) {
                 Box(
                     modifier = Modifier
@@ -409,14 +579,24 @@ fun ProfileScreen(
                 ) {
                     Card(
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                     ) {
-                        Box(
-                            modifier = Modifier.padding(24.dp),
-                            contentAlignment = Alignment.Center
+                        Column(
+                            modifier = Modifier.padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             CircularProgressIndicator(
-                                color = Color(0xFF395B64)
+                                color = Color(0xFF395B64),
+                                modifier = Modifier.size(40.dp)
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                text = "Please wait...",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontFamily = AppFonts.KarlaFontFamily,
+                                    color = Color(0xFF666666)
+                                )
                             )
                         }
                     }
@@ -444,7 +624,8 @@ private fun ProfileTextField(
     onValueChange: (TextFieldValue) -> Unit,
     enabled: Boolean,
     singleLine: Boolean = true,
-    minLines: Int = 1
+    minLines: Int = 1,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null
 ) {
     OutlinedTextField(
         value = value,
@@ -457,6 +638,15 @@ private fun ProfileTextField(
                     color = if (enabled) Color(0xFF395B64) else Color(0xFF666666)
                 )
             )
+        },
+        leadingIcon = icon?.let { iconVector ->
+            {
+                Icon(
+                    imageVector = iconVector,
+                    contentDescription = null,
+                    tint = if (enabled) Color(0xFF395B64) else Color(0xFF666666)
+                )
+            }
         },
         enabled = enabled,
         modifier = Modifier.fillMaxWidth(),
@@ -487,18 +677,29 @@ private fun DeleteAccountDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(
-                text = "Delete Account",
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontFamily = AppFonts.KarlaFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF395B64)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(24.dp)
                 )
-            )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Delete Account",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF395B64)
+                    )
+                )
+            }
         },
         text = {
             Text(
-                text = "Are you sure? This action is permanent and cannot be undone.",
+                text = "Are you sure you want to delete your account? This action is permanent and cannot be undone. All your data will be lost.",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = AppFonts.KaiseiDecolFontFamily,
                     color = Color(0xFF666666)
@@ -513,7 +714,8 @@ private fun DeleteAccountDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
                 },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error
-                )
+                ),
+                shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
                     text = "Delete",
@@ -525,15 +727,22 @@ private fun DeleteAccountDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = Color(0xFF666666)
+                )
+            ) {
                 Text(
                     text = "Cancel",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = AppFonts.KarlaFontFamily,
-                        color = Color(0xFF666666)
+                        fontWeight = FontWeight.Medium
                     )
                 )
             }
-        }
+        },
+        shape = RoundedCornerShape(16.dp),
+        containerColor = Color.White
     )
 }

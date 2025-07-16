@@ -7,6 +7,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.google.firebase.auth.FirebaseAuth
 import android.util.Log
+import com.example.jawafai.managers.CloudinaryManager
 
 class JawafaiApplication : Application(), DefaultLifecycleObserver {
 
@@ -20,6 +21,9 @@ class JawafaiApplication : Application(), DefaultLifecycleObserver {
 
     override fun onCreate() {
         super<Application>.onCreate()
+
+        // Initialize CloudinaryManager
+        CloudinaryManager.init(this)
 
         // Register lifecycle observer to monitor app state
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)

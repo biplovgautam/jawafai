@@ -363,8 +363,25 @@ class UserRepositoryImpl @Inject constructor(
      * @return The secure URL of the uploaded image, or null on failure.
      */
     override suspend fun uploadProfileImage(imageUri: Uri): String? {
-        Log.d(TAG, "Uploading image through CloudinaryManager for URI: $imageUri")
-        return CloudinaryManager.uploadImage(imageUri)
+        return try {
+            Log.d(TAG, "Uploading image through CloudinaryManager for URI: $imageUri")
+
+            if (!CloudinaryManager.isInitialized()) {
+                Log.e(TAG, "CloudinaryManager not initialized")
+                return null
+            }
+
+            val result = CloudinaryManager.uploadImage(imageUri)
+            if (result != null) {
+                Log.d(TAG, "Image upload successful: $result")
+            } else {
+                Log.e(TAG, "Image upload failed: null result")
+            }
+            result
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception during image upload: ${e.message}", e)
+            null
+        }
     }
 
     override suspend fun updateFcmToken(userId: String, fcmToken: String) {
