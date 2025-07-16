@@ -77,13 +77,6 @@ class DashboardActivity : ComponentActivity() {
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
 
-        // Initialize UserViewModel for FCM token update
-        val auth = FirebaseAuth.getInstance()
-        val firestore = FirebaseFirestore.getInstance()
-        val repository = UserRepositoryImpl(auth, firestore)
-        val userViewModel = UserViewModel(repository, auth)
-        userViewModel.updateFcmTokenForCurrentUser()
-
         setContent {
             JawafaiTheme {
                 WithNetworkMonitoring {
