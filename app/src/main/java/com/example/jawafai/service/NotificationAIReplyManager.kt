@@ -18,7 +18,8 @@ object NotificationAIReplyManager {
     private const val MAX_CONTEXT_MESSAGES = 10
 
     /**
-     * Generate AI reply for a notification with conversation context
+     * Generate AI reply for a notification with conversati
+     * on context
      */
     suspend fun generateAIReply(
         notification: NotificationMemoryStore.ExternalNotification,
