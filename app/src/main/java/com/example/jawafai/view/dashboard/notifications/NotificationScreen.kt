@@ -1,5 +1,10 @@
 package com.example.jawafai.view.dashboard.notifications
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
@@ -33,11 +38,14 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import coil.compose.AsyncImage
 import com.example.jawafai.R
+import com.example.jawafai.managers.GroqApiManager
 import com.example.jawafai.service.NotificationMemoryStore
 import com.example.jawafai.service.NotificationAIReplyManager
 import com.example.jawafai.service.SmartReplyAIModule
+import com.example.jawafai.service.RemoteReplyService
 import com.example.jawafai.ui.theme.AppFonts
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -91,6 +99,52 @@ fun NotificationScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     var selectedFilter by remember { mutableStateOf<ChatPlatform?>(null) }
     var generatingReplyFor by remember { mutableStateOf<String?>(null) }
+
+    // Send status tracking
+    var sendingStatus by remember { mutableStateOf<Map<String, RemoteReplyService.ReplyStatus>>(emptyMap()) }
+    var sendingMessages by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+
+    // Broadcast receiver for reply status updates
+    val replyStatusReceiver = remember {
+        object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                when (intent?.action) {
+                    "com.example.jawafai.REPLY_STATUS" -> {
+                        val conversationId = intent.getStringExtra("conversationId") ?: return
+                        val status = intent.getStringExtra("status") ?: return
+                        val message = intent.getStringExtra("message")
+
+                        sendingStatus = sendingStatus.toMutableMap().apply {
+                            this[conversationId] = RemoteReplyService.ReplyStatus.valueOf(status)
+                        }
+
+                        if (message != null) {
+                            sendingMessages = sendingMessages.toMutableMap().apply {
+                                this[conversationId] = message
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Register broadcast receiver
+    LaunchedEffect(Unit) {
+        val filter = IntentFilter("com.example.jawafai.REPLY_STATUS")
+        LocalBroadcastManager.getInstance(context).registerReceiver(replyStatusReceiver, filter)
+    }
+
+    // Cleanup receiver
+    DisposableEffect(Unit) {
+        onDispose {
+            try {
+                LocalBroadcastManager.getInstance(context).unregisterReceiver(replyStatusReceiver)
+            } catch (e: Exception) {
+                // Receiver might already be unregistered
+            }
+        }
+    }
 
     // Observe external notifications from NotificationMemoryStore
     val externalNotifications by remember {
@@ -147,55 +201,122 @@ fun NotificationScreen(
         }
     }
 
-    // Function to generate AI reply
+    // Function to generate AI reply with enhanced debugging
     fun generateAIReply(notificationHash: String) {
         coroutineScope.launch {
             try {
+                Log.d("NotificationScreen", "🚀 Starting AI reply generation for hash: $notificationHash")
                 generatingReplyFor = notificationHash
 
                 // Get the notification from memory store
                 val notification = NotificationMemoryStore.getAllNotifications()
                     .find { it.hash == notificationHash }
 
-                if (notification != null) {
-                    // Generate AI reply
-                    val result = NotificationAIReplyManager.generateAIReply(
-                        notification = notification,
-                        userPersona = null, // You can pass user persona here
-                        context = context
-                    )
-
-                    if (result.success && result.reply != null) {
-                        // Reply is already stored in NotificationMemoryStore by the manager
-                        // Just update the UI state
-                    }
+                if (notification == null) {
+                    Log.e("NotificationScreen", "❌ Notification not found in memory store")
+                    Toast.makeText(context, "Error: Notification not found", Toast.LENGTH_SHORT).show()
+                    return@launch
                 }
+
+                Log.d("NotificationScreen", "✅ Found notification: ${notification.text}")
+
+                // Check if API key is configured
+                if (!GroqApiManager.isApiKeyConfigured()) {
+                    Log.e("NotificationScreen", "❌ Groq API key not configured")
+                    Toast.makeText(context, "Error: API key not configured. Please check your settings.", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+
+                Log.d("NotificationScreen", "✅ API key configured, generating reply...")
+                Toast.makeText(context, "Generating AI reply...", Toast.LENGTH_SHORT).show()
+
+                // Generate AI reply
+                val result = NotificationAIReplyManager.generateAIReply(
+                    notification = notification,
+                    userPersona = null, // You can pass user persona here
+                    context = context
+                )
+
+                Log.d("NotificationScreen", "📤 AI reply result: success=${result.success}, error=${result.error}")
+
+                if (result.success && result.reply != null) {
+                    Log.d("NotificationScreen", "✅ AI reply generated successfully: ${result.reply.take(100)}...")
+                    Toast.makeText(context, "AI reply generated successfully! 🎉", Toast.LENGTH_SHORT).show()
+                } else {
+                    Log.e("NotificationScreen", "❌ AI reply generation failed: ${result.error}")
+                    val errorMessage = when {
+                        result.error?.contains("API key not configured") == true ->
+                            "Please configure your Groq API key in settings"
+                        result.error?.contains("401") == true ->
+                            "Invalid API key. Please check your configuration."
+                        result.error?.contains("429") == true ->
+                            "Rate limit exceeded. Please try again later."
+                        result.error?.contains("network") == true ->
+                            "Network error. Please check your connection."
+                        result.error?.contains("timeout") == true ->
+                            "Request timeout. Please try again."
+                        else ->
+                            "Failed to generate reply: ${result.error ?: "Unknown error"}"
+                    }
+                    Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                }
+
             } catch (e: Exception) {
-                // Handle error
+                Log.e("NotificationScreen", "❌ Exception in AI reply generation: ${e.message}", e)
+                Toast.makeText(context, "Error generating reply: ${e.message}", Toast.LENGTH_LONG).show()
             } finally {
                 generatingReplyFor = null
             }
         }
     }
 
-    // Function to send reply
+    // Enhanced function to send reply with status tracking
     fun sendReply(conversationId: String, replyText: String) {
         coroutineScope.launch {
             try {
-                val notifications = NotificationMemoryStore.getNotificationsByConversation(conversationId)
-                val latestNotification = notifications.firstOrNull { it.hasReplyAction }
+                // Use RemoteReplyService to send the reply with retry mechanism
+                val result = RemoteReplyService.sendReply(
+                    context = context,
+                    conversationId = conversationId,
+                    replyText = replyText
+                )
 
-                if (latestNotification != null) {
-                    // Update the notification as sent
-                    NotificationMemoryStore.markAsSent(latestNotification.hash)
+                if (result.success) {
+                    Toast.makeText(context, "Reply sent successfully! 🎉", Toast.LENGTH_SHORT).show()
+                    // Clear any error messages
+                    sendingMessages = sendingMessages.toMutableMap().apply {
+                        remove(conversationId)
+                    }
                 } else {
-                    // Show error toast if no remote input available
-                    Toast.makeText(context, "Can't send message: This notification doesn't support direct replies.", Toast.LENGTH_SHORT).show()
+                    val errorMessage = when {
+                        result.error?.contains("No notification with reply action") == true ->
+                            "Cannot send reply: This notification doesn't support direct replies."
+                        result.canRetry ->
+                            "Failed to send reply after ${RemoteReplyService.MAX_RETRY_ATTEMPTS} attempts: ${result.error}"
+                        else ->
+                            "Failed to send reply: ${result.error}"
+                    }
+                    Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
-                // Handle error
+                Toast.makeText(context, "Error sending reply: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    // Manual retry function
+    fun retryReply(conversationId: String, replyText: String) {
+        // Clear previous status
+        RemoteReplyService.clearSendingStatus(conversationId)
+        sendingStatus = sendingStatus.toMutableMap().apply {
+            remove(conversationId)
+        }
+        sendingMessages = sendingMessages.toMutableMap().apply {
+            remove(conversationId)
+        }
+
+        // Retry sending
+        sendReply(conversationId, replyText)
     }
 
     // Pull to refresh simulation
@@ -379,7 +500,9 @@ fun NotificationScreen(
                             onGenerateReply = { generateAIReply(notification.notificationHash) },
                             onSendReply = { sendReply(notification.conversationId, notification.generatedReply) },
                             onMarkAsRead = { /* Handle mark as read */ },
-                            isGeneratingReply = generatingReplyFor == notification.notificationHash
+                            isGeneratingReply = generatingReplyFor == notification.notificationHash,
+                            sendingStatus = sendingStatus[notification.conversationId],
+                            sentMessage = sendingMessages[notification.conversationId]
                         )
                     }
 
@@ -457,8 +580,13 @@ fun EnhancedNotificationCard(
     onGenerateReply: () -> Unit,
     onSendReply: () -> Unit,
     onMarkAsRead: (String) -> Unit,
-    isGeneratingReply: Boolean
+    isGeneratingReply: Boolean,
+    sendingStatus: RemoteReplyService.ReplyStatus?,
+    sentMessage: String?
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -626,14 +754,82 @@ fun EnhancedNotificationCard(
                                 )
                             )
 
-                            if (notification.isSent) {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = "Sent",
-                                    modifier = Modifier.size(16.dp),
-                                    tint = Color(0xFF4CAF50)
-                                )
+                            // Status indicators
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            when (sendingStatus) {
+                                RemoteReplyService.ReplyStatus.SENDING -> {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = Color(0xFF2196F3)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Sending...",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontSize = 10.sp,
+                                            color = Color(0xFF2196F3)
+                                        )
+                                    )
+                                }
+                                RemoteReplyService.ReplyStatus.RETRYING -> {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = Color(0xFFFF9800)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Retrying...",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontSize = 10.sp,
+                                            color = Color(0xFFFF9800)
+                                        )
+                                    )
+                                }
+                                RemoteReplyService.ReplyStatus.SENT -> {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "Sent",
+                                        modifier = Modifier.size(16.dp),
+                                        tint = Color(0xFF4CAF50)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Sent",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontSize = 10.sp,
+                                            color = Color(0xFF4CAF50)
+                                        )
+                                    )
+                                }
+                                RemoteReplyService.ReplyStatus.FAILED -> {
+                                    Icon(
+                                        imageVector = Icons.Default.Error,
+                                        contentDescription = "Failed",
+                                        modifier = Modifier.size(16.dp),
+                                        tint = Color(0xFFE53E3E)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Failed",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontSize = 10.sp,
+                                            color = Color(0xFFE53E3E)
+                                        )
+                                    )
+                                }
+                                else -> {
+                                    if (notification.isSent) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = "Sent",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = Color(0xFF4CAF50)
+                                        )
+                                    }
+                                }
                             }
                         }
 
@@ -647,6 +843,22 @@ fun EnhancedNotificationCard(
                                 color = Color(0xFF333333)
                             )
                         )
+
+                        // Show status message if available
+                        if (sentMessage != null) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = sentMessage,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 11.sp,
+                                    color = when (sendingStatus) {
+                                        RemoteReplyService.ReplyStatus.FAILED -> Color(0xFFE53E3E)
+                                        RemoteReplyService.ReplyStatus.RETRYING -> Color(0xFFFF9800)
+                                        else -> Color(0xFF666666)
+                                    }
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -711,33 +923,134 @@ fun EnhancedNotificationCard(
                     }
                 }
 
-                // Send Reply Button (only if reply is generated, has reply action, and not sent)
+                // Send Reply Button
                 if (notification.hasGeneratedReply &&
                     notification.hasReplyAction &&
                     !notification.isSent &&
-                    !isGeneratingReply) {
+                    !isGeneratingReply &&
+                    sendingStatus != RemoteReplyService.ReplyStatus.SENDING &&
+                    sendingStatus != RemoteReplyService.ReplyStatus.RETRYING) {
+
                     Button(
                         onClick = onSendReply,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF4CAF50)
                         ),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier
-                            .size(40.dp) // Make the button square
-                            .weight(1f, fill = false),
-                        contentPadding = PaddingValues(0.dp)
+                        modifier = Modifier.weight(1f)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Send,
                             contentDescription = "Send Reply",
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(16.dp),
                             tint = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Send",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                fontSize = 12.sp
+                            )
                         )
                     }
                 }
 
-                // Regenerate Reply Button (if reply exists but want to regenerate)
-                if (notification.hasGeneratedReply && !isGeneratingReply) {
+                // Sending state button
+                if (sendingStatus == RemoteReplyService.ReplyStatus.SENDING) {
+                    Button(
+                        onClick = { /* Do nothing while sending */ },
+                        enabled = false,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF2196F3).copy(alpha = 0.6f)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Sending...",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                fontSize = 12.sp
+                            )
+                        )
+                    }
+                }
+
+                // Retrying state button
+                if (sendingStatus == RemoteReplyService.ReplyStatus.RETRYING) {
+                    Button(
+                        onClick = { /* Do nothing while retrying */ },
+                        enabled = false,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFF9800).copy(alpha = 0.6f)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Retrying...",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                fontSize = 12.sp
+                            )
+                        )
+                    }
+                }
+
+                // Retry button for failed sends
+                if (sendingStatus == RemoteReplyService.ReplyStatus.FAILED) {
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                // Retry sending
+                                RemoteReplyService.sendReply(
+                                    context = context,
+                                    conversationId = notification.conversationId,
+                                    replyText = notification.generatedReply
+                                )
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE53E3E)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Retry",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Retry",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                fontSize = 12.sp
+                            )
+                        )
+                    }
+                }
+
+                // Regenerate Reply Button (if reply exists and not currently sending)
+                if (notification.hasGeneratedReply &&
+                    !isGeneratingReply &&
+                    sendingStatus != RemoteReplyService.ReplyStatus.SENDING &&
+                    sendingStatus != RemoteReplyService.ReplyStatus.RETRYING) {
+
                     OutlinedButton(
                         onClick = onGenerateReply,
                         colors = ButtonDefaults.outlinedButtonColors(
