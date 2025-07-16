@@ -14,6 +14,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material3.*
@@ -32,13 +34,7 @@ import androidx.compose.ui.unit.sp
 import com.airbnb.lottie.compose.*
 import com.example.jawafai.R
 import com.example.jawafai.model.ChatBotMessageModel
-import com.example.jawafai.model.ChatBotMessageType
-import com.example.jawafai.repository.UserRepositoryImpl
 import com.example.jawafai.ui.theme.AppFonts
-import com.example.jawafai.viewmodel.UserViewModel
-import com.example.jawafai.viewmodel.UserViewModelFactory
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -50,12 +46,6 @@ fun ChatBotScreen(
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
-
-    // Initialize ViewModel using existing pattern from HomeScreen
-    val auth = FirebaseAuth.getInstance()
-    val firestore = FirebaseFirestore.getInstance()
-    val repository = UserRepositoryImpl(auth, firestore)
-    val userViewModel = remember { UserViewModelFactory(repository, auth).create(UserViewModel::class.java) }
 
     // State for chatbot functionality - SESSION ONLY (no database persistence)
     var messages by remember { mutableStateOf<List<ChatBotMessageModel>>(emptyList()) }
@@ -90,7 +80,7 @@ fun ChatBotScreen(
 
         // Add user message
         val userMessage = ChatBotMessageModel(
-            id = java.util.UUID.randomUUID().toString(),
+            id = UUID.randomUUID().toString(),
             conversationId = "current_session",
             message = message,
             isFromUser = true,
@@ -116,7 +106,7 @@ fun ChatBotScreen(
 
                 val aiMessage = if (response.success && response.message != null) {
                     ChatBotMessageModel(
-                        id = java.util.UUID.randomUUID().toString(),
+                        id = UUID.randomUUID().toString(),
                         conversationId = "current_session",
                         message = response.message,
                         isFromUser = false,
@@ -145,7 +135,7 @@ fun ChatBotScreen(
                     }
 
                     ChatBotMessageModel(
-                        id = java.util.UUID.randomUUID().toString(),
+                        id = UUID.randomUUID().toString(),
                         conversationId = "current_session",
                         message = errorMsg,
                         isFromUser = false,
@@ -159,7 +149,7 @@ fun ChatBotScreen(
             } catch (e: Exception) {
                 Log.e("ChatBotScreen", "Exception in sendMessage: ${e.message}", e)
                 val errorMessage = ChatBotMessageModel(
-                    id = java.util.UUID.randomUUID().toString(),
+                    id = UUID.randomUUID().toString(),
                     conversationId = "current_session",
                     message = "I'm experiencing some technical difficulties. Please try again later.",
                     isFromUser = false,
@@ -189,124 +179,215 @@ fun ChatBotScreen(
         showNewChatDialog = true
     }
 
-    // New chat confirmation dialog
+    // Enhanced new chat confirmation dialog
     if (showNewChatDialog) {
         AlertDialog(
             onDismissRequest = { showNewChatDialog = false },
-            title = { Text("Start New Chat") },
-            text = { Text("Are you sure you want to start a new chat? This will clear the current conversation.") },
+            title = {
+                Text(
+                    text = "Start New Chat",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        color = Color(0xFF395B64)
+                    )
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to start a new chat? This will clear the current conversation.",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                        fontSize = 14.sp,
+                        color = Color(0xFF666666)
+                    )
+                )
+            },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         createNewConversation()
                         showNewChatDialog = false
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF395B64)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Yes, start new chat")
+                    Text(
+                        text = "Start New Chat",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = { showNewChatDialog = false }
+                OutlinedButton(
+                    onClick = { showNewChatDialog = false },
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFF395B64)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Cancel")
+                    Text(
+                        text = "Cancel",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
                 }
             },
-            modifier = Modifier.padding(16.dp)
+            containerColor = Color.White,
+            shape = RoundedCornerShape(20.dp)
         )
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8F9FA))
-    ) {
-        // Fixed Top Bar
-        TopAppBar(
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // AI Bot Icon
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF395B64))
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.White,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Enhanced AI Bot Icon with gradient-like effect
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF395B64))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.SmartToy,
+                                contentDescription = "AI Bot",
+                                tint = Color.White,
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .align(Alignment.Center)
+                            )
+                        }
+
+                        Column {
+                            Text(
+                                text = "AI Companion",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontFamily = AppFonts.KarlaFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 20.sp,
+                                    color = Color(0xFF395B64)
+                                )
+                            )
+
+                            AnimatedVisibility(visible = isTyping) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    // Animated typing dots
+                                    repeat(3) { index ->
+                                        val infiniteTransition = rememberInfiniteTransition(label = "typing_header")
+                                        val alpha by infiniteTransition.animateFloat(
+                                            initialValue = 0.3f,
+                                            targetValue = 1f,
+                                            animationSpec = infiniteRepeatable(
+                                                animation = tween(600, delayMillis = index * 200),
+                                                repeatMode = RepeatMode.Reverse
+                                            ),
+                                            label = "typing_header_dot_$index"
+                                        )
+
+                                        Box(
+                                            modifier = Modifier
+                                                .size(4.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFF4CAF50).copy(alpha = alpha))
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(4.dp))
+
+                                    Text(
+                                        text = "AI is typing...",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF4CAF50)
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                navigationIcon = {
+                    IconButton(
+                        onClick = onNavigateBack
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.SmartToy,
-                            contentDescription = "AI Bot",
-                            tint = Color.White,
-                            modifier = Modifier
-                                .size(24.dp)
-                                .align(Alignment.Center)
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFF395B64)
                         )
                     }
-
-                    Column {
-                        Text(
-                            text = "AI Companion",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontFamily = AppFonts.KarlaFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                color = Color(0xFF395B64)
-                            )
-                        )
-
-                        AnimatedVisibility(visible = isTyping) {
-                            Text(
-                                text = "Typing...",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                    fontSize = 12.sp,
-                                    color = Color(0xFF666666)
-                                )
+                },
+                actions = {
+                    // Enhanced new chat button
+                    IconButton(
+                        onClick = { showNewChatConfirmation() }
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF395B64).copy(alpha = 0.1f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "New Chat",
+                                tint = Color(0xFF395B64),
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .align(Alignment.Center)
                             )
                         }
                     }
-                }
-            },
-            navigationIcon = {
-                IconButton(
-                    onClick = onNavigateBack
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color(0xFF395B64)
-                    )
-                }
-            },
-            actions = {
-                // New chat button
-                IconButton(
-                    onClick = {
-                        showNewChatConfirmation()
-                    }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "New Chat",
-                        tint = Color(0xFF395B64)
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.White
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White
+                )
             )
-        )
-
-        // Chat Content Area
+        },
+        bottomBar = {
+            // Enhanced Message Input Bar
+            EnhancedMessageInputBar(
+                messageText = messageText,
+                onMessageChange = { messageText = it },
+                onSendMessage = {
+                    if (messageText.isNotBlank()) {
+                        sendMessage(messageText)
+                        messageText = ""
+                        keyboardController?.hide()
+                    }
+                },
+                isLoading = isTyping
+            )
+        }
+    ) { paddingValues ->
+        // Main content with enhanced background
         Box(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
+                .fillMaxSize()
+                .background(Color(0xFFF8F9FA))
+                .padding(paddingValues)
         ) {
             if (messages.isEmpty() && !isLoading) {
-                EmptyStateView(
+                EnhancedEmptyStateView(
                     onSuggestionClick = { suggestion ->
                         sendMessage(suggestion)
                     }
@@ -317,20 +398,20 @@ fun ChatBotScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     item {
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
                     items(messages) { message ->
-                        MessageItem(message = message)
+                        EnhancedMessageItem(message = message)
                     }
 
-                    // Show typing indicator
+                    // Enhanced typing indicator
                     if (isTyping) {
                         item {
-                            TypingIndicator()
+                            EnhancedTypingIndicator()
                         }
                     }
 
@@ -340,25 +421,11 @@ fun ChatBotScreen(
                 }
             }
         }
-
-        // Fixed Message Input Bar
-        MessageInputBar(
-            messageText = messageText,
-            onMessageChange = { messageText = it },
-            onSendMessage = {
-                if (messageText.isNotBlank()) {
-                    sendMessage(messageText)
-                    messageText = ""
-                    keyboardController?.hide()
-                }
-            },
-            isLoading = isTyping
-        )
     }
 }
 
 @Composable
-fun MessageItem(message: ChatBotMessageModel) {
+fun EnhancedMessageItem(message: ChatBotMessageModel) {
     val isUser = message.isFromUser
 
     Row(
@@ -366,7 +433,7 @@ fun MessageItem(message: ChatBotMessageModel) {
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
         if (isUser) {
-            Spacer(modifier = Modifier.width(48.dp))
+            Spacer(modifier = Modifier.width(56.dp))
         }
 
         Column(
@@ -375,24 +442,25 @@ fun MessageItem(message: ChatBotMessageModel) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(
-                    topStart = 16.dp,
-                    topEnd = 16.dp,
-                    bottomStart = if (isUser) 16.dp else 4.dp,
-                    bottomEnd = if (isUser) 4.dp else 16.dp
+                    topStart = 20.dp,
+                    topEnd = 20.dp,
+                    bottomStart = if (isUser) 20.dp else 6.dp,
+                    bottomEnd = if (isUser) 6.dp else 20.dp
                 ),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isUser) Color(0xFF395B64) else Color.White
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Text(
                     text = message.message,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = AppFonts.KaiseiDecolFontFamily,
-                        fontSize = 14.sp,
-                        color = if (isUser) Color.White else Color(0xFF333333)
+                        fontSize = 15.sp,
+                        color = if (isUser) Color.White else Color(0xFF333333),
+                        lineHeight = 20.sp
                     ),
-                    modifier = Modifier.padding(12.dp)
+                    modifier = Modifier.padding(16.dp)
                 )
             }
 
@@ -400,41 +468,41 @@ fun MessageItem(message: ChatBotMessageModel) {
                 text = formatChatTimestamp(message.timestamp),
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontFamily = AppFonts.KaiseiDecolFontFamily,
-                    fontSize = 10.sp,
+                    fontSize = 11.sp,
                     color = Color(0xFF999999)
                 ),
                 textAlign = if (isUser) TextAlign.End else TextAlign.Start,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
             )
         }
 
         if (!isUser) {
-            Spacer(modifier = Modifier.width(48.dp))
+            Spacer(modifier = Modifier.width(56.dp))
         }
     }
 }
 
 @Composable
-fun TypingIndicator() {
+fun EnhancedTypingIndicator() {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Start
     ) {
         Card(
             shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = 4.dp,
-                bottomEnd = 16.dp
+                topStart = 20.dp,
+                topEnd = 20.dp,
+                bottomStart = 6.dp,
+                bottomEnd = 20.dp
             ),
             colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Row(
-                modifier = Modifier.padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 repeat(3) { index ->
@@ -443,7 +511,7 @@ fun TypingIndicator() {
                         initialValue = 0.3f,
                         targetValue = 1f,
                         animationSpec = infiniteRepeatable(
-                            animation = tween(600),
+                            animation = tween(600, delayMillis = index * 200),
                             repeatMode = RepeatMode.Reverse
                         ),
                         label = "typing_dot_$index"
@@ -451,7 +519,7 @@ fun TypingIndicator() {
 
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
+                            .size(10.dp)
                             .clip(CircleShape)
                             .background(Color(0xFF395B64).copy(alpha = alpha))
                     )
@@ -459,12 +527,12 @@ fun TypingIndicator() {
             }
         }
 
-        Spacer(modifier = Modifier.width(48.dp))
+        Spacer(modifier = Modifier.width(56.dp))
     }
 }
 
 @Composable
-fun MessageInputBar(
+fun EnhancedMessageInputBar(
     messageText: String,
     onMessageChange: (String) -> Unit,
     onSendMessage: () -> Unit,
@@ -474,15 +542,15 @@ fun MessageInputBar(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.Bottom
         ) {
             TextField(
                 value = messageText,
@@ -493,16 +561,22 @@ fun MessageInputBar(
                         text = "Type your message...",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = AppFonts.KaiseiDecolFontFamily,
-                            fontSize = 14.sp,
+                            fontSize = 15.sp,
                             color = Color(0xFF999999)
                         )
                     )
                 },
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = AppFonts.KaiseiDecolFontFamily,
+                    fontSize = 15.sp,
+                    color = Color(0xFF333333) // Fixed text color for better visibility
+                ),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
                     focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
+                    unfocusedIndicatorColor = Color.Transparent,
+                    cursorColor = Color(0xFF395B64)
                 ),
                 keyboardOptions = KeyboardOptions(
                     imeAction = ImeAction.Send
@@ -513,14 +587,14 @@ fun MessageInputBar(
                 maxLines = 4
             )
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(52.dp)
                     .clip(CircleShape)
                     .background(
-                        if (messageText.isBlank() || isLoading) Color(0xFFCCCCCC) else Color(0xFF395B64)
+                        if (messageText.isBlank() || isLoading) Color(0xFFE0E0E0) else Color(0xFF395B64)
                     )
                     .clickable(enabled = messageText.isNotBlank() && !isLoading) {
                         onSendMessage()
@@ -529,18 +603,18 @@ fun MessageInputBar(
                 if (isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier
-                            .size(24.dp)
+                            .size(26.dp)
                             .align(Alignment.Center),
                         color = Color.White,
-                        strokeWidth = 2.dp
+                        strokeWidth = 3.dp
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.Default.Send,
+                        imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = "Send",
-                        tint = Color.White,
+                        tint = if (messageText.isBlank()) Color(0xFF999999) else Color.White,
                         modifier = Modifier
-                            .size(24.dp)
+                            .size(26.dp)
                             .align(Alignment.Center)
                     )
                 }
@@ -550,7 +624,7 @@ fun MessageInputBar(
 }
 
 @Composable
-fun EmptyStateView(onSuggestionClick: (String) -> Unit) {
+fun EnhancedEmptyStateView(onSuggestionClick: (String) -> Unit) {
     // Lottie animation for chatbot
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.live_chatbot))
     val progress by animateLottieCompositionAsState(
@@ -558,112 +632,124 @@ fun EmptyStateView(onSuggestionClick: (String) -> Unit) {
         iterations = LottieConstants.IterateForever
     )
 
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(32.dp),
-        verticalArrangement = Arrangement.Center,
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        LottieAnimation(
-            composition = composition,
-            progress = { progress },
-            modifier = Modifier.size(180.dp)
-        )
+        item {
+            Spacer(modifier = Modifier.height(40.dp))
 
-        Spacer(modifier = Modifier.height(24.dp))
+            LottieAnimation(
+                composition = composition,
+                progress = { progress },
+                modifier = Modifier.size(200.dp)
+            )
+        }
 
-        Text(
-            text = "Hello! I'm Your AI Companion 💙",
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontFamily = AppFonts.KarlaFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
-                color = Color(0xFF395B64)
-            ),
-            textAlign = TextAlign.Center
-        )
+        item {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Hello! I'm Your AI Companion 💙",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 24.sp,
+                        color = Color(0xFF395B64)
+                    ),
+                    textAlign = TextAlign.Center
+                )
 
-        Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-        Text(
-            text = "I'm here to listen, support, and help you through whatever you're going through. Let's have a meaningful conversation!",
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontFamily = AppFonts.KaiseiDecolFontFamily,
-                fontSize = 15.sp,
-                color = Color(0xFF666666),
-                lineHeight = 20.sp
-            ),
-            textAlign = TextAlign.Center
-        )
+                Text(
+                    text = "I'm here to listen, support, and help you through whatever you're going through. Let's have a meaningful conversation!",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                        fontSize = 16.sp,
+                        color = Color(0xFF666666),
+                        lineHeight = 22.sp
+                    ),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        // Enhanced Emotional Support Suggestions
+        item {
+            EnhancedSuggestionCard(
+                title = "💭 Let's Talk",
+                suggestions = listOf(
+                    "I'm feeling low today",
+                    "Tell me a joke to cheer me up",
+                    "I need some motivation"
+                ),
+                onSuggestionClick = onSuggestionClick
+            )
+        }
 
-        // Emotional Support Suggestions
-        SuggestionCard(
-            title = "💭 Let's Talk",
-            suggestions = listOf(
-                "I'm feeling low today",
-                "Tell me a joke to cheer me up",
-                "I need some motivation"
-            ),
-            onSuggestionClick = onSuggestionClick
-        )
+        // Enhanced Productivity Suggestions
+        item {
+            EnhancedSuggestionCard(
+                title = "📅 Daily Support",
+                suggestions = listOf(
+                    "Help me plan my day",
+                    "I'm feeling overwhelmed with tasks",
+                    "Give me some productivity tips"
+                ),
+                onSuggestionClick = onSuggestionClick
+            )
+        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        // Enhanced Learning & Fun Suggestions
+        item {
+            EnhancedSuggestionCard(
+                title = "🌟 Learn & Explore",
+                suggestions = listOf(
+                    "Tell me an interesting scientific fact",
+                    "Explain something fascinating",
+                    "Share some life wisdom"
+                ),
+                onSuggestionClick = onSuggestionClick
+            )
+        }
 
-        // Productivity Suggestions
-        SuggestionCard(
-            title = "📅 Daily Support",
-            suggestions = listOf(
-                "Help me plan my day",
-                "I'm feeling overwhelmed with tasks",
-                "Give me some productivity tips"
-            ),
-            onSuggestionClick = onSuggestionClick
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Learning & Fun Suggestions
-        SuggestionCard(
-            title = "🌟 Learn & Explore",
-            suggestions = listOf(
-                "Tell me an interesting scientific fact",
-                "Explain something fascinating",
-                "Share some life wisdom"
-            ),
-            onSuggestionClick = onSuggestionClick
-        )
+        item {
+            Spacer(modifier = Modifier.height(20.dp))
+        }
     }
 }
 
 @Composable
-fun SuggestionCard(
+fun EnhancedSuggestionCard(
     title: String,
     suggestions: List<String>,
     onSuggestionClick: (String) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(20.dp)
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleSmall.copy(
+                style = MaterialTheme.typography.titleMedium.copy(
                     fontFamily = AppFonts.KarlaFontFamily,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
+                    fontSize = 16.sp,
                     color = Color(0xFF395B64)
                 )
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             suggestions.forEach { suggestion ->
                 Card(
@@ -673,18 +759,18 @@ fun SuggestionCard(
                         .clickable {
                             onSuggestionClick(suggestion)
                         },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F8FF)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Text(
                         text = suggestion,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = AppFonts.KaiseiDecolFontFamily,
-                            fontSize = 13.sp,
-                            color = Color(0xFF555555)
+                            fontSize = 14.sp,
+                            color = Color(0xFF333333)
                         ),
-                        modifier = Modifier.padding(12.dp)
+                        modifier = Modifier.padding(16.dp)
                     )
                 }
             }
