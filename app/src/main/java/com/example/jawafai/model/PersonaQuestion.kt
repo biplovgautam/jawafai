@@ -31,48 +31,64 @@ enum class QuestionType {
 object PersonaQuestions {
     val questions = listOf(
         PersonaQuestion(
-            id = "communication_style",
-            prompt = "How would you describe your communication style?",
+            id = "good_news_response",
+            prompt = "How do you usually respond to good news from a friend?",
             type = QuestionType.SINGLE_CHOICE,
-            options = listOf("Direct and brief", "Detailed and thorough", "Casual and friendly", "Formal and professional")
+            options = listOf("Omg yesss! 😍", "That's great! Congratulations", "Cool cool. Noted.", "Dang, that's dope 🔥")
         ),
         PersonaQuestion(
-            id = "decision_making",
-            prompt = "How do you typically make decisions?",
+            id = "texting_style",
+            prompt = "When texting, which of these do you use the most?",
             type = QuestionType.SINGLE_CHOICE,
-            options = listOf("Analytical and logical", "Based on feelings and intuition", "Considering others' opinions", "Quick and decisive")
+            options = listOf("Emojis", "Full sentences with punctuation", "Slangs/abbreviations (e.g., lol, brb)", "GIFs or Stickers")
         ),
         PersonaQuestion(
-            id = "learning_preference",
-            prompt = "What's your preferred learning style?",
+            id = "tone_style",
+            prompt = "Which tone describes your texting style best?",
             type = QuestionType.SINGLE_CHOICE,
-            options = listOf("Visual (seeing)", "Auditory (hearing)", "Reading/Writing", "Kinesthetic (doing)")
+            options = listOf("Chill and casual", "Friendly and bubbly", "Professional and to-the-point", "Sarcastic or meme-heavy")
         ),
         PersonaQuestion(
-            id = "interests",
-            prompt = "What are your main interests or hobbies?",
-            type = QuestionType.FREE_TEXT
-        ),
-        PersonaQuestion(
-            id = "goals",
-            prompt = "What are your current personal or professional goals?",
-            type = QuestionType.FREE_TEXT
-        ),
-        PersonaQuestion(
-            id = "challenges",
-            prompt = "What challenges are you currently facing?",
-            type = QuestionType.FREE_TEXT
-        ),
-        PersonaQuestion(
-            id = "ideal_day",
-            prompt = "Describe your ideal day in a few sentences.",
-            type = QuestionType.FREE_TEXT
-        ),
-        PersonaQuestion(
-            id = "stress_response",
-            prompt = "How do you typically respond to stress?",
+            id = "okay_style",
+            prompt = "How do you usually say \"okay\" in texts?",
             type = QuestionType.SINGLE_CHOICE,
-            options = listOf("Take action and solve problems", "Seek support from others", "Take time to reflect", "Distract myself with activities")
+            options = listOf("Ok", "K", "Okkk or Okiii", "Bet / Aight / Say less")
+        ),
+        PersonaQuestion(
+            id = "greeting_style",
+            prompt = "How do you usually greet people online?",
+            type = QuestionType.SINGLE_CHOICE,
+            options = listOf("Heyyy 😄", "Hello", "Yo / Wassup", "Namaste / Other local greetings")
+        ),
+        PersonaQuestion(
+            id = "slang_usage",
+            prompt = "Choose your most used slang or phrase:",
+            type = QuestionType.SINGLE_CHOICE,
+            options = listOf("Fr / Ong / Cap", "Same / Lmao / Brooo", "Damn / Bruh / Chill", "I don't use slangs much")
+        ),
+        PersonaQuestion(
+            id = "annoyed_expression",
+            prompt = "When you're annoyed, how do you express it in a chat?",
+            type = QuestionType.SINGLE_CHOICE,
+            options = listOf("😤😐 emojis", "One-word replies like \"fine\" or \"cool\"", "Sarcastic jokes", "I just stop replying 😅")
+        ),
+        PersonaQuestion(
+            id = "reply_preference",
+            prompt = "Do you prefer your replies to be:",
+            type = QuestionType.SINGLE_CHOICE,
+            options = listOf("Short and sharp", "Witty and relatable", "Friendly and positive", "Formal and clear")
+        ),
+        PersonaQuestion(
+            id = "ai_vibe",
+            prompt = "Pick a vibe for your personal AI assistant:",
+            type = QuestionType.SINGLE_CHOICE,
+            options = listOf("Just like me — speaks my language", "Slightly cooler than me, chill", "Polite and professional", "Witty and clever with Gen Z energy")
+        ),
+        PersonaQuestion(
+            id = "ai_communication_style",
+            prompt = "How would you want your AI assistant to talk on your behalf in chats? (Write a few lines about the tone, slang, vibe, and anything you want it to say or avoid.)",
+            type = QuestionType.FREE_TEXT,
+            required = true
         )
     )
 }
