@@ -42,6 +42,7 @@ import com.example.jawafai.viewmodel.UserViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.airbnb.lottie.compose.*
+import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -94,7 +95,37 @@ fun HomeScreen(
     val userImageUrl = currentUserProfile?.imageUrl
     val userUsername = currentUserProfile?.username
     val userFirstName = currentUserProfile?.firstName
-    val isPersonaCompleted = currentUserProfile?.personaCompleted ?: false
+
+    // Check persona completion status based on new questions
+    var isPersonaCompleted by remember { mutableStateOf(false) }
+
+    // Check persona completion when user profile loads
+    LaunchedEffect(currentUserProfile) {
+        if (currentUserProfile != null) {
+            try {
+                val personaRef = FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(currentUserProfile.id)
+                    .collection("persona")
+
+                val personaData = personaRef.get().await()
+
+                // Check if we have valid answers for the new questions
+                val validAnswers = personaData.documents.filter { doc ->
+                    val questionId = doc.id
+                    val answer = doc.getString("answer")
+                    // Check if this question ID exists in our new questions and has a valid answer
+                    com.example.jawafai.model.PersonaQuestions.questions.any { it.id == questionId } &&
+                            !answer.isNullOrBlank()
+                }
+
+                // Need at least 8 valid answers to be considered complete
+                isPersonaCompleted = validAnswers.size >= 8
+            } catch (e: Exception) {
+                isPersonaCompleted = false
+            }
+        }
+    }
 
     // Fetch user profile when screen loads
     LaunchedEffect(Unit) {
@@ -259,7 +290,7 @@ fun CompletePersonaSection(
     onCompletePersonaClick: () -> Unit,
     isPersonaCompleted: Boolean
 ) {
-    // Lottie animation for onboard2
+    // Lottie animation for persona
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.persona))
     val progress by animateLottieCompositionAsState(
         composition,
@@ -306,11 +337,13 @@ fun CompletePersonaSection(
                 }
 
                 // Lottie Animation
-                LottieAnimation(
-                    composition = composition,
-                    progress = { progress },
-                    modifier = Modifier.size(80.dp)
-                )
+                composition?.let {
+                    LottieAnimation(
+                        composition = it,
+                        progress = { progress },
+                        modifier = Modifier.size(80.dp)
+                    )
+                }
             }
         }
     }
@@ -385,11 +418,13 @@ fun ChatBotSection(onChatBotClick: () -> Unit) {
             }
 
             // Lottie Animation
-            LottieAnimation(
-                composition = composition,
-                progress = { progress },
-                modifier = Modifier.size(100.dp)
-            )
+            composition?.let {
+                LottieAnimation(
+                    composition = it,
+                    progress = { progress },
+                    modifier = Modifier.size(100.dp)
+                )
+            }
         }
     }
 }

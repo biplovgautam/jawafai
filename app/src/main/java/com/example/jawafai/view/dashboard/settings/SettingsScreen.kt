@@ -43,7 +43,6 @@ import android.provider.Settings
 import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
-import com.google.firebase.messaging.FirebaseMessaging
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -77,18 +76,28 @@ fun SettingsScreen(
     LaunchedEffect(Unit) {
         viewModel.fetchUserProfile()
 
-        // Check if persona is completed
+        // Check if persona is completed with new questions
         try {
             val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
             if (currentUserId != null) {
-                val personaData = FirebaseFirestore.getInstance()
+                val personaRef = FirebaseFirestore.getInstance()
                     .collection("users")
                     .document(currentUserId)
                     .collection("persona")
-                    .get()
-                    .await()
 
-                personaCompleted.value = !personaData.isEmpty && personaData.size() >= 5
+                val personaData = personaRef.get().await()
+
+                // Check if we have valid answers for the new questions
+                val validAnswers = personaData.documents.filter { doc ->
+                    val questionId = doc.id
+                    val answer = doc.getString("answer")
+                    // Check if this question ID exists in our new questions and has a valid answer
+                    com.example.jawafai.model.PersonaQuestions.questions.any { it.id == questionId } &&
+                    !answer.isNullOrBlank()
+                }
+
+                // Need at least 8 valid answers to be considered complete
+                personaCompleted.value = validAnswers.size >= 8
             }
         } catch (e: Exception) {
             personaCompleted.value = false
@@ -187,82 +196,6 @@ fun SettingsContent(
                 onClick = onPersonaClicked,
                 completed = personaCompleted
             )
-        }
-
-        // FCM Token Section
-        item {
-            val context = LocalContext.current
-            val clipboardManager = LocalClipboardManager.current
-            var fcmToken by remember { mutableStateOf("") }
-            var showCopiedToast by remember { mutableStateOf(false) }
-
-            // Fetch FCM token once
-            LaunchedEffect(Unit) {
-                FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
-                    fcmToken = token
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-                    .background(Color(0xFFF8F9FA), RoundedCornerShape(12.dp))
-                    .padding(16.dp)
-            ) {
-                Text(
-                    text = "FCM Token",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = AppFonts.KarlaFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF395B64)
-                    )
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                if (fcmToken.isNotBlank()) {
-                    Text(
-                        text = fcmToken,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = AppFonts.KaiseiDecolFontFamily,
-                            color = Color(0xFF666666)
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color.White)
-                            .padding(8.dp)
-                            .combinedClickable(
-                                onClick = {},
-                                onLongClick = {
-                                    clipboardManager.setText(AnnotatedString(fcmToken))
-                                    showCopiedToast = true
-                                }
-                            )
-                    )
-                    if (showCopiedToast) {
-                        LaunchedEffect(Unit) {
-                            Toast.makeText(context, "FCM token copied!", Toast.LENGTH_SHORT).show()
-                            showCopiedToast = false
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Long press to copy",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF999999),
-                            fontSize = 12.sp
-                        )
-                    )
-                } else {
-                    Text(
-                        text = "Fetching token...",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF999999),
-                            fontSize = 12.sp
-                        )
-                    )
-                }
-            }
         }
 
         // App Settings Section

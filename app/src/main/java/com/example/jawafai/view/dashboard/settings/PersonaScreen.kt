@@ -1,5 +1,6 @@
 package com.example.jawafai.view.dashboard.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
@@ -17,6 +18,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.jawafai.ui.theme.AppFonts
+import com.example.jawafai.model.PersonaQuestions
+import com.example.jawafai.model.PersonaQuestion
+import com.example.jawafai.model.QuestionType
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -38,28 +42,53 @@ fun PersonaScreen(
     val personaData = remember { mutableStateOf<Map<String, String>>(mapOf()) }
     val currentAnswers = remember { mutableStateOf<Map<String, String>>(mapOf()) }
 
+    // Use the updated questions from PersonaQuestion.kt
+    val questions = remember { PersonaQuestions.questions }
+
     // Load persona data on first composition
     LaunchedEffect(Unit) {
         try {
             val userId = FirebaseAuth.getInstance().currentUser?.uid
             if (userId != null) {
-                val snapshot = FirebaseFirestore.getInstance()
+                val personaRef = FirebaseFirestore.getInstance()
                     .collection("users")
                     .document(userId)
                     .collection("persona")
-                    .get()
-                    .await()
 
-                val data = mutableMapOf<String, String>()
-                for (doc in snapshot.documents) {
-                    doc.id.let { questionId ->
-                        doc.getString("answer")?.let { answer ->
-                            data[questionId] = answer
+                // Check if old persona format exists and clear it
+                val snapshot = personaRef.get().await()
+                val hasOldQuestions = snapshot.documents.any { doc ->
+                    !questions.any { question -> question.id == doc.id }
+                }
+
+                if (hasOldQuestions) {
+                    // Clear old persona data
+                    for (doc in snapshot.documents) {
+                        personaRef.document(doc.id).delete().await()
+                    }
+
+                    // Also reset personaCompleted flag
+                    FirebaseFirestore.getInstance()
+                        .collection("users")
+                        .document(userId)
+                        .update("personaCompleted", false)
+                        .await()
+
+                    // Show message about reset
+                    snackbarHostState.showSnackbar("Persona questions have been updated. Please complete the new questions.")
+                } else {
+                    // Load existing answers for new questions
+                    val data = mutableMapOf<String, String>()
+                    for (doc in snapshot.documents) {
+                        doc.id.let { questionId ->
+                            doc.getString("answer")?.let { answer ->
+                                data[questionId] = answer
+                            }
                         }
                     }
+                    personaData.value = data
+                    currentAnswers.value = data.toMutableMap()
                 }
-                personaData.value = data
-                currentAnswers.value = data.toMutableMap()
             }
         } catch (e: Exception) {
             // Handle error
@@ -67,56 +96,6 @@ fun PersonaScreen(
         } finally {
             isLoading.value = false
         }
-    }
-
-    // Define personality questions
-    val questions = remember {
-        listOf(
-            PersonaQuestion(
-                id = "communication_style",
-                prompt = "How would you describe your communication style?",
-                type = QuestionType.SINGLE_CHOICE,
-                options = listOf("Direct and brief", "Detailed and thorough", "Casual and friendly", "Formal and professional")
-            ),
-            PersonaQuestion(
-                id = "decision_making",
-                prompt = "How do you typically make decisions?",
-                type = QuestionType.SINGLE_CHOICE,
-                options = listOf("Analytical and logical", "Based on feelings and intuition", "Considering others' opinions", "Quick and decisive")
-            ),
-            PersonaQuestion(
-                id = "learning_preference",
-                prompt = "What's your preferred learning style?",
-                type = QuestionType.SINGLE_CHOICE,
-                options = listOf("Visual (seeing)", "Auditory (hearing)", "Reading/Writing", "Kinesthetic (doing)")
-            ),
-            PersonaQuestion(
-                id = "interests",
-                prompt = "What are your main interests or hobbies?",
-                type = QuestionType.FREE_TEXT
-            ),
-            PersonaQuestion(
-                id = "goals",
-                prompt = "What are your current personal or professional goals?",
-                type = QuestionType.FREE_TEXT
-            ),
-            PersonaQuestion(
-                id = "challenges",
-                prompt = "What challenges are you currently facing?",
-                type = QuestionType.FREE_TEXT
-            ),
-            PersonaQuestion(
-                id = "ideal_day",
-                prompt = "Describe your ideal day in a few sentences.",
-                type = QuestionType.FREE_TEXT
-            ),
-            PersonaQuestion(
-                id = "stress_response",
-                prompt = "How do you typically respond to stress?",
-                type = QuestionType.SINGLE_CHOICE,
-                options = listOf("Take action and solve problems", "Seek support from others", "Take time to reflect", "Distract myself with activities")
-            )
-        )
     }
 
     // Save function
@@ -145,16 +124,22 @@ fun PersonaScreen(
                         }
                     }
 
-                    // Update user's personaCompleted field if they answered at least 5 questions
-                    if (currentAnswers.value.count { it.value.isNotBlank() } >= 5) {
-                        FirebaseFirestore.getInstance()
-                            .collection("users")
-                            .document(userId)
-                            .update("personaCompleted", true)
-                            .await()
-                    }
+                    // Count answered questions (must answer at least 8 out of 10 questions)
+                    val answeredCount = currentAnswers.value.count { it.value.isNotBlank() }
+                    val isCompleted = answeredCount >= 8
 
-                    snackbarHostState.showSnackbar("Persona saved successfully!")
+                    // Update user's personaCompleted field
+                    FirebaseFirestore.getInstance()
+                        .collection("users")
+                        .document(userId)
+                        .update("personaCompleted", isCompleted)
+                        .await()
+
+                    if (isCompleted) {
+                        snackbarHostState.showSnackbar("Persona saved successfully! ($answeredCount/10 questions answered)")
+                    } else {
+                        snackbarHostState.showSnackbar("Persona saved! Please answer at least 8 questions to complete. ($answeredCount/10 answered)")
+                    }
                 }
             } catch (e: Exception) {
                 snackbarHostState.showSnackbar("Failed to save: ${e.message}")
@@ -278,7 +263,7 @@ fun PersonaScreen(
                             ) {
                                 Column {
                                     Text(
-                                        text = "Personalize Your Experience",
+                                        text = "Personalize Your AI Assistant",
                                         style = MaterialTheme.typography.headlineSmall.copy(
                                             fontFamily = AppFonts.KarlaFontFamily,
                                             fontWeight = FontWeight.Bold,
@@ -288,7 +273,7 @@ fun PersonaScreen(
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
-                                        text = "Tell us about yourself so we can personalize your AI responses to match your style and preferences.",
+                                        text = "Help us understand your communication style so your AI can respond just like you! Answer at least 8 questions to complete your persona.",
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontFamily = AppFonts.KaiseiDecolFontFamily,
                                             fontSize = 14.sp,
@@ -300,11 +285,62 @@ fun PersonaScreen(
                         }
                     }
 
+                    // Progress indicator
+                    item {
+                        val answeredCount = currentAnswers.value.count { it.value.isNotBlank() }
+                        val totalQuestions = questions.size
+                        val progress = answeredCount.toFloat() / totalQuestions.toFloat()
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F8FF)),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Progress",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontFamily = AppFonts.KarlaFontFamily,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF395B64)
+                                        )
+                                    )
+                                    Text(
+                                        text = "$answeredCount/$totalQuestions",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontFamily = AppFonts.KarlaFontFamily,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF395B64)
+                                        )
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                LinearProgressIndicator(
+                                    progress = progress,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = Color(0xFF395B64),
+                                    trackColor = Color(0xFFE0E0E0)
+                                )
+                            }
+                        }
+                    }
+
                     // Questions
                     items(questions.size) { index ->
                         val question = questions[index]
                         PersonaQuestionCard(
                             question = question,
+                            questionNumber = index + 1,
                             answer = currentAnswers.value[question.id] ?: "",
                             onAnswerChanged = { answer ->
                                 val updatedAnswers = currentAnswers.value.toMutableMap()
@@ -328,6 +364,7 @@ fun PersonaScreen(
 @Composable
 fun PersonaQuestionCard(
     question: PersonaQuestion,
+    questionNumber: Int,
     answer: String,
     onAnswerChanged: (String) -> Unit
 ) {
@@ -342,16 +379,44 @@ fun PersonaQuestionCard(
                 .fillMaxWidth()
                 .padding(20.dp)
         ) {
-            // Question prompt
-            Text(
-                text = question.prompt,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontFamily = AppFonts.KarlaFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = Color(0xFF395B64)
+            // Question number and prompt
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .background(
+                            color = if (answer.isNotBlank()) Color(0xFF395B64) else Color(0xFFE0E0E0),
+                            shape = androidx.compose.foundation.shape.CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = questionNumber.toString(),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontSize = 12.sp
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Text(
+                    text = question.prompt,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color(0xFF395B64)
+                    ),
+                    modifier = Modifier.weight(1f)
                 )
-            )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -403,7 +468,7 @@ fun PersonaQuestionCard(
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = {
                             Text(
-                                "Your answer",
+                                "Write your answer here...",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontFamily = AppFonts.KaiseiDecolFontFamily,
                                     color = Color(0xFF666666)
@@ -411,7 +476,7 @@ fun PersonaQuestionCard(
                             )
                         },
                         minLines = 3,
-                        maxLines = 5,
+                        maxLines = 6,
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Color(0xFF395B64),
@@ -429,17 +494,4 @@ fun PersonaQuestionCard(
             }
         }
     }
-}
-
-// Data models for persona questions
-data class PersonaQuestion(
-    val id: String,
-    val prompt: String,
-    val type: QuestionType,
-    val options: List<String>? = null,
-    val required: Boolean = true
-)
-
-enum class QuestionType {
-    SINGLE_CHOICE, FREE_TEXT
 }

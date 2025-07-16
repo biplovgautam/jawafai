@@ -103,15 +103,6 @@ class UserViewModel(
                         // Don't fail login if sync fails
                     }
 
-                    // Save FCM token after login
-                    try {
-                        val token = com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
-                        repository.updateFcmToken(user.uid, token)
-                        Log.d("UserViewModel", "✅ FCM token updated after login")
-                    } catch (e: Exception) {
-                        Log.e("UserViewModel", "Failed to update FCM token after login: ${e.message}", e)
-                    }
-
                     _userState.value = UserOperationResult.Success("Login successful")
                 } else {
                     _userState.value = UserOperationResult.Error("Login failed: Unknown error")
@@ -388,18 +379,5 @@ class UserViewModel(
 
     fun resetEmailValidation() {
         _emailValidationState.value = EmailValidationState.Initial
-    }
-
-    fun updateFcmTokenForCurrentUser() {
-        viewModelScope.launch {
-            val user = auth.currentUser ?: return@launch
-            try {
-                val token = com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
-                repository.updateFcmToken(user.uid, token)
-                Log.d("UserViewModel", "FCM token updated from DashboardActivity: $token")
-            } catch (e: Exception) {
-                Log.e("UserViewModel", "Failed to update FCM token from DashboardActivity: ${e.message}", e)
-            }
-        }
     }
 }
