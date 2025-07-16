@@ -339,7 +339,10 @@ fun DashboardScreen(
                         onRecentChatClick = { chatId, otherUserId ->
                             navController.navigate("chat_detail/$chatId/$otherUserId")
                         },
-                        onNotificationClick = { navController.navigate(BottomNavItem.Notifications.route) },
+                        onNotificationClick = {
+                            // Navigate to notifications tab instead of using navigate()
+                            navigateToTab(2) // Notifications is at index 2
+                        },
                         onSeeAllChatsClick = {
                             navigateToTab(1) // Chat is at index 1
                         }

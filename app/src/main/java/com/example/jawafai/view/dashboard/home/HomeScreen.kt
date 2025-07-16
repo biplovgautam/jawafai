@@ -6,15 +6,24 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Reply
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Message
+import androidx.compose.material.icons.filled.Camera
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.rounded.ChatBubble
-import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
@@ -25,7 +34,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,6 +43,8 @@ import com.example.jawafai.R
 import com.example.jawafai.repository.ChatRepositoryImpl
 import com.example.jawafai.repository.UserRepositoryImpl
 import com.example.jawafai.ui.theme.AppFonts
+import com.example.jawafai.view.dashboard.notifications.ChatNotification
+import com.example.jawafai.view.dashboard.notifications.ChatPlatform
 import com.example.jawafai.viewmodel.ChatViewModel
 import com.example.jawafai.viewmodel.ChatViewModelFactory
 import com.example.jawafai.viewmodel.UserViewModel
@@ -71,7 +81,7 @@ fun HomeScreen(
     onChatBotClick: () -> Unit = {},
     onCompletePersonaClick: () -> Unit = {},
     onRecentChatClick: (String, String) -> Unit = { _, _ -> },
-    onNotificationClick: (String) -> Unit = {},
+    onNotificationClick: () -> Unit = {},
     onSeeAllChatsClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -137,13 +147,43 @@ fun HomeScreen(
         chatSummaries.filter { it.lastMessage.isNotBlank() }.take(3)
     }
 
-    // Sample notifications data - Replace with real data from your repository
-    val notifications = remember {
-        listOf(
-            Notification("1", "Persona Update", "Complete your persona for better responses", System.currentTimeMillis() - 7200000, true),
-            Notification("2", "New Feature", "Smart replies now available in Hindi", System.currentTimeMillis() - 86400000, true),
-            Notification("3", "Tips", "Use voice messages for faster replies", System.currentTimeMillis() - 172800000, true)
-        )
+    // Observe external notifications from NotificationMemoryStore
+    val externalNotifications by remember {
+        derivedStateOf {
+            com.example.jawafai.service.NotificationMemoryStore.getAllNotifications()
+        }
+    }
+
+    // Get latest 2-3 notifications for home screen - only supported platforms
+    val latestNotifications = remember(externalNotifications) {
+        externalNotifications.filter { notification ->
+            notification.packageName.contains("whatsapp", true) ||
+            notification.packageName.contains("instagram", true) ||
+            notification.packageName.contains("messenger", true) ||
+            notification.packageName.contains("facebook.orca", true)
+        }.take(2).map { notification ->
+            ChatNotification(
+                id = notification.hash,
+                platform = when {
+                    notification.packageName.contains("whatsapp", true) -> ChatPlatform.WHATSAPP
+                    notification.packageName.contains("instagram", true) -> ChatPlatform.INSTAGRAM
+                    notification.packageName.contains("messenger", true) ||
+                    notification.packageName.contains("facebook.orca", true) -> ChatPlatform.MESSENGER
+                    else -> ChatPlatform.GENERAL
+                },
+                senderName = notification.sender?.takeIf { it.isNotBlank() } ?: notification.title.ifBlank { notification.packageName },
+                senderAvatar = null,
+                message = notification.text,
+                timestamp = notification.time,
+                isRead = false,
+                hasGeneratedReply = notification.ai_reply.isNotBlank(),
+                generatedReply = notification.ai_reply,
+                hasReplyAction = notification.hasReplyAction,
+                isSent = notification.is_sent,
+                conversationId = notification.conversationId,
+                notificationHash = notification.hash
+            )
+        }
     }
 
     Scaffold(
@@ -159,55 +199,69 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // App Name
+                        // App Name with enhanced styling
                         Text(
                             text = "जवाफ.AI",
                             style = MaterialTheme.typography.headlineMedium.copy(
                                 fontFamily = AppFonts.KadwaFontFamily,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 24.sp,
+                                fontSize = 26.sp,
                                 color = Color(0xFF395B64)
                             )
                         )
 
-                        // Username and Profile
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        // Enhanced Username and Profile section
+                        Card(
+                            modifier = Modifier
+                                .clickable { onProfileClick() }
+                                .padding(end = 16.dp), // Increased right padding
+                            shape = RoundedCornerShape(28.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFF0F8FF)
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
                         ) {
-                            currentUserProfile?.let { profile ->
-                                Text(
-                                    text = profile.username,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontFamily = AppFonts.KarlaFontFamily,
-                                        fontSize = 14.sp,
-                                        color = Color(0xFF666666)
-                                    )
-                                )
-                            }
-
-                            // Profile Picture
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .clickable { onProfileClick() }
-                                    .background(Color(0xFFA5C9CA))
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                if (userImageUrl != null) {
-                                    AsyncImage(
-                                        model = userImageUrl,
-                                        contentDescription = "Profile Picture",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
+                                // Username with better styling
+                                currentUserProfile?.let { profile ->
+                                    Text(
+                                        text = profile.username,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontFamily = AppFonts.KarlaFontFamily,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color(0xFF395B64)
+                                        )
                                     )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "Default Profile",
-                                        modifier = Modifier.align(Alignment.Center),
-                                        tint = Color.White
-                                    )
+                                }
+
+                                // Enhanced Profile Picture
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFA5C9CA))
+                                        .border(2.dp, Color(0xFF395B64).copy(alpha = 0.2f), CircleShape)
+                                ) {
+                                    if (userImageUrl != null) {
+                                        AsyncImage(
+                                            model = userImageUrl,
+                                            contentDescription = "Profile Picture",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = "Default Profile",
+                                            modifier = Modifier.align(Alignment.Center),
+                                            tint = Color.White
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -216,7 +270,7 @@ fun HomeScreen(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.White
                 ),
-                modifier = Modifier.statusBarsPadding() // Add status bar padding to top bar
+                modifier = Modifier.statusBarsPadding()
             )
         }
     ) { paddingValues ->
@@ -226,27 +280,20 @@ fun HomeScreen(
                 .fillMaxSize()
                 .background(Color.White)
                 .padding(top = paddingValues.calculateTopPadding())
+                .padding(bottom = 36.dp) // Add bottom padding for navigation bar
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             item {
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // Welcome Section
+            // Hero Section - Enhanced App Purpose
             item {
-                Text(
-                    text = "Welcome back, ${userFirstName ?: "User"}!",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontFamily = AppFonts.KarlaFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
-                        color = Color(0xFF395B64)
-                    )
-                )
+                HeroSection(userFirstName = userFirstName ?: "User")
             }
 
-            // Complete Persona Section
+            // Complete Persona Section (Always visible with completion indicator)
             item {
                 CompletePersonaSection(
                     onCompletePersonaClick = onCompletePersonaClick,
@@ -254,9 +301,18 @@ fun HomeScreen(
                 )
             }
 
-            // Chat Bot Section
+            // Chat Bot Section with enhanced design
             item {
                 ChatBotSection(onChatBotClick = onChatBotClick)
+            }
+
+            // Smart Notifications Section (Latest 2-3 notifications)
+            item {
+                SmartNotificationsSection(
+                    notifications = latestNotifications,
+                    onNotificationClick = onNotificationClick,
+                    onSeeAllClick = onNotificationClick
+                )
             }
 
             // Recent Chats Section
@@ -268,23 +324,14 @@ fun HomeScreen(
                 )
             }
 
-            // Notifications Section
-            item {
-                NotificationsSection(
-                    notifications = notifications,
-                    onNotificationClick = onNotificationClick
-                )
-            }
-
             // Add bottom padding for navigation bar
             item {
                 Spacer(modifier = Modifier.navigationBarsPadding())
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }
 }
-
 @Composable
 fun CompletePersonaSection(
     onCompletePersonaClick: () -> Unit,
@@ -297,58 +344,92 @@ fun CompletePersonaSection(
         iterations = LottieConstants.IterateForever
     )
 
-    if (!isPersonaCompleted) {
-        Card(
+    // Simple card design
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCompletePersonaClick() },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFF8F9FA)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onCompletePersonaClick() },
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                .padding(20.dp)
         ) {
+            // Main content
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Text Section
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = "Complete Your Persona",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontFamily = AppFonts.KarlaFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = Color(0xFF395B64)
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Help us understand your style for better responses",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = AppFonts.KaiseiDecolFontFamily,
-                            fontSize = 12.sp,
-                            color = Color(0xFF666666)
-                        )
-                    )
-                }
-
-                // Lottie Animation
+                // Animation
                 composition?.let {
                     LottieAnimation(
                         composition = it,
                         progress = { progress },
-                        modifier = Modifier.size(80.dp)
+                        modifier = Modifier.size(60.dp)
                     )
                 }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                // Text content
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = if (isPersonaCompleted) "Persona Complete" else "Setup Persona",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = Color(0xFF1A1A1A)
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = if (isPersonaCompleted)
+                            "Your AI knows your communication style"
+                        else
+                            "Help AI learn your communication style",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                            fontSize = 14.sp,
+                            color = Color(0xFF666666)
+                        )
+                    )
+                }
+            }
+
+            // Status indicator at top right
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isPersonaCompleted) Color(0xFF4CAF50) else Color(0xFF9E9E9E)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "✓",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                )
             }
         }
     }
 }
-
 @Composable
 fun ChatBotSection(onChatBotClick: () -> Unit) {
     // Lottie animation for live_chatbot
@@ -387,7 +468,7 @@ fun ChatBotSection(onChatBotClick: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Get instant AI-powered responses as per your personality",
+                    text = "Get instant AI-powered responses tailored to your personality and communication style",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = AppFonts.KaiseiDecolFontFamily,
                         fontSize = 14.sp,
@@ -407,12 +488,12 @@ fun ChatBotSection(onChatBotClick: () -> Unit) {
                             color = Color.White
                         )
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Icon(
-                        imageVector = Icons.Default.ArrowForward,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = "Start Chat",
                         tint = Color.White,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
@@ -424,6 +505,243 @@ fun ChatBotSection(onChatBotClick: () -> Unit) {
                     progress = { progress },
                     modifier = Modifier.size(100.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun SmartNotificationsSection(
+    notifications: List<ChatNotification>,
+    onNotificationClick: () -> Unit,
+    onSeeAllClick: () -> Unit
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Smart Notifications",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = AppFonts.KarlaFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Color(0xFF395B64)
+                )
+            )
+            TextButton(
+                onClick = onSeeAllClick
+            ) {
+                Text(
+                    text = "See All",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontSize = 14.sp,
+                        color = Color(0xFF395B64)
+                    )
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (notifications.isEmpty()) {
+            // Show empty state
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = "No notifications",
+                        modifier = Modifier.size(48.dp),
+                        tint = Color(0xFF666666).copy(alpha = 0.5f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "No notifications yet",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                            fontSize = 14.sp,
+                            color = Color(0xFF666666)
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Notifications from supported apps will appear here",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                            fontSize = 12.sp,
+                            color = Color(0xFF999999)
+                        )
+                    )
+                }
+            }
+        } else {
+            notifications.forEach { notification ->
+                SmartNotificationItem(
+                    notification = notification,
+                    onClick = { onNotificationClick() }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun SmartNotificationItem(
+    notification: ChatNotification,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFF0F8FF)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Header with platform and timestamp
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(notification.platform.color)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = notification.platform.displayName,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = notification.platform.color
+                        )
+                    )
+
+                    // Reply action indicator
+                    if (notification.hasReplyAction) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Reply,
+                            contentDescription = "Reply Available",
+                            modifier = Modifier.size(12.dp),
+                            tint = Color(0xFF4CAF50)
+                        )
+                    }
+                }
+
+                Text(
+                    text = formatTimestamp(notification.timestamp),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                            fontSize = 12.sp,
+                            color = Color(0xFF666666)
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Sender and message
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                // Avatar
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFA5C9CA))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Sender Avatar",
+                        modifier = Modifier.align(Alignment.Center),
+                        tint = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Message content
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = notification.senderName,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = Color(0xFF395B64)
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = notification.message,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                            fontSize = 13.sp,
+                            color = Color(0xFF666666)
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // AI reply indicator
+            if (notification.hasGeneratedReply) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = "AI Reply",
+                        modifier = Modifier.size(14.dp),
+                        tint = Color(0xFF4CAF50)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (notification.isSent) "AI reply sent" else "AI reply generated",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontSize = 11.sp,
+                            color = Color(0xFF4CAF50)
+                        )
+                    )
+                }
             }
         }
     }
@@ -464,28 +782,44 @@ fun RecentChatsSection(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         if (chats.isEmpty()) {
             // Show empty state
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Icon(
+                        imageVector = Icons.Rounded.ChatBubble,
+                        contentDescription = "No chats",
+                        modifier = Modifier.size(48.dp),
+                        tint = Color(0xFF666666).copy(alpha = 0.5f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "No recent chats",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = AppFonts.KaiseiDecolFontFamily,
                             fontSize = 14.sp,
                             color = Color(0xFF666666)
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Start a conversation to see your chats here",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                            fontSize = 12.sp,
+                            color = Color(0xFF999999)
                         )
                     )
                 }
@@ -511,14 +845,14 @@ fun RecentChatItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // User Avatar
@@ -619,95 +953,6 @@ fun RecentChatItem(
     }
 }
 
-@Composable
-fun NotificationsSection(
-    notifications: List<Notification>,
-    onNotificationClick: (String) -> Unit
-) {
-    Column {
-        Text(
-            text = "Notifications",
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontFamily = AppFonts.KarlaFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                color = Color(0xFF395B64)
-            )
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        notifications.take(3).forEach { notification ->
-            NotificationItem(
-                notification = notification,
-                onClick = { onNotificationClick(notification.id) }
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-    }
-}
-
-@Composable
-fun NotificationItem(
-    notification: Notification,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (notification.isRead) Color.White else Color(0xFFF0F8FF)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = notification.title,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontFamily = AppFonts.KarlaFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = Color(0xFF395B64)
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-
-                Text(
-                    text = formatTimestamp(notification.timestamp),
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = AppFonts.KaiseiDecolFontFamily,
-                        fontSize = 12.sp,
-                        color = Color(0xFF666666)
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = notification.message,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = AppFonts.KaiseiDecolFontFamily,
-                    fontSize = 13.sp,
-                    color = Color(0xFF666666)
-                ),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
 // Helper function to format timestamps
 @Composable
 fun formatTimestamp(timestamp: Long): String {
@@ -715,14 +960,117 @@ fun formatTimestamp(timestamp: Long): String {
     val diff = now - timestamp
 
     return when {
-        diff < 24 * 60 * 60 * 1000 -> { // Today
-            SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date(timestamp))
+        diff < 60 * 1000 -> "now"
+        diff < 60 * 60 * 1000 -> "${diff / (60 * 1000)}m ago"
+        diff < 24 * 60 * 60 * 1000 -> "${diff / (60 * 60 * 1000)}h ago"
+        diff < 48 * 60 * 60 * 1000 -> "yesterday"
+        else -> {
+            SimpleDateFormat("MMM dd", Locale.getDefault()).format(Date(timestamp))
         }
-        diff < 48 * 60 * 60 * 1000 -> { // Yesterday
-            "Yesterday"
+    }
+}
+
+@Composable
+fun HeroSection(userFirstName: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF395B64)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            // Welcome text - more compact
+            Text(
+                text = "Welcome back, $userFirstName!",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontFamily = AppFonts.KarlaFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = Color.White
+                )
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // App description - more concise
+            Text(
+                text = "AI-powered messaging assistant for WhatsApp, Instagram, and Messenger with personalized replies.",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = AppFonts.KaiseiDecolFontFamily,
+                    fontSize = 14.sp,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Supported Platforms integrated inside
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                // WhatsApp
+                CompactPlatformIcon(
+                    animationRes = R.raw.whatsapp,
+                    name = "WhatsApp",
+                    color = Color(0xFF25D366)
+                )
+
+                // Instagram
+                CompactPlatformIcon(
+                    animationRes = R.raw.insta,
+                    name = "Instagram",
+                    color = Color(0xFFE4405F)
+                )
+
+                // Messenger
+                CompactPlatformIcon(
+                    animationRes = R.raw.messenger,
+                    name = "Messenger",
+                    color = Color(0xFF0084FF)
+                )
+            }
         }
-        else -> { // Older
-            SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(timestamp))
+    }
+}
+
+@Composable
+fun CompactPlatformIcon(
+    animationRes: Int,
+    name: String,
+    color: Color
+) {
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(animationRes))
+    val progress by animateLottieCompositionAsState(
+        composition,
+        iterations = LottieConstants.IterateForever
+    )
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Remove background and increase animation size
+        composition?.let {
+            LottieAnimation(
+                composition = it,
+                progress = { progress },
+                modifier = Modifier.size(50.dp)
+            )
         }
+
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = name,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontFamily = AppFonts.KarlaFontFamily,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.White.copy(alpha = 0.8f)
+            )
+        )
     }
 }

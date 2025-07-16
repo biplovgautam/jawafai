@@ -4,6 +4,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.Manifest
 import android.os.Build
+import android.provider.Settings
+import android.content.Intent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,6 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,8 +43,6 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.runtime.livedata.observeAsState
 import kotlinx.coroutines.tasks.await
-import android.provider.Settings
-import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
 import android.widget.Toast
@@ -158,6 +160,9 @@ fun SettingsContent(
     } ?: userEmail.substringBefore("@")
     val profileImage = userModel?.imageUrl
 
+    // State for expandable about section
+    var isAboutExpanded by remember { mutableStateOf(false) }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -198,10 +203,10 @@ fun SettingsContent(
             )
         }
 
-        // App Settings Section
+        // About Section
         item {
             Text(
-                text = "App Settings",
+                text = "App Information",
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontFamily = AppFonts.KarlaFontFamily,
                     fontWeight = FontWeight.Bold,
@@ -212,44 +217,10 @@ fun SettingsContent(
         }
 
         item {
-            SettingsCard {
-                SettingsItem(
-                    item = SettingsItemData(
-                        icon = Icons.Outlined.Lock,
-                        title = "Privacy",
-                        subtitle = "Manage your privacy settings",
-                        onClick = { /* Navigate to privacy settings */ }
-                    )
-                )
-
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = Color(0xFFE0E0E0)
-                )
-
-                SettingsItem(
-                    item = SettingsItemData(
-                        icon = Icons.Outlined.Notifications,
-                        title = "Notifications",
-                        subtitle = "Configure notification preferences",
-                        onClick = { /* Navigate to notification settings */ }
-                    )
-                )
-
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = Color(0xFFE0E0E0)
-                )
-
-                SettingsItem(
-                    item = SettingsItemData(
-                        icon = Icons.Outlined.Info,
-                        title = "About",
-                        subtitle = "App information and version",
-                        onClick = { /* Show about info */ }
-                    )
-                )
-            }
+            AboutCard(
+                isExpanded = isAboutExpanded,
+                onClick = { isAboutExpanded = !isAboutExpanded }
+            )
         }
 
         // Account Actions
@@ -272,7 +243,7 @@ fun SettingsContent(
         // Add bottom padding for navigation bar
         item {
             Spacer(modifier = Modifier.navigationBarsPadding())
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(80.dp)) // Extra space for bottom navigation
         }
     }
 }
@@ -540,5 +511,86 @@ fun SettingsItem(item: SettingsItemData) {
             tint = Color(0xFF666666),
             modifier = Modifier.size(20.dp)
         )
+    }
+}
+
+@Composable
+fun AboutCard(
+    isExpanded: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "About This App",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = AppFonts.KarlaFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = Color(0xFF395B64)
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+
+                Icon(
+                    imageVector = if (isExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    tint = Color(0xFF395B64),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            // Expanded content
+            if (isExpanded) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Version: 1.0.0",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                        fontSize = 14.sp,
+                        color = Color(0xFF666666)
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "This app is designed to provide an intuitive and user-friendly experience. We value your feedback and suggestions.",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                        fontSize = 14.sp,
+                        color = Color(0xFF666666)
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "For more information, visit our website or contact support.",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                        fontSize = 14.sp,
+                        color = Color(0xFF666666)
+                    )
+                )
+            }
+        }
     }
 }
