@@ -33,6 +33,8 @@ android {
         buildConfigField("String", "CLOUDINARY_API_KEY", "\"${localProperties.getProperty("cloudinary.apiKey")}\"")
         buildConfigField("String", "CLOUDINARY_API_SECRET", "\"${localProperties.getProperty("cloudinary.apiSecret")}\"")
         buildConfigField("String", "GROQ_API_KEY", "\"${localProperties.getProperty("groq.apiKey")}\"")
+        buildConfigField("String", "FCM_SERVER_KEY", "\"${localProperties.getProperty("fcmServerKey")}\"")
+
     }
 
     buildTypes {
@@ -104,6 +106,12 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-database-ktx")
     implementation("com.google.firebase:firebase-storage-ktx")
+    // Firebase Cloud Messaging
+    implementation("com.google.firebase:firebase-messaging-ktx")
+
+    // Glide for image loading in notifications
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
 
     // Cloudinary
     implementation("com.cloudinary:cloudinary-android:2.4.0")
@@ -127,4 +135,6 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    implementation("androidx.appcompat:appcompat:1.6.1")
 }

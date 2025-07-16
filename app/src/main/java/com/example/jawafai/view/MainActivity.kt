@@ -19,6 +19,8 @@ import com.example.jawafai.view.splash.OnboardingScreen
 import com.example.jawafai.view.splash.SplashScreen
 import com.example.jawafai.view.splash.WelcomeScreen
 import com.example.jawafai.utils.WithNetworkMonitoring
+import com.example.jawafai.utils.NotificationPermissionUtils
+import android.util.Log
 
 class MainActivity : ComponentActivity() {
 
@@ -27,6 +29,7 @@ class MainActivity : ComponentActivity() {
         const val PREFS_NAME = "JawafaiPrefs"
         const val PREF_HAS_SEEN_ONBOARDING = "hasSeenOnboarding"
         const val PREF_REMEMBER_ME = "rememberMe"
+        private const val TAG = "MainActivity"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,6 +43,10 @@ class MainActivity : ComponentActivity() {
         val sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val hasSeenOnboarding = sharedPreferences.getBoolean(PREF_HAS_SEEN_ONBOARDING, false)
         val rememberMe = sharedPreferences.getBoolean(PREF_REMEMBER_ME, false)
+
+        // Check notification listener permission status
+        val notificationListenerEnabled = NotificationPermissionUtils.isNotificationListenerEnabled(this)
+        Log.d(TAG, "Notification Listener Permission: $notificationListenerEnabled")
 
         // Check if user is logged in
         val auth = FirebaseAuth.getInstance()
@@ -224,6 +231,10 @@ class MainActivity : ComponentActivity() {
         // Check auto-logout when app is resumed
         val sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val rememberMe = sharedPreferences.getBoolean(PREF_REMEMBER_ME, false)
+
+        // Check notification listener permission status when app resumes
+        val notificationListenerEnabled = NotificationPermissionUtils.isNotificationListenerEnabled(this)
+        Log.d(TAG, "onResume - Notification Listener Permission: $notificationListenerEnabled")
 
         if (!rememberMe && FirebaseAuth.getInstance().currentUser != null) {
             // Auto logout if Remember Me is not checked

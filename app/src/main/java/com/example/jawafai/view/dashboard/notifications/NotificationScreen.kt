@@ -1,5 +1,6 @@
 package com.example.jawafai.view.dashboard.notifications
 
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.animation.AnimatedVisibility
@@ -25,6 +26,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -33,8 +35,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.jawafai.R
+import com.example.jawafai.service.NotificationMemoryStore
+import com.example.jawafai.service.NotificationAIReplyManager
+import com.example.jawafai.service.SmartReplyAIModule
 import com.example.jawafai.ui.theme.AppFonts
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -47,7 +53,12 @@ data class ChatNotification(
     val message: String,
     val timestamp: Long,
     val isRead: Boolean,
-    val hasGeneratedReply: Boolean = false
+    val hasGeneratedReply: Boolean = false,
+    val generatedReply: String = "",
+    val hasReplyAction: Boolean = false,
+    val isSent: Boolean = false,
+    val conversationId: String = "",
+    val notificationHash: String = ""
 )
 
 enum class ChatPlatform(
@@ -68,6 +79,8 @@ enum class ChatPlatform(
 fun NotificationScreen(
     onNavigateBack: () -> Unit
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
@@ -77,80 +90,47 @@ fun NotificationScreen(
     var isSearchActive by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     var selectedFilter by remember { mutableStateOf<ChatPlatform?>(null) }
+    var generatingReplyFor by remember { mutableStateOf<String?>(null) }
 
-    // Handle back press for search
-    DisposableEffect(isSearchActive) {
-        val callback = object : OnBackPressedCallback(isSearchActive) {
-            override fun handleOnBackPressed() {
-                if (isSearchActive) {
-                    searchQuery = ""
-                    isSearchActive = false
-                    keyboardController?.hide()
-                }
-            }
-        }
-        backDispatcher?.addCallback(callback)
-        onDispose {
-            callback.remove()
+    // Observe external notifications from NotificationMemoryStore
+    val externalNotifications by remember {
+        derivedStateOf {
+            NotificationMemoryStore.getAllNotifications()
         }
     }
 
-    // Sample notifications data
-    val notifications = remember {
-        listOf(
+    // Map external notifications to ChatNotification for display
+    val liveNotifications = remember(externalNotifications) {
+        externalNotifications.map { notification ->
             ChatNotification(
-                id = "1",
-                platform = ChatPlatform.WHATSAPP,
-                senderName = "Priya Sharma",
+                id = notification.hash,
+                platform = when {
+                    notification.packageName.contains("whatsapp", true) -> ChatPlatform.WHATSAPP
+                    notification.packageName.contains("instagram", true) -> ChatPlatform.INSTAGRAM
+                    notification.packageName.contains("messenger", true) ||
+                    notification.packageName.contains("facebook.orca", true) -> ChatPlatform.MESSENGER
+                    notification.packageName.contains("telegram", true) -> ChatPlatform.TELEGRAM
+                    notification.packageName.contains("sms", true) -> ChatPlatform.SMS
+                    else -> ChatPlatform.GENERAL
+                },
+                senderName = notification.sender?.takeIf { it.isNotBlank() } ?: notification.title.ifBlank { notification.packageName },
                 senderAvatar = null,
-                message = "Hey! How are you doing?",
-                timestamp = System.currentTimeMillis() - 3600000,
+                message = notification.text,
+                timestamp = notification.time,
                 isRead = false,
-                hasGeneratedReply = true
-            ),
-            ChatNotification(
-                id = "2",
-                platform = ChatPlatform.INSTAGRAM,
-                senderName = "john_doe_official",
-                senderAvatar = null,
-                message = "Loved your latest post! 🔥",
-                timestamp = System.currentTimeMillis() - 7200000,
-                isRead = false
-            ),
-            ChatNotification(
-                id = "3",
-                platform = ChatPlatform.MESSENGER,
-                senderName = "Anita Singh",
-                senderAvatar = null,
-                message = "Can we reschedule our meeting?",
-                timestamp = System.currentTimeMillis() - 86400000,
-                isRead = true,
-                hasGeneratedReply = true
-            ),
-            ChatNotification(
-                id = "4",
-                platform = ChatPlatform.TELEGRAM,
-                senderName = "Tech Updates",
-                senderAvatar = null,
-                message = "New Android 15 features released!",
-                timestamp = System.currentTimeMillis() - 172800000,
-                isRead = true
-            ),
-            ChatNotification(
-                id = "5",
-                platform = ChatPlatform.SMS,
-                senderName = "Bank Alert",
-                senderAvatar = null,
-                message = "Your account balance is Rs. 25,000",
-                timestamp = System.currentTimeMillis() - 259200000,
-                isRead = true
+                hasGeneratedReply = notification.ai_reply.isNotBlank(),
+                generatedReply = notification.ai_reply,
+                hasReplyAction = notification.hasReplyAction,
+                isSent = notification.is_sent,
+                conversationId = notification.conversationId,
+                notificationHash = notification.hash
             )
-        )
+        }
     }
 
     // Filter notifications based on search and platform filter
-    val filteredNotifications = remember(searchQuery, selectedFilter, notifications) {
-        notifications.filter { notification ->
+    val filteredNotifications = remember(searchQuery, selectedFilter, liveNotifications) {
+        liveNotifications.filter { notification ->
             val matchesSearch = if (searchQuery.isBlank()) {
                 true
             } else {
@@ -164,6 +144,57 @@ fun NotificationScreen(
             } ?: true
 
             matchesSearch && matchesFilter
+        }
+    }
+
+    // Function to generate AI reply
+    fun generateAIReply(notificationHash: String) {
+        coroutineScope.launch {
+            try {
+                generatingReplyFor = notificationHash
+
+                // Get the notification from memory store
+                val notification = NotificationMemoryStore.getAllNotifications()
+                    .find { it.hash == notificationHash }
+
+                if (notification != null) {
+                    // Generate AI reply
+                    val result = NotificationAIReplyManager.generateAIReply(
+                        notification = notification,
+                        userPersona = null, // You can pass user persona here
+                        context = context
+                    )
+
+                    if (result.success && result.reply != null) {
+                        // Reply is already stored in NotificationMemoryStore by the manager
+                        // Just update the UI state
+                    }
+                }
+            } catch (e: Exception) {
+                // Handle error
+            } finally {
+                generatingReplyFor = null
+            }
+        }
+    }
+
+    // Function to send reply
+    fun sendReply(conversationId: String, replyText: String) {
+        coroutineScope.launch {
+            try {
+                val notifications = NotificationMemoryStore.getNotificationsByConversation(conversationId)
+                val latestNotification = notifications.firstOrNull { it.hasReplyAction }
+
+                if (latestNotification != null) {
+                    // Update the notification as sent
+                    NotificationMemoryStore.markAsSent(latestNotification.hash)
+                } else {
+                    // Show error toast if no remote input available
+                    Toast.makeText(context, "Can't send message: This notification doesn't support direct replies.", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                // Handle error
+            }
         }
     }
 
@@ -184,7 +215,7 @@ fun NotificationScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Notifications",
+                        text = "Smart Notifications",
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontFamily = AppFonts.KarlaFontFamily,
                             fontWeight = FontWeight.Bold,
@@ -343,10 +374,12 @@ fun NotificationScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(filteredNotifications) { notification ->
-                        NotificationCard(
+                        EnhancedNotificationCard(
                             notification = notification,
-                            onReplyClick = { /* Handle reply generation */ },
-                            onMarkAsRead = { /* Handle mark as read */ }
+                            onGenerateReply = { generateAIReply(notification.notificationHash) },
+                            onSendReply = { sendReply(notification.conversationId, notification.generatedReply) },
+                            onMarkAsRead = { /* Handle mark as read */ },
+                            isGeneratingReply = generatingReplyFor == notification.notificationHash
                         )
                     }
 
@@ -419,10 +452,12 @@ fun SearchBarContent(
 }
 
 @Composable
-fun NotificationCard(
+fun EnhancedNotificationCard(
     notification: ChatNotification,
-    onReplyClick: (String) -> Unit,
-    onMarkAsRead: (String) -> Unit
+    onGenerateReply: () -> Unit,
+    onSendReply: () -> Unit,
+    onMarkAsRead: (String) -> Unit,
+    isGeneratingReply: Boolean
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -462,6 +497,17 @@ fun NotificationCard(
                             color = notification.platform.color
                         )
                     )
+
+                    // Reply action indicator
+                    if (notification.hasReplyAction) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Default.Reply,
+                            contentDescription = "Reply Available",
+                            modifier = Modifier.size(12.dp),
+                            tint = Color(0xFF4CAF50)
+                        )
+                    }
                 }
 
                 Text(
@@ -546,59 +592,197 @@ fun NotificationCard(
                 }
             }
 
-            // Action buttons
-            if (!notification.isRead || notification.hasGeneratedReply) {
+            // AI Generated Reply Section
+            if (notification.hasGeneratedReply && notification.generatedReply.isNotBlank()) {
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFF0F8FF).copy(alpha = 0.7f)
+                    )
                 ) {
-                    if (notification.hasGeneratedReply) {
-                        OutlinedButton(
-                            onClick = { onReplyClick(notification.id) },
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFF395B64)
-                            ),
-                            shape = RoundedCornerShape(8.dp)
+                    Column(
+                        modifier = Modifier.padding(12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 imageVector = Icons.Default.AutoAwesome,
-                                contentDescription = "Generated Reply",
-                                modifier = Modifier.size(16.dp)
+                                contentDescription = "AI Generated",
+                                modifier = Modifier.size(16.dp),
+                                tint = Color(0xFF395B64)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "View Reply",
+                                text = "AI Generated Reply",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontFamily = AppFonts.KarlaFontFamily,
-                                    fontSize = 12.sp
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF395B64)
                                 )
                             )
-                        }
-                    }
 
-                    if (!notification.isRead) {
-                        OutlinedButton(
-                            onClick = { onMarkAsRead(notification.id) },
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFF666666)
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Done,
-                                contentDescription = "Mark as Read",
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Mark Read",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontFamily = AppFonts.KarlaFontFamily,
-                                    fontSize = 12.sp
+                            if (notification.isSent) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Sent",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = Color(0xFF4CAF50)
                                 )
-                            )
+                            }
                         }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = notification.generatedReply,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                fontSize = 14.sp,
+                                color = Color(0xFF333333)
+                            )
+                        )
+                    }
+                }
+            }
+
+            // Action buttons
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Generate Reply Button
+                if (!notification.hasGeneratedReply && !isGeneratingReply) {
+                    Button(
+                        onClick = onGenerateReply,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF395B64)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = "Generate Reply",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Generate Reply",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                fontSize = 12.sp
+                            )
+                        )
+                    }
+                }
+
+                // Loading state for reply generation
+                if (isGeneratingReply) {
+                    Button(
+                        onClick = { /* Do nothing while generating */ },
+                        enabled = false,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF395B64).copy(alpha = 0.6f)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Generating...",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                fontSize = 12.sp
+                            )
+                        )
+                    }
+                }
+
+                // Send Reply Button (only if reply is generated, has reply action, and not sent)
+                if (notification.hasGeneratedReply &&
+                    notification.hasReplyAction &&
+                    !notification.isSent &&
+                    !isGeneratingReply) {
+                    Button(
+                        onClick = onSendReply,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF4CAF50)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .size(40.dp) // Make the button square
+                            .weight(1f, fill = false),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Send,
+                            contentDescription = "Send Reply",
+                            modifier = Modifier.size(20.dp),
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                // Regenerate Reply Button (if reply exists but want to regenerate)
+                if (notification.hasGeneratedReply && !isGeneratingReply) {
+                    OutlinedButton(
+                        onClick = onGenerateReply,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFF395B64)
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Regenerate",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Regenerate",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                fontSize = 12.sp
+                            )
+                        )
+                    }
+                }
+
+                // Mark as Read Button
+                if (!notification.isRead) {
+                    OutlinedButton(
+                        onClick = { onMarkAsRead(notification.id) },
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFF666666)
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Done,
+                            contentDescription = "Mark as Read",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Mark Read",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                fontSize = 12.sp
+                            )
+                        )
                     }
                 }
             }

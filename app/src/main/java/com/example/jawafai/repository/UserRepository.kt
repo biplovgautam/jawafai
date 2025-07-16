@@ -67,4 +67,14 @@ interface UserRepository {
      * @return UserModel if found, null otherwise
      */
     suspend fun findUserByEmailOrUsername(query: String): UserModel?
+
+    /**
+     * Updates the FCM token for the current user in both Firestore and Realtime Database
+     */
+    suspend fun updateFcmToken(userId: String, fcmToken: String)
+
+    /**
+     * Fetch a user by their UID
+     */
+    suspend fun findUserById(userId: String): UserModel?
 }

@@ -15,6 +15,11 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 
 class ChatRepositoryImpl(
     private val database: FirebaseDatabase = FirebaseDatabase.getInstance("https://jawafai-d2c23-default-rtdb.firebaseio.com/"),
@@ -58,6 +63,56 @@ class ChatRepositoryImpl(
             lastMessagesRef.child(senderId).child(receiverId).setValue(lastMessage).await()
             // lastMessages/receiverId/senderId (mark as unseen for receiver)
             lastMessagesRef.child(receiverId).child(senderId).setValue(lastMessage).await()
+
+            // --- Send FCM notification to receiver ---
+            // Get receiver's FCM token and profile info
+            val receiverSnapshot = usersRef.child(receiverId).get().await()
+            val receiverFcmToken = receiverSnapshot.child("fcmToken").getValue(String::class.java)
+            val receiverName = receiverSnapshot.child("displayName").getValue(String::class.java)
+                ?: receiverSnapshot.child("username").getValue(String::class.java)
+                ?: receiverSnapshot.child("email").getValue(String::class.java)
+                ?: "User"
+            val receiverImageUrl = receiverSnapshot.child("profileImageUrl").getValue(String::class.java)
+
+            // Get sender's info for notification
+            val senderSnapshot = usersRef.child(senderId).get().await()
+            val senderName = senderSnapshot.child("displayName").getValue(String::class.java)
+                ?: senderSnapshot.child("username").getValue(String::class.java)
+                ?: senderSnapshot.child("email").getValue(String::class.java)
+                ?: "User"
+            val senderImageUrl = senderSnapshot.child("profileImageUrl").getValue(String::class.java)
+
+            if (!receiverFcmToken.isNullOrBlank()) {
+                val client = OkHttpClient()
+                val json = JSONObject().apply {
+                    put("to", receiverFcmToken)
+                    put("priority", "high")
+                    put("data", JSONObject().apply {
+                        put("senderId", senderId)
+                        put("senderName", senderName)
+                        put("message", message)
+                        put("chatId", chatId)
+                        put("senderImageUrl", senderImageUrl)
+                    })
+                }
+                val body = json.toString().toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
+                val request = Request.Builder()
+                    .url("https://fcm.googleapis.com/fcm/send")
+                    .addHeader("Authorization", "key=YOUR_SERVER_KEY_HERE")
+                    .addHeader("Content-Type", "application/json")
+                    .post(body)
+                    .build()
+                try {
+                    val response = client.newCall(request).execute()
+                    if (!response.isSuccessful) {
+                        println("❌ FCM notification failed: ${response.code} ${response.message}")
+                    } else {
+                        println("✅ FCM notification sent!")
+                    }
+                } catch (e: Exception) {
+                    println("❌ Error sending FCM notification: ${e.message}")
+                }
+            }
 
             println("✅ Message sent successfully: $messageId")
         } catch (e: Exception) {

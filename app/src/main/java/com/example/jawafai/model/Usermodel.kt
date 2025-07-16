@@ -26,6 +26,7 @@ data class UserModel(
             "bio" to bio,
             "personaCompleted" to personaCompleted, // Added personaCompleted to map
             "createdAt" to createdAt
+            // fcmToken removed as we are no longer using FCM
         )
     }
 
@@ -43,6 +44,7 @@ data class UserModel(
                 bio = map["bio"] as? String ?: "",
                 personaCompleted = map["personaCompleted"] as? Boolean ?: false, // Added personaCompleted to fromMap
                 createdAt = map["createdAt"] as? Long ?: System.currentTimeMillis()
+                // fcmToken removed as we are no longer using FCM
             )
         }
     }

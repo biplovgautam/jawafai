@@ -1,6 +1,7 @@
 package com.example.jawafai.view.dashboard
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
@@ -50,9 +51,7 @@ import com.example.jawafai.ui.theme.JawafaiTheme
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.view.WindowCompat
 import com.example.jawafai.view.auth.LoginActivity
-import com.example.jawafai.view.dashboard.chat.ChatBotConversationScreen
 import com.example.jawafai.view.dashboard.chat.ChatBotScreen
-import com.example.jawafai.view.dashboard.chat.ChatBotHistoryScreen
 import com.example.jawafai.view.dashboard.chat.ChatDetailScreen
 import com.example.jawafai.view.dashboard.chat.ChatScreen
 import com.example.jawafai.view.dashboard.home.HomeScreen
@@ -62,6 +61,13 @@ import com.example.jawafai.view.dashboard.settings.ProfileScreen
 import com.example.jawafai.view.dashboard.settings.SettingsScreen
 import com.example.jawafai.utils.WithNetworkMonitoring
 import kotlinx.coroutines.launch
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.appcompat.app.AlertDialog
+import com.example.jawafai.viewmodel.UserViewModel
+import com.example.jawafai.viewmodel.UserViewModelFactory
+import com.example.jawafai.repository.UserRepositoryImpl
+import com.google.firebase.firestore.FirebaseFirestore
 
 class DashboardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,9 +77,15 @@ class DashboardActivity : ComponentActivity() {
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
 
+        // Initialize UserViewModel for FCM token update
+        val auth = FirebaseAuth.getInstance()
+        val firestore = FirebaseFirestore.getInstance()
+        val repository = UserRepositoryImpl(auth, firestore)
+        val userViewModel = UserViewModel(repository, auth)
+        userViewModel.updateFcmTokenForCurrentUser()
+
         setContent {
             JawafaiTheme {
-                // Wrap dashboard with network monitoring
                 WithNetworkMonitoring {
                     DashboardScreen(
                         onLogout = {
@@ -91,6 +103,18 @@ class DashboardActivity : ComponentActivity() {
             }
         }
     }
+
+    // Used to trigger permission re-check on resume
+    private var onResumePermissionsCheck: (() -> Unit)? = null
+    override fun onResume() {
+        super.onResume()
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
+
 }
 
 // Define navigation items for bottom navigation
@@ -140,7 +164,9 @@ sealed class BottomNavItem(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen(onLogout: () -> Unit) {
+fun DashboardScreen(
+    onLogout: () -> Unit,
+) {
     val navController = rememberNavController()
     val items = listOf(
         BottomNavItem.Home,
@@ -505,7 +531,7 @@ fun DashboardScreen(onLogout: () -> Unit) {
                         },
                         onPersonaClicked = {
                             navController.navigate("settings/persona")
-                        }
+                        },
                     )
                 }
 
@@ -571,32 +597,7 @@ fun DashboardScreen(onLogout: () -> Unit) {
 
                 composable("chatbot") {
                     ChatBotScreen(
-                        onNavigateBack = { navController.popBackStack() },
-                        onNavigateToHistory = { navController.navigate("chatbot_history") }
-                    )
-                }
-
-                composable("chatbot_history") {
-                    ChatBotHistoryScreen(
-                        onNavigateBack = { navController.popBackStack() },
-                        onConversationClick = { conversationId ->
-                            navController.navigate("chatbot_conversation/$conversationId")
-                        },
-                        onNewChatClick = { navController.navigate("chatbot") }
-                    )
-                }
-
-                composable(
-                    route = "chatbot_conversation/{conversationId}",
-                    arguments = listOf(
-                        navArgument("conversationId") { type = NavType.StringType }
-                    )
-                ) { backStackEntry ->
-                    val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
-                    ChatBotConversationScreen(
-                        conversationId = conversationId,
-                        onNavigateBack = { navController.popBackStack() },
-                        onNavigateToHistory = { navController.navigate("chatbot_history") }
+                        onNavigateBack = { navController.popBackStack() }
                     )
                 }
             }
