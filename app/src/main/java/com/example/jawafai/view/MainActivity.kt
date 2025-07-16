@@ -105,7 +105,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // Welcome screen - choice between login and registration
-                            composable("welcome") { WelcomeScreen(navController) }
+                            composable("welcome") { WelcomeScreen() }
 
                             // Login screen - navigate to dashboard on successful login
                             composable("login") {
@@ -185,7 +185,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // Welcome screen - choice between login and registration
-                            composable("welcome") { WelcomeScreen(navController) }
+                            composable("welcome") { WelcomeScreen() }
 
                             // Login screen - navigate to dashboard on successful login
                             composable("login") {

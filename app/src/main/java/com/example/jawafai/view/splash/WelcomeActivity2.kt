@@ -1,5 +1,6 @@
 package com.example.jawafai.view.splash
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -8,17 +9,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavController
+import androidx.activity.ComponentActivity
 import com.example.jawafai.R
 import com.example.jawafai.ui.theme.AppFonts
+import com.example.jawafai.view.auth.LoginActivity
+import com.example.jawafai.view.auth.RegistrationActivity
 import com.airbnb.lottie.compose.*
 
 @Composable
-fun WelcomeScreen(navController: NavController) {
+fun WelcomeScreen() {
+    val context = LocalContext.current
+
     // Lottie animation composition - same as splash screen
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.live_chatbot))
     val progress by animateLottieCompositionAsState(
@@ -85,8 +91,10 @@ fun WelcomeScreen(navController: NavController) {
             // Sign In Button - Wider with circular edges, using Karla Bold
             Button(
                 onClick = {
-                    navController.navigate("login") {
-                        popUpTo("welcome") { inclusive = true }
+                    val intent = Intent(context, LoginActivity::class.java)
+                    context.startActivity(intent)
+                    if (context is ComponentActivity) {
+                        context.finish()
                     }
                 },
                 shape = RoundedCornerShape(25.dp), // More circular edges
@@ -113,8 +121,10 @@ fun WelcomeScreen(navController: NavController) {
             // Create an account button (text-only) - Using Karla Bold
             TextButton(
                 onClick = {
-                    navController.navigate("registration") {
-                        popUpTo("welcome") { inclusive = true }
+                    val intent = Intent(context, RegistrationActivity::class.java)
+                    context.startActivity(intent)
+                    if (context is ComponentActivity) {
+                        context.finish()
                     }
                 }
             ) {

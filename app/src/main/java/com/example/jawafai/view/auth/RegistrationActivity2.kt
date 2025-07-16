@@ -7,29 +7,37 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.example.jawafai.R
 import com.example.jawafai.model.UserModel
 import com.example.jawafai.repository.UserRepositoryImpl
@@ -39,6 +47,7 @@ import com.example.jawafai.viewmodel.UserViewModel
 import com.example.jawafai.viewmodel.UserViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.airbnb.lottie.compose.*
 import java.util.*
 import java.text.SimpleDateFormat
 import kotlinx.coroutines.delay
@@ -51,6 +60,9 @@ class RegistrationActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Log.d(TAG, "onCreate: Activity created")
 
+        // Enable full screen immersive mode to match LoginActivity
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
         // Initialize Firebase components
         val auth = FirebaseAuth.getInstance()
         val firestore = FirebaseFirestore.getInstance()
@@ -61,16 +73,19 @@ class RegistrationActivity : ComponentActivity() {
         Log.d(TAG, "onCreate: ViewModel initialized")
 
         setContent {
-            val navController = rememberNavController()
             JawafaiTheme {
                 RegistrationScreen(
-                    navController = navController,
                     viewModel = viewModel,
                     onSuccessfulRegistration = {
                         Log.d(TAG, "onSuccessfulRegistration: Navigating to login screen")
                         val intent = Intent(this, LoginActivity::class.java)
                         startActivity(intent)
                         finish() // Close registration activity
+                    },
+                    onNavigateToLogin = {
+                        val intent = Intent(this, LoginActivity::class.java)
+                        startActivity(intent)
+                        finish()
                     }
                 )
             }
@@ -80,35 +95,42 @@ class RegistrationActivity : ComponentActivity() {
 
 @Composable
 fun RegistrationScreen(
-    navController: NavController,
     viewModel: UserViewModel = viewModel(),
-    onSuccessfulRegistration: () -> Unit = {}
+    onSuccessfulRegistration: () -> Unit = {},
+    onNavigateToLogin: () -> Unit = {}
 ) {
-    val TAG = "RegistrationScreen"
     val context = LocalContext.current
 
-    // State variables for form fields - Only required fields
+    // State variables for form fields
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
     var dob by remember { mutableStateOf("") }
     var acceptTerms by remember { mutableStateOf(false) }
-
-    // State for showing loading indicator
     var isLoading by remember { mutableStateOf(false) }
 
-    // State for username and email availability
+    // Username validation states
     var isUsernameValid by remember { mutableStateOf(true) }
     var isEmailValid by remember { mutableStateOf(true) }
 
-    // Observe ViewModel state using observeAsState from runtime-livedata
-    val userOperationState = viewModel.userState.observeAsState(initial = UserViewModel.UserOperationResult.Initial)
+    // Focus requesters for smooth keyboard navigation
+    val lastNameFocusRequester = remember { FocusRequester() }
+    val usernameFocusRequester = remember { FocusRequester() }
+    val emailFocusRequester = remember { FocusRequester() }
+    val passwordFocusRequester = remember { FocusRequester() }
 
-    // Display current state for debugging
-    val currentState = userOperationState.value.toString()
-    Log.d(TAG, "Current state: $currentState")
+    // Lottie animation composition - matching LoginActivity
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.live_chatbot))
+    val progress by animateLottieCompositionAsState(
+        composition,
+        iterations = LottieConstants.IterateForever
+    )
+
+    // Observe ViewModel state
+    val userOperationState = viewModel.userState.observeAsState(initial = UserViewModel.UserOperationResult.Initial)
 
     // Handle registration state changes
     LaunchedEffect(userOperationState.value) {
@@ -123,7 +145,7 @@ fun RegistrationScreen(
                 isLoading = false
                 val errorMessage = state.message
 
-                // Check for specific error messages
+                // Handle specific error messages
                 when {
                     errorMessage.contains("username", ignoreCase = true) -> {
                         isUsernameValid = false
@@ -145,18 +167,14 @@ fun RegistrationScreen(
         }
     }
 
-    // Date picker setup with improved handling
+    // Date picker setup
     val calendar = remember { Calendar.getInstance() }
-    // Default to 18 years ago
-    calendar.add(Calendar.YEAR, -18)
+    calendar.add(Calendar.YEAR, -18) // Default to 18 years ago
     val dateFormatter = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
 
-    // Calculated states for date picker
     val year = remember { mutableStateOf(calendar.get(Calendar.YEAR)) }
     val month = remember { mutableStateOf(calendar.get(Calendar.MONTH)) }
     val day = remember { mutableStateOf(calendar.get(Calendar.DAY_OF_MONTH)) }
-
-    // Dialog control
     var showDatePicker by remember { mutableStateOf(false) }
 
     // Date picker dialog
@@ -168,21 +186,16 @@ fun RegistrationScreen(
                 month.value = selectedMonth
                 day.value = selectedDay
 
-                // Update the calendar with selected date
                 val selectedCalendar = Calendar.getInstance()
                 selectedCalendar.set(selectedYear, selectedMonth, selectedDay)
-
-                // Format the date and update dob
                 dob = dateFormatter.format(selectedCalendar.time)
-
-                // Close dialog
                 showDatePicker = false
             },
             year.value,
             month.value,
             day.value
         ).apply {
-            // Set date constraints - minimum age 13, maximum age 100
+            // Set date constraints
             val minAgeCalendar = Calendar.getInstance()
             minAgeCalendar.add(Calendar.YEAR, -13)
             datePicker.maxDate = minAgeCalendar.timeInMillis
@@ -190,259 +203,480 @@ fun RegistrationScreen(
             val maxAgeCalendar = Calendar.getInstance()
             maxAgeCalendar.add(Calendar.YEAR, -100)
             datePicker.minDate = maxAgeCalendar.timeInMillis
-
             show()
         }
     }
 
-    // Define text field colors for better visibility
-    val textFieldColors = OutlinedTextFieldDefaults.colors(
-        focusedTextColor = Color.Black,
-        unfocusedTextColor = Color.Black,
-        focusedLabelColor = Color(0xFF006064),
-        unfocusedLabelColor = Color(0xFF006064),
-        focusedBorderColor = Color(0xFF006064),
-        unfocusedBorderColor = Color(0xFF009688)
-    )
-
-    // Main UI
-    Box(modifier = Modifier.fillMaxSize()) {
-        Image(
-            painter = painterResource(id = R.drawable.background1),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
-
-        if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center),
-                color = Color(0xFF006064)
-            )
-        }
-
-        LazyColumn(
+    // Main UI matching LoginActivity style
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        containerColor = Color.White
+    ) { paddingValues ->
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .background(Color.White)
+                .statusBarsPadding()
+                .padding(paddingValues)
         ) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    "Register",
-                    fontSize = 32.sp,
-                    color = Color(0xFF004D40),
-                    fontFamily = AppFonts.KaiseiRegularFontFamily
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 32.dp)
+                    .imePadding(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
 
-            item {
-                OutlinedTextField(
-                    value = firstName,
-                    onValueChange = { firstName = it },
-                    label = { Text("First Name", fontFamily = AppFonts.KaiseiRegularFontFamily) },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading,
-                    colors = textFieldColors
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
+                // Lottie Animation
+                item {
+                    LottieAnimation(
+                        composition = composition,
+                        progress = { progress },
+                        modifier = Modifier.size(120.dp) // Smaller for registration
+                    )
+                }
 
-            item {
-                OutlinedTextField(
-                    value = lastName,
-                    onValueChange = { lastName = it },
-                    label = { Text("Last Name", fontFamily = AppFonts.KaiseiRegularFontFamily) },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading,
-                    colors = textFieldColors
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
+                // App Title - Using Kadwa font
+                item {
+                    Text(
+                        text = "जवाफ.AI",
+                        style = MaterialTheme.typography.headlineLarge.copy(
+                            fontFamily = AppFonts.KadwaFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 28.sp, // Slightly smaller for registration
+                            color = Color(0xFF395B64)
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                }
 
-            item {
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = {
-                        username = it
-                        isUsernameValid = true
-                    },
-                    label = { Text("Username", fontFamily = AppFonts.KaiseiRegularFontFamily) },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading,
-                    isError = !isUsernameValid,
-                    supportingText = {
-                        if (!isUsernameValid) {
-                            Text("Username already exists", color = MaterialTheme.colorScheme.error)
-                        }
-                    },
-                    colors = textFieldColors
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
+                // Subtitle
+                item {
+                    Text(
+                        text = "Create your account to get started",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontSize = 16.sp,
+                            color = Color(0xFF666666)
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                }
 
-            item {
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = {
-                        email = it
-                        isEmailValid = true
-                    },
-                    label = { Text("Email", fontFamily = AppFonts.KaiseiRegularFontFamily) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading,
-                    isError = !isEmailValid,
-                    supportingText = {
-                        if (!isEmailValid) {
-                            Text("Email already in use", color = MaterialTheme.colorScheme.error)
-                        }
-                    },
-                    colors = textFieldColors
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
 
-            item {
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Password", fontFamily = AppFonts.KaiseiRegularFontFamily) },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading,
-                    supportingText = {
-                        Text("Minimum 6 characters")
-                    },
-                    colors = textFieldColors
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            item {
-                OutlinedTextField(
-                    value = dob,
-                    onValueChange = { /* Read only, handled by dialog */ },
-                    label = { Text("Date of Birth", fontFamily = AppFonts.KaiseiRegularFontFamily) },
-                    placeholder = { Text("Select your birth date") },
-                    trailingIcon = {
-                        Icon(
-                            painter = painterResource(id = android.R.drawable.ic_menu_my_calendar),
-                            contentDescription = "Select date",
-                            modifier = Modifier.clickable(enabled = !isLoading) {
-                                if (!isLoading) showDatePicker = true
-                            }
-                        )
-                    },
-                    readOnly = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = !isLoading) {
-                            if (!isLoading) showDatePicker = true
+                // First Name TextField
+                item {
+                    OutlinedTextField(
+                        value = firstName,
+                        onValueChange = { firstName = it },
+                        label = {
+                            Text(
+                                "First Name",
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                color = Color(0xFF666666)
+                            )
                         },
-                    supportingText = { Text("Age must be at least 13 years") },
-                    enabled = !isLoading,
-                    colors = textFieldColors
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            color = Color.Black,
+                            fontSize = 16.sp
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { lastNameFocusRequester.requestFocus() }
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF395B64),
+                            unfocusedBorderColor = Color(0xFFE0E0E0),
+                            focusedLabelColor = Color(0xFF395B64),
+                            unfocusedLabelColor = Color(0xFF666666),
+                            cursorColor = Color(0xFF395B64),
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black
+                        ),
+                        enabled = !isLoading,
+                        singleLine = true
+                    )
+                }
 
-            item {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                ) {
-                    Checkbox(
-                        checked = acceptTerms,
-                        onCheckedChange = { if (!isLoading) acceptTerms = it },
+                // Last Name TextField
+                item {
+                    OutlinedTextField(
+                        value = lastName,
+                        onValueChange = { lastName = it },
+                        label = {
+                            Text(
+                                "Last Name",
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                color = Color(0xFF666666)
+                            )
+                        },
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            color = Color.Black,
+                            fontSize = 16.sp
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { usernameFocusRequester.requestFocus() }
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .focusRequester(lastNameFocusRequester),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF395B64),
+                            unfocusedBorderColor = Color(0xFFE0E0E0),
+                            focusedLabelColor = Color(0xFF395B64),
+                            unfocusedLabelColor = Color(0xFF666666),
+                            cursorColor = Color(0xFF395B64),
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black
+                        ),
+                        enabled = !isLoading,
+                        singleLine = true
+                    )
+                }
+
+                // Username TextField
+                item {
+                    OutlinedTextField(
+                        value = username,
+                        onValueChange = {
+                            username = it
+                            isUsernameValid = true
+                        },
+                        label = {
+                            Text(
+                                "Username",
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                color = Color(0xFF666666)
+                            )
+                        },
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            color = Color.Black,
+                            fontSize = 16.sp
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { emailFocusRequester.requestFocus() }
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .focusRequester(usernameFocusRequester),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = if (isUsernameValid) Color(0xFF395B64) else MaterialTheme.colorScheme.error,
+                            unfocusedBorderColor = if (isUsernameValid) Color(0xFFE0E0E0) else MaterialTheme.colorScheme.error,
+                            focusedLabelColor = Color(0xFF395B64),
+                            unfocusedLabelColor = Color(0xFF666666),
+                            cursorColor = Color(0xFF395B64),
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black
+                        ),
+                        enabled = !isLoading,
+                        isError = !isUsernameValid,
+                        singleLine = true
+                    )
+                }
+
+                // Email TextField
+                item {
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = {
+                            email = it
+                            isEmailValid = true
+                        },
+                        label = {
+                            Text(
+                                "Email",
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                color = Color(0xFF666666)
+                            )
+                        },
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            color = Color.Black,
+                            fontSize = 16.sp
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { passwordFocusRequester.requestFocus() }
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .focusRequester(emailFocusRequester),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = if (isEmailValid) Color(0xFF395B64) else MaterialTheme.colorScheme.error,
+                            unfocusedBorderColor = if (isEmailValid) Color(0xFFE0E0E0) else MaterialTheme.colorScheme.error,
+                            focusedLabelColor = Color(0xFF395B64),
+                            unfocusedLabelColor = Color(0xFF666666),
+                            cursorColor = Color(0xFF395B64),
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black
+                        ),
+                        enabled = !isLoading,
+                        isError = !isEmailValid,
+                        singleLine = true
+                    )
+                }
+
+                // Password TextField
+                item {
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = {
+                            Text(
+                                "Password",
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                color = Color(0xFF666666)
+                            )
+                        },
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            color = Color.Black,
+                            fontSize = 16.sp
+                        ),
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done
+                        ),
+                        trailingIcon = {
+                            val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                            val description = if (passwordVisible) "Hide password" else "Show password"
+
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = image,
+                                    contentDescription = description,
+                                    tint = Color(0xFF395B64)
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .focusRequester(passwordFocusRequester),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF395B64),
+                            unfocusedBorderColor = Color(0xFFE0E0E0),
+                            focusedLabelColor = Color(0xFF395B64),
+                            unfocusedLabelColor = Color(0xFF666666),
+                            cursorColor = Color(0xFF395B64),
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black
+                        ),
+                        enabled = !isLoading,
+                        singleLine = true
+                    )
+                }
+
+                // Date of Birth TextField
+                item {
+                    OutlinedTextField(
+                        value = dob,
+                        onValueChange = { /* Read only */ },
+                        label = {
+                            Text(
+                                "Date of Birth",
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                color = Color(0xFF666666)
+                            )
+                        },
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            color = Color.Black,
+                            fontSize = 16.sp
+                        ),
+                        placeholder = {
+                            Text(
+                                "Select your birth date",
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                color = Color(0xFF999999)
+                            )
+                        },
+                        trailingIcon = {
+                            Icon(
+                                painter = painterResource(id = android.R.drawable.ic_menu_my_calendar),
+                                contentDescription = "Select date",
+                                tint = Color(0xFF395B64),
+                                modifier = Modifier.clickable(enabled = !isLoading) {
+                                    if (!isLoading) showDatePicker = true
+                                }
+                            )
+                        },
+                        readOnly = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .clickable(enabled = !isLoading) {
+                                if (!isLoading) showDatePicker = true
+                            },
+                        shape = RoundedCornerShape(28.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF395B64),
+                            unfocusedBorderColor = Color(0xFFE0E0E0),
+                            focusedLabelColor = Color(0xFF395B64),
+                            unfocusedLabelColor = Color(0xFF666666),
+                            cursorColor = Color(0xFF395B64),
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black
+                        ),
                         enabled = !isLoading
                     )
-                    Text(
-                        "Accept Terms & Conditions",
-                        fontFamily = AppFonts.KaiseiRegularFontFamily,
-                        color = Color.Black
-                    )
                 }
-            }
 
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = {
-                        if (isLoading) return@Button
-
-                        if (!acceptTerms) {
-                            Toast.makeText(context, "Accept terms to proceed", Toast.LENGTH_SHORT).show()
-                            return@Button
-                        }
-
-                        // Field validation
-                        when {
-                            firstName.isBlank() -> Toast.makeText(context, "First name is required", Toast.LENGTH_SHORT).show()
-                            lastName.isBlank() -> Toast.makeText(context, "Last name is required", Toast.LENGTH_SHORT).show()
-                            username.isBlank() -> Toast.makeText(context, "Username is required", Toast.LENGTH_SHORT).show()
-                            email.isBlank() -> Toast.makeText(context, "Email is required", Toast.LENGTH_SHORT).show()
-                            !email.contains('@') -> Toast.makeText(context, "Enter a valid email address", Toast.LENGTH_SHORT).show()
-                            password.length < 6 -> Toast.makeText(context, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show()
-                            dob.isBlank() -> Toast.makeText(context, "Date of birth is required", Toast.LENGTH_SHORT).show()
-                            else -> {
-                                // Create the user model with only essential information
-                                val userModel = UserModel(
-                                    firstName = firstName,
-                                    lastName = lastName,
-                                    username = username,
-                                    email = email,
-                                    dateOfBirth = dob
-                                    // Bio and imageUrl are not required and will be handled in profile settings
-                                )
-                                // Register user with null imageUri since it's not required
-                                viewModel.register(email, password, userModel, null)
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF006064)),
-                    enabled = !isLoading
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
+                // Terms and Conditions Checkbox
+                item {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Checkbox(
+                            checked = acceptTerms,
+                            onCheckedChange = { if (!isLoading) acceptTerms = it },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Color(0xFF395B64),
+                                uncheckedColor = Color(0xFF666666)
+                            ),
+                            enabled = !isLoading
                         )
-                    } else {
-                        Text("Register", color = Color.White, fontSize = 18.sp, fontFamily = AppFonts.KaiseiRegularFontFamily)
+                        Text(
+                            "I accept the Terms & Conditions",
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontSize = 14.sp,
+                            color = Color(0xFF666666)
+                        )
                     }
                 }
-            }
 
-            item {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "Already have an account? Sign In",
-                    color = Color(0xFF01579B),
-                    fontFamily = AppFonts.KaiseiRegularFontFamily,
-                    modifier = Modifier.clickable(enabled = !isLoading) {
-                        if (!isLoading) {
-                            val intent = Intent(context, LoginActivity::class.java)
-                            context.startActivity(intent)
-                            if (context is ComponentActivity) {
-                                context.finish() // Close registration activity
+                // Register Button
+                item {
+                    Button(
+                        onClick = {
+                            if (isLoading) return@Button
+
+                            if (!acceptTerms) {
+                                Toast.makeText(context, "Accept terms to proceed", Toast.LENGTH_SHORT).show()
+                                return@Button
                             }
+
+                            // Field validation
+                            when {
+                                firstName.isBlank() -> Toast.makeText(context, "First name is required", Toast.LENGTH_SHORT).show()
+                                lastName.isBlank() -> Toast.makeText(context, "Last name is required", Toast.LENGTH_SHORT).show()
+                                username.isBlank() -> Toast.makeText(context, "Username is required", Toast.LENGTH_SHORT).show()
+                                email.isBlank() -> Toast.makeText(context, "Email is required", Toast.LENGTH_SHORT).show()
+                                !email.contains('@') -> Toast.makeText(context, "Enter a valid email address", Toast.LENGTH_SHORT).show()
+                                password.length < 6 -> Toast.makeText(context, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show()
+                                dob.isBlank() -> Toast.makeText(context, "Date of birth is required", Toast.LENGTH_SHORT).show()
+                                else -> {
+                                    val userModel = UserModel(
+                                        firstName = firstName,
+                                        lastName = lastName,
+                                        username = username,
+                                        email = email,
+                                        dateOfBirth = dob
+                                    )
+                                    viewModel.register(email, password, userModel, null)
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF395B64)
+                        ),
+                        enabled = !isLoading
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "Create Account",
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = Color.White
+                            )
                         }
                     }
-                )
-                Spacer(modifier = Modifier.height(40.dp))
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // Already have account text
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "Already have an account? ",
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontSize = 14.sp,
+                            color = Color(0xFFA5C9CA)
+                        )
+                        Text(
+                            text = "Sign In",
+                            fontFamily = AppFonts.KarlaFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = Color(0xFF395B64),
+                            modifier = Modifier.clickable(enabled = !isLoading) {
+                                if (!isLoading) {
+                                    onNavigateToLogin()
+                                }
+                            }
+                        )
+                    }
+                }
+
+                // Add bottom padding for navigation bar
+                item {
+                    Spacer(modifier = Modifier.navigationBarsPadding())
+                    Spacer(modifier = Modifier.height(40.dp))
+                }
             }
         }
     }
@@ -451,8 +685,7 @@ fun RegistrationScreen(
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun RegistrationScreenPreview() {
-    val navController = rememberNavController()
     JawafaiTheme {
-        RegistrationScreen(navController = navController)
+        RegistrationScreen()
     }
 }

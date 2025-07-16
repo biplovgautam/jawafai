@@ -1,6 +1,5 @@
 package com.example.jawafai.view.auth
 
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
@@ -28,8 +27,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -55,26 +52,14 @@ import com.airbnb.lottie.compose.*
 import kotlinx.coroutines.delay
 import com.example.jawafai.utils.WithNetworkMonitoring
 
-// Define the font family directly in this file
-val KaiseiFontFamily = FontFamily(
-    Font(R.font.kaiseidecol_regular)
-)
-
 class LoginActivity : ComponentActivity() {
     private lateinit var viewModel: UserViewModel
-
-    companion object {
-        const val PREFS_NAME = "JawafaiPrefs"
-        const val PREF_REMEMBER_ME = "rememberMe"
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // Enable full screen immersive mode
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = android.graphics.Color.TRANSPARENT
-        window.navigationBarColor = android.graphics.Color.TRANSPARENT
 
         // Check for auto-logout when app starts
         (application as JawafaiApplication).checkAutoLogout()
@@ -192,13 +177,12 @@ fun LoginScreen(viewModel: UserViewModel) {
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = Color.White
     ) { paddingValues ->
-        // Don't use paddingValues to allow full screen usage
-        val unused = paddingValues
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.White)
                 .statusBarsPadding() // Add status bar padding manually
+                .padding(paddingValues)
         ) {
             LazyColumn(
                 modifier = Modifier
@@ -503,8 +487,12 @@ fun LoginScreen(viewModel: UserViewModel) {
                             fontSize = 14.sp,
                             color = Color(0xFF395B64),
                             modifier = Modifier.clickable {
-                                // Navigate to sign up screen
-                                Toast.makeText(context, "Navigate to Sign Up", Toast.LENGTH_SHORT).show()
+                                // Navigate to registration screen
+                                val intent = Intent(context, RegistrationActivity::class.java)
+                                context.startActivity(intent)
+                                if (context is ComponentActivity) {
+                                    context.finish()
+                                }
                             }
                         )
                     }
@@ -592,7 +580,6 @@ fun LoginScreen(viewModel: UserViewModel) {
 @Composable
 fun LoginScreenPreview() {
     JawafaiTheme {
-        val context = LocalContext.current
         val auth = FirebaseAuth.getInstance()
         val firestore = FirebaseFirestore.getInstance()
         val repository = UserRepositoryImpl(auth, firestore)
