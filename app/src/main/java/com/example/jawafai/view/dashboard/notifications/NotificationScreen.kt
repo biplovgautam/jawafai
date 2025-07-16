@@ -77,8 +77,6 @@ enum class ChatPlatform(
     WHATSAPP("WhatsApp", Color(0xFF25D366)),
     INSTAGRAM("Instagram", Color(0xFFE4405F)),
     MESSENGER("Messenger", Color(0xFF0084FF)),
-    TELEGRAM("Telegram", Color(0xFF0088CC)),
-    SMS("SMS", Color(0xFF34C759)),
     GENERAL("General", Color(0xFF395B64))
 }
 
@@ -90,12 +88,8 @@ fun NotificationScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val focusRequester = remember { FocusRequester() }
 
     // State management
-    var searchQuery by remember { mutableStateOf("") }
-    var isSearchActive by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     var selectedFilter by remember { mutableStateOf<ChatPlatform?>(null) }
     var generatingReplyFor by remember { mutableStateOf<String?>(null) }
@@ -163,8 +157,6 @@ fun NotificationScreen(
                     notification.packageName.contains("instagram", true) -> ChatPlatform.INSTAGRAM
                     notification.packageName.contains("messenger", true) ||
                     notification.packageName.contains("facebook.orca", true) -> ChatPlatform.MESSENGER
-                    notification.packageName.contains("telegram", true) -> ChatPlatform.TELEGRAM
-                    notification.packageName.contains("sms", true) -> ChatPlatform.SMS
                     else -> ChatPlatform.GENERAL
                 },
                 senderName = notification.sender?.takeIf { it.isNotBlank() } ?: notification.title.ifBlank { notification.packageName },
@@ -183,21 +175,13 @@ fun NotificationScreen(
     }
 
     // Filter notifications based on search and platform filter
-    val filteredNotifications = remember(searchQuery, selectedFilter, liveNotifications) {
+    val filteredNotifications = remember(selectedFilter, liveNotifications) {
         liveNotifications.filter { notification ->
-            val matchesSearch = if (searchQuery.isBlank()) {
-                true
-            } else {
-                notification.senderName.contains(searchQuery, ignoreCase = true) ||
-                notification.message.contains(searchQuery, ignoreCase = true) ||
-                notification.platform.displayName.contains(searchQuery, ignoreCase = true)
-            }
-
             val matchesFilter = selectedFilter?.let { filter ->
                 notification.platform == filter
             } ?: true
 
-            matchesSearch && matchesFilter
+            matchesFilter
         }
     }
 
@@ -345,35 +329,18 @@ fun NotificationScreen(
                         )
                     )
                 },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color(0xFF395B64)
-                        )
-                    }
-                },
                 actions = {
                     IconButton(
                         onClick = {
-                            // Mark all as read functionality
-                        }
-                    ) {
-                        Icon(
-                            Icons.Default.DoneAll,
-                            contentDescription = "Mark all as read",
-                            tint = Color(0xFF395B64)
-                        )
-                    }
-                    IconButton(
-                        onClick = {
+                            // Clear notification memory store
+                            NotificationMemoryStore.clear()
+                            Toast.makeText(context, "Notifications cleared", Toast.LENGTH_SHORT).show()
                             isRefreshing = true
                         }
                     ) {
                         Icon(
                             Icons.Default.Refresh,
-                            contentDescription = "Refresh",
+                            contentDescription = "Clear notifications",
                             tint = Color(0xFF395B64)
                         )
                     }
@@ -392,24 +359,6 @@ fun NotificationScreen(
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(modifier = Modifier.height(8.dp))
-
-            // Search Bar
-            SearchBarContent(
-                query = searchQuery,
-                onQueryChange = {
-                    searchQuery = it
-                    isSearchActive = it.isNotEmpty()
-                },
-                onClear = {
-                    searchQuery = ""
-                    isSearchActive = false
-                    keyboardController?.hide()
-                },
-                isActive = isSearchActive,
-                focusRequester = focusRequester
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
 
             // Platform Filter Chips
             LazyRow(
@@ -480,7 +429,7 @@ fun NotificationScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = if (searchQuery.isNotBlank()) "No notifications found" else "No notifications yet",
+                            text = "No notifications yet",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontFamily = AppFonts.KaiseiDecolFontFamily,
                                 fontSize = 16.sp,
@@ -513,65 +462,6 @@ fun NotificationScreen(
             }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SearchBarContent(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onClear: () -> Unit,
-    isActive: Boolean,
-    focusRequester: FocusRequester
-) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        placeholder = {
-            Text(
-                text = "Search notifications...",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = AppFonts.KaiseiDecolFontFamily,
-                    color = Color(0xFF666666)
-                )
-            )
-        },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = "Search",
-                tint = Color(0xFF666666)
-            )
-        },
-        trailingIcon = {
-            if (query.isNotEmpty()) {
-                IconButton(onClick = onClear) {
-                    Icon(
-                        imageVector = Icons.Default.Clear,
-                        contentDescription = "Clear",
-                        tint = Color(0xFF666666)
-                    )
-                }
-            }
-        },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions.Default.copy(
-            imeAction = ImeAction.Search
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .focusRequester(focusRequester),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = Color(0xFF395B64),
-            unfocusedTextColor = Color(0xFF395B64),
-            cursorColor = Color(0xFF395B64),
-            focusedBorderColor = Color(0xFF395B64),
-            unfocusedBorderColor = Color(0xFF666666).copy(alpha = 0.3f),
-            focusedPlaceholderColor = Color(0xFF666666),
-            unfocusedPlaceholderColor = Color(0xFF666666).copy(alpha = 0.7f)
-        ),
-        shape = RoundedCornerShape(16.dp)
-    )
 }
 
 @Composable
@@ -877,7 +767,7 @@ fun EnhancedNotificationCard(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF395B64)
                         ),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.weight(1f)
                     ) {
                         Icon(
@@ -885,13 +775,15 @@ fun EnhancedNotificationCard(
                             contentDescription = "Generate Reply",
                             modifier = Modifier.size(16.dp)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Generate Reply",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = AppFonts.KarlaFontFamily,
-                                fontSize = 12.sp
-                            )
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            maxLines = 1
                         )
                     }
                 }
@@ -904,7 +796,7 @@ fun EnhancedNotificationCard(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF395B64).copy(alpha = 0.6f)
                         ),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.weight(1f)
                     ) {
                         CircularProgressIndicator(
@@ -912,18 +804,56 @@ fun EnhancedNotificationCard(
                             strokeWidth = 2.dp,
                             color = Color.White
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Generating...",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = AppFonts.KarlaFontFamily,
-                                fontSize = 12.sp
-                            )
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            maxLines = 1
                         )
                     }
                 }
 
-                // Send Reply Button
+                // Regenerate Reply Button (if reply exists and not currently sending)
+                if (notification.hasGeneratedReply &&
+                    !isGeneratingReply &&
+                    sendingStatus != RemoteReplyService.ReplyStatus.SENDING &&
+                    sendingStatus != RemoteReplyService.ReplyStatus.RETRYING) {
+
+                    OutlinedButton(
+                        onClick = onGenerateReply,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFF395B64)
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.widthIn(min = 120.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Regenerate",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Regenerate",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                // Spacer to push send button to the right
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Send Reply Button (moved to the right side)
                 if (notification.hasGeneratedReply &&
                     notification.hasReplyAction &&
                     !notification.isSent &&
@@ -936,22 +866,24 @@ fun EnhancedNotificationCard(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF4CAF50)
                         ),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.weight(1f)
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Send,
                             contentDescription = "Send Reply",
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(18.dp),
                             tint = Color.White
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Send",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = AppFonts.KarlaFontFamily,
-                                fontSize = 12.sp
-                            )
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            maxLines = 1
                         )
                     }
                 }
@@ -964,21 +896,23 @@ fun EnhancedNotificationCard(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF2196F3).copy(alpha = 0.6f)
                         ),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.weight(1f)
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
                             strokeWidth = 2.dp,
                             color = Color.White
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Sending...",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = AppFonts.KarlaFontFamily,
-                                fontSize = 12.sp
-                            )
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            maxLines = 1
                         )
                     }
                 }
@@ -991,21 +925,23 @@ fun EnhancedNotificationCard(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFFFF9800).copy(alpha = 0.6f)
                         ),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.weight(1f)
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
                             strokeWidth = 2.dp,
                             color = Color.White
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Retrying...",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = AppFonts.KarlaFontFamily,
-                                fontSize = 12.sp
-                            )
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            maxLines = 1
                         )
                     }
                 }
@@ -1026,75 +962,23 @@ fun EnhancedNotificationCard(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFFE53E3E)
                         ),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.weight(1f)
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Retry",
                             modifier = Modifier.size(16.dp)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Retry",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontFamily = AppFonts.KarlaFontFamily,
-                                fontSize = 12.sp
-                            )
-                        )
-                    }
-                }
-
-                // Regenerate Reply Button (if reply exists and not currently sending)
-                if (notification.hasGeneratedReply &&
-                    !isGeneratingReply &&
-                    sendingStatus != RemoteReplyService.ReplyStatus.SENDING &&
-                    sendingStatus != RemoteReplyService.ReplyStatus.RETRYING) {
-
-                    OutlinedButton(
-                        onClick = onGenerateReply,
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF395B64)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Regenerate",
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Regenerate",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = AppFonts.KarlaFontFamily,
-                                fontSize = 12.sp
-                            )
-                        )
-                    }
-                }
-
-                // Mark as Read Button
-                if (!notification.isRead) {
-                    OutlinedButton(
-                        onClick = { onMarkAsRead(notification.id) },
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF666666)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Done,
-                            contentDescription = "Mark as Read",
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Mark Read",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = AppFonts.KarlaFontFamily,
-                                fontSize = 12.sp
-                            )
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            maxLines = 1
                         )
                     }
                 }
