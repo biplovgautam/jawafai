@@ -169,24 +169,30 @@ class ChatBotRepositoryImpl @Inject constructor(
 
     override suspend fun getChatBotResponse(message: String, conversationHistory: List<ChatBotMessageModel>): String? {
         return try {
+            // Check message limit (20 messages max)
+            if (conversationHistory.size >= 20) {
+                Log.w(TAG, "⚠️ Conversation history exceeds 20 messages limit")
+                return "I notice we've been chatting for quite a while! To keep our conversation fresh and focused, please start a new chat. This helps me provide better responses. 😊"
+            }
+
             // Get user persona for context (if available)
             val userPersona = getUserPersona(conversationHistory.firstOrNull()?.conversationId ?: "")
 
             // Convert conversation history to GroqApiManager format
             val chatHistory = GroqApiManager.convertToChatMessages(conversationHistory)
 
-            // Call GroqApiManager to get response
-            val response = GroqApiManager.getChatResponse(
+            // Call GroqApiManager with the specific chatbot method
+            val response = GroqApiManager.getChatBotResponse(
                 userMessage = message,
                 conversationHistory = chatHistory,
                 userPersona = userPersona
             )
 
             if (response.success) {
-                Log.d(TAG, "✅ Received response from Groq API")
+                Log.d(TAG, "✅ Received chatbot response from Groq API")
                 return response.message
             } else {
-                Log.e(TAG, "❌ Groq API error: ${response.error}")
+                Log.e(TAG, "❌ Groq API chatbot error: ${response.error}")
                 return null
             }
 

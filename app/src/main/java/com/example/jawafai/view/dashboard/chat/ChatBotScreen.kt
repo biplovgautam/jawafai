@@ -77,27 +77,38 @@ fun ChatBotScreen(
 
     // Function to send messages with real Groq API integration
     fun sendMessage(message: String) {
+        // Check 20 message limit before sending
+        if (messages.size >= 20) {
+            // Show toast message for limit reached
+            android.widget.Toast.makeText(
+                context,
+                "Chat limit reached (20 messages). Please start a new chat for better responses.",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
         // Add user message
         val userMessage = ChatBotMessageModel(
             id = java.util.UUID.randomUUID().toString(),
-            conversationId = "current_session", // Changed from "current_conversation" to "current_session"
+            conversationId = "current_session",
             message = message,
             isFromUser = true,
             timestamp = System.currentTimeMillis()
         )
 
-        // Add message and enforce 10 message limit
-        messages = (messages + userMessage).takeLast(10)
+        // Add message (limit to 20 messages total)
+        messages = (messages + userMessage).takeLast(20)
         isTyping = true
 
         // Use GroqApiManager for real AI responses
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
             try {
-                // Convert existing messages to GroqApiManager format (use only last 5 pairs for context)
-                val chatHistory = com.example.jawafai.managers.GroqApiManager.convertToChatMessages(messages.takeLast(10).dropLast(1))
+                // Convert existing messages to GroqApiManager format (use only messages without current one)
+                val chatHistory = com.example.jawafai.managers.GroqApiManager.convertToChatMessages(messages.dropLast(1))
 
-                // Get response from Groq API
-                val response = com.example.jawafai.managers.GroqApiManager.getChatResponse(
+                // Get response from Groq API using the new chatbot-specific method
+                val response = com.example.jawafai.managers.GroqApiManager.getChatBotResponse(
                     userMessage = message,
                     conversationHistory = chatHistory,
                     userPersona = null // Could fetch user persona here
@@ -112,32 +123,49 @@ fun ChatBotScreen(
                         timestamp = System.currentTimeMillis()
                     )
                 } else {
-                    // Show detailed error for debugging
-                    val errorMsg = response.error ?: "Unknown error occurred"
-                    Log.e("ChatBotScreen", "API Error: $errorMsg")
+                    // Handle different error cases
+                    val errorMsg = when {
+                        response.error?.contains("Conversation limit reached") == true -> {
+                            // Show toast for limit reached
+                            android.widget.Toast.makeText(
+                                context,
+                                "Chat limit reached. Please start a new chat.",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                            "I notice we've been chatting for quite a while! To keep our conversation fresh and focused, please start a new chat. This helps me provide better responses. 😊"
+                        }
+                        response.error?.contains("API key not configured") == true -> {
+                            "I'm having trouble connecting to my AI service. Please check the app configuration."
+                        }
+                        else -> {
+                            val errorDetails = response.error ?: "Unknown error occurred"
+                            Log.e("ChatBotScreen", "API Error: $errorDetails")
+                            "I'm having trouble responding right now. Please try again in a moment."
+                        }
+                    }
 
                     ChatBotMessageModel(
                         id = java.util.UUID.randomUUID().toString(),
                         conversationId = "current_session",
-                        message = "Debug: API Error - $errorMsg. Please check logs for details.",
+                        message = errorMsg,
                         isFromUser = false,
                         timestamp = System.currentTimeMillis()
                     )
                 }
 
-                // Add AI message and enforce 10 message limit
-                messages = (messages + aiMessage).takeLast(10)
+                // Add AI message (limit to 20 messages total)
+                messages = (messages + aiMessage).takeLast(20)
                 isTyping = false
             } catch (e: Exception) {
                 Log.e("ChatBotScreen", "Exception in sendMessage: ${e.message}", e)
                 val errorMessage = ChatBotMessageModel(
                     id = java.util.UUID.randomUUID().toString(),
                     conversationId = "current_session",
-                    message = "Debug: Exception - ${e.message}. Please check logs for details.",
+                    message = "I'm experiencing some technical difficulties. Please try again later.",
                     isFromUser = false,
                     timestamp = System.currentTimeMillis()
                 )
-                messages = (messages + errorMessage).takeLast(10)
+                messages = (messages + errorMessage).takeLast(20)
                 isTyping = false
             }
         }
@@ -148,6 +176,12 @@ fun ChatBotScreen(
         messages = emptyList()
         messageText = ""
         isTyping = false
+        // Show toast for new chat started
+        android.widget.Toast.makeText(
+            context,
+            "New chat started! 🎉",
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
     }
 
     // Function to show new chat confirmation dialog

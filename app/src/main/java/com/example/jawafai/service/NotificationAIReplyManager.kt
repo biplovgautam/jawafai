@@ -18,8 +18,7 @@ object NotificationAIReplyManager {
     private const val MAX_CONTEXT_MESSAGES = 10
 
     /**
-     * Generate AI reply for a notification with conversati
-     * on context
+     * Generate AI reply for a notification with conversation context
      */
     suspend fun generateAIReply(
         notification: NotificationMemoryStore.ExternalNotification,
@@ -28,27 +27,31 @@ object NotificationAIReplyManager {
     ): AIReplyResult = withContext(Dispatchers.IO) {
 
         try {
-            Log.d(TAG, "🤖 Generating AI reply for: ${notification.conversationId}")
+            Log.d(TAG, "🤖 Generating AI reply for notification")
             Log.d(TAG, "📱 App: ${notification.packageName}")
+            Log.d(TAG, "👤 Sender: ${notification.sender}")
             Log.d(TAG, "💬 Message: ${notification.text}")
 
-            // Get conversation context (last 10 messages from same conversation)
-            val conversationHistory = NotificationMemoryStore.getConversationContext(
+            // Get conversation history for this specific sender (last 10 messages)
+            val senderHistory = NotificationMemoryStore.getConversationContext(
                 notification.conversationId,
                 MAX_CONTEXT_MESSAGES
             )
 
-            Log.d(TAG, "📚 Conversation history: ${conversationHistory.size} messages")
+            Log.d(TAG, "📚 Sender conversation history: ${senderHistory.size} messages")
 
-            // Build context-aware prompt
-            val contextPrompt = buildContextPrompt(notification, conversationHistory, userPersona)
+            // Convert notification history to chat messages format for GroqApiManager
+            val chatHistory = convertNotificationHistoryToChatMessages(senderHistory)
 
-            // Convert notification history to chat messages for GroqApiManager
-            val chatHistory = convertToChatMessages(conversationHistory)
+            // Get app name for context
+            val appName = getAppName(notification.packageName)
+            val senderName = notification.sender ?: notification.title
 
-            // Generate reply using GroqApiManager
-            val groqResponse = GroqApiManager.getChatResponse(
-                userMessage = contextPrompt,
+            // Generate reply using GroqApiManager's notification-specific method
+            val groqResponse = GroqApiManager.getNotificationReply(
+                currentMessage = notification.text,
+                senderName = senderName,
+                appName = appName,
                 conversationHistory = chatHistory,
                 userPersona = userPersona
             )
@@ -88,103 +91,40 @@ object NotificationAIReplyManager {
     }
 
     /**
-     * Build context-aware prompt for AI reply generation
+     * Build context-aware prompt for AI reply generation (DEPRECATED - now handled in GroqApiManager)
      */
+    @Deprecated("Context building is now handled in GroqApiManager.getNotificationReply")
     private fun buildContextPrompt(
         currentNotification: NotificationMemoryStore.ExternalNotification,
         conversationHistory: List<NotificationMemoryStore.ExternalNotification>,
         userPersona: Map<String, Any>?
     ): String {
-
-        val appName = getAppName(currentNotification.packageName)
-        val isGroupChat = !currentNotification.conversationTitle.isNullOrBlank()
-        val conversationType = if (isGroupChat) "group chat" else "individual conversation"
-
-        return buildString {
-            append("🤖 SMART REPLY GENERATION REQUEST 🤖\n\n")
-
-            // Context Information
-            append("📱 CONTEXT:\n")
-            append("- Platform: $appName\n")
-            append("- Type: $conversationType\n")
-            if (isGroupChat) {
-                append("- Group: ${currentNotification.conversationTitle}\n")
-            }
-            append("- Sender: ${currentNotification.sender ?: currentNotification.title}\n")
-            append("- Time: ${formatTimestamp(currentNotification.time)}\n\n")
-
-            // Conversation History
-            if (conversationHistory.isNotEmpty()) {
-                append("📚 CONVERSATION HISTORY (Last ${conversationHistory.size} messages):\n")
-                conversationHistory.forEach { msg ->
-                    val sender = msg.sender ?: msg.title
-                    val time = formatTimestamp(msg.time)
-                    append("[$time] $sender: ${msg.text}\n")
-                }
-                append("\n")
-            }
-
-            // Current Message
-            append("💬 CURRENT MESSAGE TO REPLY TO:\n")
-            append("From: ${currentNotification.sender ?: currentNotification.title}\n")
-            append("Message: \"${currentNotification.text}\"\n\n")
-
-            // Instructions
-            append("🎯 REPLY INSTRUCTIONS:\n")
-            append("Generate a contextually appropriate reply that:\n")
-            append("1. Considers the conversation history and tone\n")
-            append("2. Matches the communication style of previous messages\n")
-            append("3. Is relevant to the current message\n")
-            append("4. Feels natural and human-like\n")
-            append("5. Is concise but meaningful\n")
-
-            if (isGroupChat) {
-                append("6. Is appropriate for group chat context\n")
-            }
-
-            // App-specific instructions
-            when (currentNotification.packageName) {
-                "com.whatsapp", "com.whatsapp.w4b" -> {
-                    append("7. Use WhatsApp-appropriate casual tone\n")
-                }
-                "com.instagram.android" -> {
-                    append("7. Use Instagram-appropriate casual/trendy tone\n")
-                }
-                "com.facebook.orca" -> {
-                    append("7. Use Messenger-appropriate friendly tone\n")
-                }
-                "com.telegram.messenger" -> {
-                    append("7. Use Telegram-appropriate direct tone\n")
-                }
-            }
-
-            append("\n⚡ Generate ONLY the reply text, no explanations or metadata.\n")
-            append("Keep it natural, contextual, and conversational!")
-        }
+        // This method is deprecated - context building is now handled in GroqApiManager
+        return currentNotification.text
     }
 
     /**
-     * Convert notification history to chat messages format
+     * Convert notification history to chat messages format (DEPRECATED - use private method)
      */
+    @Deprecated("Use private convertNotificationHistoryToChatMessages method")
     private fun convertToChatMessages(
+        notifications: List<NotificationMemoryStore.ExternalNotification>
+    ): List<GroqApiManager.ChatMessage> {
+        return convertNotificationHistoryToChatMessages(notifications)
+    }
+
+    /**
+     * Convert notification history to chat messages format for GroqApiManager
+     */
+    private fun convertNotificationHistoryToChatMessages(
         notifications: List<NotificationMemoryStore.ExternalNotification>
     ): List<GroqApiManager.ChatMessage> {
 
         val chatMessages = mutableListOf<GroqApiManager.ChatMessage>()
 
-        // Add context as system message
-        if (notifications.isNotEmpty()) {
-            chatMessages.add(
-                GroqApiManager.ChatMessage(
-                    role = "system",
-                    content = "You are generating contextual replies based on a messaging conversation. Maintain consistency with the conversation tone and style."
-                )
-            )
-        }
-
-        // Add conversation history
+        // Process notifications in chronological order to build conversation context
         notifications.forEach { notification ->
-            // Add original message as user message
+            // Add the original message from sender as user message
             chatMessages.add(
                 GroqApiManager.ChatMessage(
                     role = "user",
