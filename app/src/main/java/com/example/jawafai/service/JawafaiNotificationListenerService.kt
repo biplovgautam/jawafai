@@ -14,9 +14,21 @@ import android.provider.Settings
 import android.util.Log
 
 class JawafaiNotificationListenerService : NotificationListenerService() {
+    // Define the package names of apps we want to capture notifications from
+    private val supportedApps = setOf(
+        "com.instagram.android",        // Instagram
+        "com.whatsapp",                 // WhatsApp
+        "com.facebook.orca",            // Facebook Messenger
+        "com.whatsapp.w4b"              // WhatsApp Business
+    )
+
     override fun onListenerConnected() {
         super.onListenerConnected()
         android.util.Log.d("JawafaiNotifService", "NotificationListenerService connected!")
+    }
+
+    private fun isSupportedApp(packageName: String): Boolean {
+        return supportedApps.contains(packageName)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -29,8 +41,8 @@ class JawafaiNotificationListenerService : NotificationListenerService() {
 
         android.util.Log.d("JawafaiNotifService", "Notification received: $packageName | $title | $text")
 
-        // Avoid echoing Jawafai's own notifications
-        if (packageName != this.packageName) {
+        // Avoid echoing Jawafai's own notifications and only process supported apps
+        if (packageName != this.packageName && isSupportedApp(packageName)) {
             NotificationMemoryStore.addNotification(
                 NotificationMemoryStore.ExternalNotification(
                     title = title,
@@ -39,34 +51,10 @@ class JawafaiNotificationListenerService : NotificationListenerService() {
                     time = time
                 )
             )
-            postJawafaiNotification(title, text, packageName)
+            // Removed postJawafaiNotification call - only store in memory
+        } else {
+            android.util.Log.d("JawafaiNotifService", "Notification ignored - not from supported app: $packageName")
         }
-    }
-
-    private fun postJawafaiNotification(title: String, text: String, originalPackage: String) {
-        val channelId = "jawafai_read_channel"
-        val channelName = "Jawafai Read Notifications"
-        val notificationId = (System.currentTimeMillis() % Int.MAX_VALUE).toInt()
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                channelName,
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
-            notificationManager.createNotificationChannel(channel)
-        }
-
-        val builder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("[Jawafai] $title")
-            .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setSubText(originalPackage)
-            .setAutoCancel(true)
-
-        notificationManager.notify(notificationId, builder.build())
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
