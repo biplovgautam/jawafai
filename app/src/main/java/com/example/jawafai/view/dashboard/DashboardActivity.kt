@@ -558,17 +558,24 @@ fun DashboardScreen(
                             animationSpec = tween(400, easing = FastOutSlowInEasing)
                         ) + fadeOut(animationSpec = tween(400))
                     },
-                    ) { backStackEntry ->
+                ) { backStackEntry ->
                     val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
                     val otherUserId = backStackEntry.arguments?.getString("otherUserId") ?: ""
 
-                    ChatDetailScreen(
-                        chatId = chatId,
-                        otherUserId = otherUserId,
-                        onNavigateBack = {
-                            navController.popBackStack()
-                        }
-                    )
+                    // Wrap ChatDetailScreen in a container that handles window insets properly
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .windowInsetsPadding(WindowInsets(0, 0, 0, 0)) // Reset window insets
+                    ) {
+                        ChatDetailScreen(
+                            chatId = chatId,
+                            otherUserId = otherUserId,
+                            onNavigateBack = {
+                                navController.popBackStack()
+                            }
+                        )
+                    }
                 }
 
                 // Other screens with similar smooth transitions

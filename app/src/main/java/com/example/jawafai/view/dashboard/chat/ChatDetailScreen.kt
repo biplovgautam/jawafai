@@ -138,16 +138,12 @@ fun ChatDetailScreen(
     // Filter messages to only show non-empty ones
     val filteredMessages = messages.filter { it.text.isNotBlank() }
 
-    // Auto-scroll to bottom when new messages arrive or when sending a message
+    // Auto-scroll to bottom when new messages arrive (for bottom-attached behavior)
     LaunchedEffect(filteredMessages.size) {
         if (filteredMessages.isNotEmpty()) {
-            // Check if user is already at or near the bottom
-            val isAtBottom = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.index == 0
-            if (isAtBottom || filteredMessages.size == 1) {
-                // Smooth scroll to bottom
-                delay(100) // Small delay to ensure UI is ready
-                listState.animateScrollToItem(0)
-            }
+            // Always scroll to index 0 (bottom) when new messages arrive
+            delay(100) // Small delay to ensure UI is ready
+            listState.animateScrollToItem(0)
         }
     }
 
@@ -156,179 +152,142 @@ fun ChatDetailScreen(
         groupMessagesByDate(filteredMessages)
     }
 
-    // Use Scaffold like other screens in your app
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        containerColor = Color(0xFFF8F9FA), // Light background like other screens
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    // Use a Column with full height control instead of nested layouts
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8F9FA))
+    ) {
+        // Fixed top bar at the very top
+        TopAppBar(
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Profile picture with enhanced styling
+                    Card(
+                        modifier = Modifier.size(40.dp),
+                        shape = CircleShape,
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFA5C9CA)
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
-                        // Profile picture with enhanced styling
-                        Card(
-                            modifier = Modifier.size(40.dp),
-                            shape = CircleShape,
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFFA5C9CA)
-                            ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (otherUserImageUrl != null) {
-                                    AsyncImage(
-                                        model = otherUserImageUrl,
-                                        contentDescription = "User Avatar",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "Default Avatar",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
+                            if (otherUserImageUrl != null) {
+                                AsyncImage(
+                                    model = otherUserImageUrl,
+                                    contentDescription = "User Avatar",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Default Avatar",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
                             }
                         }
+                    }
 
-                        // User name and status with improved styling
-                        Column {
-                            Text(
-                                text = otherUserName,
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontFamily = AppFonts.KarlaFontFamily,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 18.sp,
-                                    color = Color(0xFF395B64)
-                                )
+                    // User name and status with improved styling
+                    Column {
+                        Text(
+                            text = otherUserName,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontFamily = AppFonts.KarlaFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                color = Color(0xFF395B64)
                             )
+                        )
 
-                            // Enhanced typing indicator or online status
-                            AnimatedVisibility(
-                                visible = typingStatus != null && typingStatus?.isTyping == true,
-                                enter = fadeIn() + slideInVertically(),
-                                exit = fadeOut() + slideOutVertically()
+                        // Enhanced typing indicator or online status
+                        AnimatedVisibility(
+                            visible = typingStatus != null && typingStatus?.isTyping == true,
+                            enter = fadeIn() + slideInVertically(),
+                            exit = fadeOut() + slideOutVertically()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    repeat(3) { index ->
-                                        val infiniteTransition = rememberInfiniteTransition(label = "typing")
-                                        val alpha by infiniteTransition.animateFloat(
-                                            initialValue = 0.3f,
-                                            targetValue = 1f,
-                                            animationSpec = infiniteRepeatable(
-                                                animation = tween(600, delayMillis = index * 200),
-                                                repeatMode = RepeatMode.Reverse
-                                            ), label = "alpha"
-                                        )
+                                repeat(3) { index ->
+                                    val infiniteTransition = rememberInfiniteTransition(label = "typing")
+                                    val alpha by infiniteTransition.animateFloat(
+                                        initialValue = 0.3f,
+                                        targetValue = 1f,
+                                        animationSpec = infiniteRepeatable(
+                                            animation = tween(600, delayMillis = index * 200),
+                                            repeatMode = RepeatMode.Reverse
+                                        ), label = "alpha"
+                                    )
 
-                                        Box(
-                                            modifier = Modifier
-                                                .size(4.dp)
-                                                .clip(CircleShape)
-                                                .background(Color(0xFF4CAF50).copy(alpha = alpha))
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(4.dp))
-
-                                    Text(
-                                        text = "typing...",
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                            fontSize = 12.sp,
-                                            color = Color(0xFF4CAF50)
-                                        )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(4.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF4CAF50).copy(alpha = alpha))
                                     )
                                 }
-                            }
 
-                            // Online status when not typing
-                            AnimatedVisibility(
-                                visible = typingStatus == null || typingStatus?.isTyping == false,
-                                enter = fadeIn() + slideInVertically(),
-                                exit = fadeOut() + slideOutVertically()
-                            ) {
+                                Spacer(modifier = Modifier.width(4.dp))
+
                                 Text(
-                                    text = "online",
+                                    text = "typing...",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontFamily = AppFonts.KaiseiDecolFontFamily,
                                         fontSize = 12.sp,
-                                        color = Color(0xFF666666)
+                                        color = Color(0xFF4CAF50)
                                     )
                                 )
                             }
                         }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color(0xFF395B64)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
-                ),
-                modifier = Modifier.statusBarsPadding()
-            )
-        },
-        bottomBar = {
-            Column {
-                // Typing indicator above input bar
-                AnimatedVisibility(
-                    visible = typingStatus != null && typingStatus?.isTyping == true,
-                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
-                ) {
-                    TypingIndicatorBar()
-                }
 
-                // Enhanced message input bar - properly positioned
-                EnhancedMessageInputBar(
-                    message = newMessageText,
-                    onMessageChange = { newMessageText = it },
-                    onSendMessage = {
-                        if (newMessageText.isNotBlank() && currentUserId != null) {
-                            viewModel.sendMessage(
-                                receiverId = otherUserId,
-                                message = newMessageText
+                        // Online status when not typing
+                        AnimatedVisibility(
+                            visible = typingStatus == null || typingStatus?.isTyping == false,
+                            enter = fadeIn() + slideInVertically(),
+                            exit = fadeOut() + slideOutVertically()
+                        ) {
+                            Text(
+                                text = "online",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF666666)
+                                )
                             )
-                            newMessageText = ""
-
-                            // Auto-scroll to bottom when sending
-                            coroutineScope.launch {
-                                delay(100)
-                                listState.animateScrollToItem(0)
-                            }
                         }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .imePadding() // Only handle keyboard, not navigation bar
-                )
-            }
-        }
-    ) { paddingValues ->
-        // Main content with proper padding handling
+                    }
+                }
+            },
+            navigationIcon = {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color(0xFF395B64)
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.White
+            ),
+            modifier = Modifier.statusBarsPadding()
+        )
+
+        // Messages area that takes remaining space
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color(0xFFF8F9FA))
+                .weight(1f)
+                .fillMaxWidth()
         ) {
             if (filteredMessages.isEmpty()) {
                 // Enhanced empty state
@@ -380,20 +339,22 @@ fun ChatDetailScreen(
                     }
                 }
             } else {
-                // Enhanced messages list with grouped display
+                // Messages list with bottom-attached behavior (like modern chat apps)
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 16.dp),
-                    reverseLayout = true,
+                    reverseLayout = true, // This makes messages stick to bottom
                     contentPadding = PaddingValues(
                         top = 16.dp,
                         bottom = 16.dp
                     ),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    groupedMessages.forEach { (date, messagesInDay) ->
+                    // Reverse the order of grouped messages to show newest at bottom
+                    groupedMessages.entries.reversed().forEach { (date, messagesInDay) ->
+                        // Messages in reverse order (newest first in the reversed list)
                         items(messagesInDay.reversed(), key = { it.messageId }) { message ->
                             EnhancedMessageBubble(
                                 message = message,
@@ -413,6 +374,42 @@ fun ChatDetailScreen(
                     }
                 }
             }
+        }
+
+        // Bottom section with typing indicator and input - always at bottom
+        Column {
+            // Typing indicator above input bar
+            AnimatedVisibility(
+                visible = typingStatus != null && typingStatus?.isTyping == true,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+            ) {
+                TypingIndicatorBar()
+            }
+
+            // Enhanced message input bar - properly positioned at bottom
+            EnhancedMessageInputBar(
+                message = newMessageText,
+                onMessageChange = { newMessageText = it },
+                onSendMessage = {
+                    if (newMessageText.isNotBlank() && currentUserId != null) {
+                        viewModel.sendMessage(
+                            receiverId = otherUserId,
+                            message = newMessageText
+                        )
+                        newMessageText = ""
+
+                        // Auto-scroll to bottom when sending (index 0 in reversed layout)
+                        coroutineScope.launch {
+                            delay(100)
+                            listState.animateScrollToItem(0)
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+//                    .imePadding() // Handle keyboard padding
+            )
         }
 
         // Enhanced message actions popup
