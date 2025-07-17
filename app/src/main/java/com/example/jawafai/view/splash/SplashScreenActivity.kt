@@ -36,7 +36,7 @@ import com.airbnb.lottie.compose.*
 @Composable
 fun SplashScreen(
     onNavigate: (String) -> Unit,
-    checkUserState: () -> String
+    checkUserState: String // Changed from function to direct string
 ) {
     val context = LocalContext.current
 
@@ -161,8 +161,8 @@ fun SplashScreen(
     LaunchedEffect(permissionsCheckComplete, startFinalCountdown) {
         if (permissionsCheckComplete && startFinalCountdown) {
             delay(1000)
-            val destination = checkUserState()
-            onNavigate(destination)
+            // Use the destination directly instead of calling a function
+            onNavigate(checkUserState)
         }
     }
 
