@@ -152,264 +152,274 @@ fun ChatDetailScreen(
         groupMessagesByDate(filteredMessages)
     }
 
-    // Use a Column with full height control instead of nested layouts
-    Column(
+    // Modern chat app layout with proper keyboard handling
+    Scaffold(
         modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8F9FA))
-    ) {
-        // Fixed top bar at the very top
-        TopAppBar(
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Profile picture with enhanced styling
-                    Card(
-                        modifier = Modifier.size(40.dp),
-                        shape = CircleShape,
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFFA5C9CA)
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (otherUserImageUrl != null) {
-                                AsyncImage(
-                                    model = otherUserImageUrl,
-                                    contentDescription = "User Avatar",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = "Default Avatar",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    // User name and status with improved styling
-                    Column {
-                        Text(
-                            text = otherUserName,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontFamily = AppFonts.KarlaFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                color = Color(0xFF395B64)
-                            )
-                        )
-
-                        // Enhanced typing indicator or online status
-                        AnimatedVisibility(
-                            visible = typingStatus != null && typingStatus?.isTyping == true,
-                            enter = fadeIn() + slideInVertically(),
-                            exit = fadeOut() + slideOutVertically()
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                repeat(3) { index ->
-                                    val infiniteTransition = rememberInfiniteTransition(label = "typing")
-                                    val alpha by infiniteTransition.animateFloat(
-                                        initialValue = 0.3f,
-                                        targetValue = 1f,
-                                        animationSpec = infiniteRepeatable(
-                                            animation = tween(600, delayMillis = index * 200),
-                                            repeatMode = RepeatMode.Reverse
-                                        ), label = "alpha"
-                                    )
-
-                                    Box(
-                                        modifier = Modifier
-                                            .size(4.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFF4CAF50).copy(alpha = alpha))
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(4.dp))
-
-                                Text(
-                                    text = "typing...",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                        fontSize = 12.sp,
-                                        color = Color(0xFF4CAF50)
-                                    )
-                                )
-                            }
-                        }
-
-                        // Online status when not typing
-                        AnimatedVisibility(
-                            visible = typingStatus == null || typingStatus?.isTyping == false,
-                            enter = fadeIn() + slideInVertically(),
-                            exit = fadeOut() + slideOutVertically()
-                        ) {
-                            Text(
-                                text = "online",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                    fontSize = 12.sp,
-                                    color = Color(0xFF666666)
-                                )
-                            )
-                        }
-                    }
-                }
-            },
-            navigationIcon = {
-                IconButton(onClick = onNavigateBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color(0xFF395B64)
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.White
-            ),
-            modifier = Modifier.statusBarsPadding()
-        )
-
-        // Messages area that takes remaining space
-        Box(
+            .fillMaxSize(),
+//            .imePadding(), // Move IME padding to the main container
+        containerColor = Color(0xFFF8F9FA),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+    ) { paddingValues ->
+        Column(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
+                .fillMaxSize()
+                .padding(paddingValues)
+                .statusBarsPadding()
         ) {
-            if (filteredMessages.isEmpty()) {
-                // Enhanced empty state
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+            // Fixed top bar - always stays at the top
+            TopAppBar(
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // Profile picture with enhanced styling
                         Card(
-                            modifier = Modifier.size(80.dp),
+                            modifier = Modifier.size(40.dp),
                             shape = CircleShape,
                             colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFF395B64).copy(alpha = 0.1f)
+                                containerColor = Color(0xFFA5C9CA)
                             ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Chat,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(40.dp),
-                                    tint = Color(0xFF395B64).copy(alpha = 0.6f)
-                                )
+                                if (otherUserImageUrl != null) {
+                                    AsyncImage(
+                                        model = otherUserImageUrl,
+                                        contentDescription = "User Avatar",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "Default Avatar",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
                             }
                         }
 
-                        Text(
-                            text = "Start your conversation",
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                fontFamily = AppFonts.KarlaFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF395B64)
+                        // User name and status with improved styling
+                        Column {
+                            Text(
+                                text = otherUserName,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontFamily = AppFonts.KarlaFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp,
+                                    color = Color(0xFF395B64)
+                                )
                             )
-                        )
 
-                        Text(
-                            text = "Send a message to ${otherUserName}",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontFamily = AppFonts.KaiseiDecolFontFamily,
-                                color = Color(0xFF666666)
-                            )
-                        )
-                    }
-                }
-            } else {
-                // Messages list with bottom-attached behavior (like modern chat apps)
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    reverseLayout = true, // This makes messages stick to bottom
-                    contentPadding = PaddingValues(
-                        top = 16.dp,
-                        bottom = 16.dp
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    // Reverse the order of grouped messages to show newest at bottom
-                    groupedMessages.entries.reversed().forEach { (date, messagesInDay) ->
-                        // Messages in reverse order (newest first in the reversed list)
-                        items(messagesInDay.reversed(), key = { it.messageId }) { message ->
-                            EnhancedMessageBubble(
-                                message = message,
-                                isFromCurrentUser = message.senderId == currentUserId,
-                                onLongPress = {
-                                    selectedMessage = message
-                                    showMessageActions = true
-                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                            // Enhanced typing indicator or online status
+                            AnimatedVisibility(
+                                visible = typingStatus != null && typingStatus?.isTyping == true,
+                                enter = fadeIn() + slideInVertically(),
+                                exit = fadeOut() + slideOutVertically()
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    repeat(3) { index ->
+                                        val infiniteTransition = rememberInfiniteTransition(label = "typing")
+                                        val alpha by infiniteTransition.animateFloat(
+                                            initialValue = 0.3f,
+                                            targetValue = 1f,
+                                            animationSpec = infiniteRepeatable(
+                                                animation = tween(600, delayMillis = index * 200),
+                                                repeatMode = RepeatMode.Reverse
+                                            ), label = "alpha"
+                                        )
+
+                                        Box(
+                                            modifier = Modifier
+                                                .size(4.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFF4CAF50).copy(alpha = alpha))
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(4.dp))
+
+                                    Text(
+                                        text = "typing...",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF4CAF50)
+                                        )
+                                    )
                                 }
-                            )
-                        }
+                            }
 
-                        // Date separator
-                        item {
-                            DateSeparator(date = date)
-                        }
-                    }
-                }
-            }
-        }
-
-        // Bottom section with typing indicator and input - always at bottom
-        Column {
-            // Typing indicator above input bar
-            AnimatedVisibility(
-                visible = typingStatus != null && typingStatus?.isTyping == true,
-                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
-            ) {
-                TypingIndicatorBar()
-            }
-
-            // Enhanced message input bar - properly positioned at bottom
-            EnhancedMessageInputBar(
-                message = newMessageText,
-                onMessageChange = { newMessageText = it },
-                onSendMessage = {
-                    if (newMessageText.isNotBlank() && currentUserId != null) {
-                        viewModel.sendMessage(
-                            receiverId = otherUserId,
-                            message = newMessageText
-                        )
-                        newMessageText = ""
-
-                        // Auto-scroll to bottom when sending (index 0 in reversed layout)
-                        coroutineScope.launch {
-                            delay(100)
-                            listState.animateScrollToItem(0)
+                            // Online status when not typing
+                            AnimatedVisibility(
+                                visible = typingStatus == null || typingStatus?.isTyping == false,
+                                enter = fadeIn() + slideInVertically(),
+                                exit = fadeOut() + slideOutVertically()
+                            ) {
+                                Text(
+                                    text = "online",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF666666)
+                                    )
+                                )
+                            }
                         }
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-//                    .imePadding() // Handle keyboard padding
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFF395B64)
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White
+                )
             )
+
+            // Messages area that adapts to keyboard
+            Box(
+                modifier = Modifier
+//                    .weight(2f)
+                    .fillMaxWidth()
+            ) {
+                if (filteredMessages.isEmpty()) {
+                    // Enhanced empty state
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Card(
+                                modifier = Modifier.size(80.dp),
+                                shape = CircleShape,
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFF395B64).copy(alpha = 0.1f)
+                                ),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Chat,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(40.dp),
+                                        tint = Color(0xFF395B64).copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
+
+                            Text(
+                                text = "Start your conversation",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontFamily = AppFonts.KarlaFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF395B64)
+                                )
+                            )
+
+                            Text(
+                                text = "Send a message to ${otherUserName}",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontFamily = AppFonts.KaiseiDecolFontFamily,
+                                    color = Color(0xFF666666)
+                                )
+                            )
+                        }
+                    }
+                } else {
+                    // Messages list with bottom-attached behavior (like modern chat apps)
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .height(300.dp)
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        reverseLayout = true, // This makes messages stick to bottom
+                        contentPadding = PaddingValues(
+                            top = 16.dp,
+                            bottom = 16.dp
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        // Reverse the order of grouped messages to show newest at bottom
+                        groupedMessages.entries.reversed().forEach { (date, messagesInDay) ->
+                            // Messages in reverse order (newest first in the reversed list)
+                            items(messagesInDay.reversed(), key = { it.messageId }) { message ->
+                                EnhancedMessageBubble(
+                                    message = message,
+                                    isFromCurrentUser = message.senderId == currentUserId,
+                                    onLongPress = {
+                                        selectedMessage = message
+                                        showMessageActions = true
+                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    }
+                                )
+                            }
+
+                            // Date separator
+                            item {
+                                DateSeparator(date = date)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Bottom section with typing indicator and input - no extra padding
+            Column(
+                modifier = Modifier.fillMaxWidth()
+                // Removed windowInsetsPadding(WindowInsets.ime) - this was causing the issue
+            ) {
+                // Typing indicator above input bar
+                AnimatedVisibility(
+                    visible = typingStatus != null && typingStatus?.isTyping == true,
+                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+                ) {
+                    TypingIndicatorBar()
+                }
+
+                // Enhanced message input bar - properly positioned at bottom
+                EnhancedMessageInputBar(
+                    message = newMessageText,
+                    onMessageChange = { newMessageText = it },
+                    onSendMessage = {
+                        if (newMessageText.isNotBlank() && currentUserId != null) {
+                            viewModel.sendMessage(
+                                receiverId = otherUserId,
+                                message = newMessageText
+                            )
+                            newMessageText = ""
+
+                            // Auto-scroll to bottom when sending (index 0 in reversed layout)
+                            coroutineScope.launch {
+                                delay(100)
+                                listState.animateScrollToItem(0)
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
 
         // Enhanced message actions popup

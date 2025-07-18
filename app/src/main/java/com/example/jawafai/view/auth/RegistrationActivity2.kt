@@ -115,6 +115,7 @@ fun RegistrationScreen(
     // Username validation states
     var isUsernameValid by remember { mutableStateOf(true) }
     var isEmailValid by remember { mutableStateOf(true) }
+    var showTermsError by remember { mutableStateOf(false) }
 
     // Focus requesters for smooth keyboard navigation
     val lastNameFocusRequester = remember { FocusRequester() }
@@ -150,10 +151,12 @@ fun RegistrationScreen(
                     errorMessage.contains("username", ignoreCase = true) -> {
                         isUsernameValid = false
                         Toast.makeText(context, "Username already exists", Toast.LENGTH_LONG).show()
+                        usernameFocusRequester.requestFocus()
                     }
                     errorMessage.contains("email", ignoreCase = true) || errorMessage.contains("already in use", ignoreCase = true) -> {
                         isEmailValid = false
                         Toast.makeText(context, "Email already in use", Toast.LENGTH_LONG).show()
+                        emailFocusRequester.requestFocus()
                     }
                     else -> {
                         Toast.makeText(context, "Error: ${state.message}", Toast.LENGTH_LONG).show()
@@ -204,6 +207,66 @@ fun RegistrationScreen(
             maxAgeCalendar.add(Calendar.YEAR, -100)
             datePicker.minDate = maxAgeCalendar.timeInMillis
             show()
+        }
+    }
+
+    // Function to handle registration
+    fun handleRegistration() {
+        // Reset previous errors
+        showTermsError = false
+
+        // Check terms and conditions first
+        if (!acceptTerms) {
+            showTermsError = true
+            Toast.makeText(context, "You must accept the Terms & Conditions to register", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        // Field validation
+        when {
+            firstName.isBlank() -> {
+                Toast.makeText(context, "First name is required", Toast.LENGTH_SHORT).show()
+                return
+            }
+            lastName.isBlank() -> {
+                Toast.makeText(context, "Last name is required", Toast.LENGTH_SHORT).show()
+                lastNameFocusRequester.requestFocus()
+                return
+            }
+            username.isBlank() -> {
+                Toast.makeText(context, "Username is required", Toast.LENGTH_SHORT).show()
+                usernameFocusRequester.requestFocus()
+                return
+            }
+            email.isBlank() -> {
+                Toast.makeText(context, "Email is required", Toast.LENGTH_SHORT).show()
+                emailFocusRequester.requestFocus()
+                return
+            }
+            !email.contains('@') -> {
+                Toast.makeText(context, "Enter a valid email address", Toast.LENGTH_SHORT).show()
+                emailFocusRequester.requestFocus()
+                return
+            }
+            password.length < 6 -> {
+                Toast.makeText(context, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show()
+                passwordFocusRequester.requestFocus()
+                return
+            }
+            dob.isBlank() -> {
+                Toast.makeText(context, "Date of birth is required", Toast.LENGTH_SHORT).show()
+                return
+            }
+            else -> {
+                val userModel = UserModel(
+                    firstName = firstName,
+                    lastName = lastName,
+                    username = username,
+                    email = email,
+                    dateOfBirth = dob
+                )
+                viewModel.register(email, password, userModel, null)
+            }
         }
     }
 
@@ -258,11 +321,11 @@ fun RegistrationScreen(
                 // Subtitle
                 item {
                     Text(
-                        text = "Create your account to get started",
+                        text = if (isLoading) "Creating your account..." else "Create your account to get started",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = AppFonts.KarlaFontFamily,
                             fontSize = 16.sp,
-                            color = Color(0xFF666666)
+                            color = if (isLoading) Color(0xFF395B64) else Color(0xFF666666)
                         ),
                         textAlign = TextAlign.Center
                     )
@@ -473,11 +536,19 @@ fun RegistrationScreen(
                             keyboardType = KeyboardType.Password,
                             imeAction = ImeAction.Done
                         ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                handleRegistration()
+                            }
+                        ),
                         trailingIcon = {
                             val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
                             val description = if (passwordVisible) "Hide password" else "Show password"
 
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            IconButton(
+                                onClick = { passwordVisible = !passwordVisible },
+                                enabled = !isLoading
+                            ) {
                                 Icon(
                                     imageVector = image,
                                     contentDescription = description,
@@ -567,10 +638,15 @@ fun RegistrationScreen(
                     ) {
                         Checkbox(
                             checked = acceptTerms,
-                            onCheckedChange = { if (!isLoading) acceptTerms = it },
+                            onCheckedChange = {
+                                if (!isLoading) {
+                                    acceptTerms = it
+                                    showTermsError = false
+                                }
+                            },
                             colors = CheckboxDefaults.colors(
                                 checkedColor = Color(0xFF395B64),
-                                uncheckedColor = Color(0xFF666666)
+                                uncheckedColor = if (showTermsError) MaterialTheme.colorScheme.error else Color(0xFF666666)
                             ),
                             enabled = !isLoading
                         )
@@ -578,7 +654,7 @@ fun RegistrationScreen(
                             "I accept the Terms & Conditions",
                             fontFamily = AppFonts.KarlaFontFamily,
                             fontSize = 14.sp,
-                            color = Color(0xFF666666)
+                            color = if (showTermsError) MaterialTheme.colorScheme.error else Color(0xFF666666)
                         )
                     }
                 }
@@ -586,35 +662,7 @@ fun RegistrationScreen(
                 // Register Button
                 item {
                     Button(
-                        onClick = {
-                            if (isLoading) return@Button
-
-                            if (!acceptTerms) {
-                                Toast.makeText(context, "Accept terms to proceed", Toast.LENGTH_SHORT).show()
-                                return@Button
-                            }
-
-                            // Field validation
-                            when {
-                                firstName.isBlank() -> Toast.makeText(context, "First name is required", Toast.LENGTH_SHORT).show()
-                                lastName.isBlank() -> Toast.makeText(context, "Last name is required", Toast.LENGTH_SHORT).show()
-                                username.isBlank() -> Toast.makeText(context, "Username is required", Toast.LENGTH_SHORT).show()
-                                email.isBlank() -> Toast.makeText(context, "Email is required", Toast.LENGTH_SHORT).show()
-                                !email.contains('@') -> Toast.makeText(context, "Enter a valid email address", Toast.LENGTH_SHORT).show()
-                                password.length < 6 -> Toast.makeText(context, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show()
-                                dob.isBlank() -> Toast.makeText(context, "Date of birth is required", Toast.LENGTH_SHORT).show()
-                                else -> {
-                                    val userModel = UserModel(
-                                        firstName = firstName,
-                                        lastName = lastName,
-                                        username = username,
-                                        email = email,
-                                        dateOfBirth = dob
-                                    )
-                                    viewModel.register(email, password, userModel, null)
-                                }
-                            }
-                        },
+                        onClick = { handleRegistration() },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
@@ -625,10 +673,23 @@ fun RegistrationScreen(
                         enabled = !isLoading
                     ) {
                         if (isLoading) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Creating Account...",
+                                    fontFamily = AppFonts.KarlaFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = Color.White
+                                )
+                            }
                         } else {
                             Text(
                                 text = "Create Account",

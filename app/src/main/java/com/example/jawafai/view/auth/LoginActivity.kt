@@ -109,6 +109,7 @@ fun LoginScreen(viewModel: UserViewModel) {
     var rememberMe by remember { mutableStateOf(false) }
 
     // Focus requesters for keyboard navigation
+    val emailFocusRequester = remember { FocusRequester() }
     val passwordFocusRequester = remember { FocusRequester() }
 
     // Lottie animation composition
@@ -162,11 +163,28 @@ fun LoginScreen(viewModel: UserViewModel) {
             is UserViewModel.UserOperationResult.Error -> {
                 isLoading = false
                 Toast.makeText(context, "Login failed: ${state.message}", Toast.LENGTH_LONG).show()
+
+                // Focus on email field and show keyboard for user to retry
+                emailFocusRequester.requestFocus()
             }
             is UserViewModel.UserOperationResult.PasswordResetSent -> {
                 isLoading = false
                 showResetDialog = false
                 Toast.makeText(context, "Password reset email sent!", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    // Function to handle login
+    val handleLogin = {
+        if (email.isNotBlank() && password.isNotBlank()) {
+            viewModel.login(email, password)
+        } else {
+            Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
+            if (email.isBlank()) {
+                emailFocusRequester.requestFocus()
+            } else if (password.isBlank()) {
+                passwordFocusRequester.requestFocus()
             }
         }
     }
@@ -222,11 +240,11 @@ fun LoginScreen(viewModel: UserViewModel) {
                 // Subtitle - Using Karla font
                 item {
                     Text(
-                        text = "signin to continue using ai powered जवाफ",
+                        text = if (isLoading) "Signing you in..." else "signin to continue using ai powered जवाफ",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = AppFonts.KarlaFontFamily,
                             fontSize = 16.sp,
-                            color = Color(0xFF666666)
+                            color = if (isLoading) Color(0xFF395B64) else Color(0xFF666666)
                         ),
                         textAlign = TextAlign.Center
                     )
@@ -263,11 +281,12 @@ fun LoginScreen(viewModel: UserViewModel) {
                             keyboardActions = KeyboardActions(
                                 onNext = {
                                     passwordFocusRequester.requestFocus()
-                            }
-                        ),
+                                }
+                            ),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(64.dp), // Increased height for proper text visibility
+                                .height(64.dp)
+                                .focusRequester(emailFocusRequester),
                             shape = RoundedCornerShape(28.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Color(0xFF395B64),
@@ -278,6 +297,7 @@ fun LoginScreen(viewModel: UserViewModel) {
                                 focusedTextColor = Color.Black,
                                 unfocusedTextColor = Color.Black
                             ),
+                            enabled = !isLoading,
                             singleLine = true
                         )
 
@@ -353,17 +373,17 @@ fun LoginScreen(viewModel: UserViewModel) {
                         ),
                         keyboardActions = KeyboardActions(
                             onDone = {
-                                // Trigger login when Done is pressed
-                                if (email.isNotBlank() && password.isNotBlank()) {
-                                    viewModel.login(email, password)
+                                handleLogin()
                             }
-                        }
                         ),
                         trailingIcon = {
                             val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
                             val description = if (passwordVisible) "Hide password" else "Show password"
 
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            IconButton(
+                                onClick = { passwordVisible = !passwordVisible },
+                                enabled = !isLoading
+                            ) {
                                 Icon(
                                     imageVector = image,
                                     contentDescription = description,
@@ -373,7 +393,7 @@ fun LoginScreen(viewModel: UserViewModel) {
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(64.dp) // Increased height for proper text visibility
+                            .height(64.dp)
                             .focusRequester(passwordFocusRequester),
                         shape = RoundedCornerShape(28.dp),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -385,6 +405,7 @@ fun LoginScreen(viewModel: UserViewModel) {
                             focusedTextColor = Color.Black,
                             unfocusedTextColor = Color.Black
                         ),
+                        enabled = !isLoading,
                         singleLine = true
                     )
                 }
@@ -401,11 +422,12 @@ fun LoginScreen(viewModel: UserViewModel) {
                         ) {
                             Checkbox(
                                 checked = rememberMe,
-                                onCheckedChange = { rememberMe = it },
+                                onCheckedChange = { if (!isLoading) rememberMe = it },
                                 colors = CheckboxDefaults.colors(
                                     checkedColor = Color(0xFF395B64),
                                     uncheckedColor = Color(0xFF666666)
-                                )
+                                ),
+                                enabled = !isLoading
                             )
                             Text(
                                 text = "Remember Me",
@@ -421,8 +443,10 @@ fun LoginScreen(viewModel: UserViewModel) {
                             fontFamily = AppFonts.KarlaFontFamily,
                             fontSize = 14.sp,
                             color = Color(0xFF395B64),
-                            modifier = Modifier.clickable {
-                                showResetDialog = true
+                            modifier = Modifier.clickable(enabled = !isLoading) {
+                                if (!isLoading) {
+                                    showResetDialog = true
+                                }
                             }
                         )
                     }
@@ -431,13 +455,7 @@ fun LoginScreen(viewModel: UserViewModel) {
                 // Sign In Button - Round cornered
                 item {
                     Button(
-                        onClick = {
-                            if (email.isNotBlank() && password.isNotBlank()) {
-                                viewModel.login(email, password)
-                            } else {
-                                Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
-                            }
-                        },
+                        onClick = handleLogin,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
@@ -448,10 +466,23 @@ fun LoginScreen(viewModel: UserViewModel) {
                         enabled = !isLoading
                     ) {
                         if (isLoading) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Signing In...",
+                                    fontFamily = AppFonts.KarlaFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = Color.White
+                                )
+                            }
                         } else {
                             Text(
                                 text = "Sign In",
@@ -486,12 +517,14 @@ fun LoginScreen(viewModel: UserViewModel) {
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
                             color = Color(0xFF395B64),
-                            modifier = Modifier.clickable {
-                                // Navigate to registration screen
-                                val intent = Intent(context, RegistrationActivity::class.java)
-                                context.startActivity(intent)
-                                if (context is ComponentActivity) {
-                                    context.finish()
+                            modifier = Modifier.clickable(enabled = !isLoading) {
+                                if (!isLoading) {
+                                    // Navigate to registration screen
+                                    val intent = Intent(context, RegistrationActivity::class.java)
+                                    context.startActivity(intent)
+                                    if (context is ComponentActivity) {
+                                        context.finish()
+                                    }
                                 }
                             }
                         )
