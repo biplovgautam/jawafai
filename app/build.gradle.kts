@@ -126,15 +126,47 @@ dependencies {
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
-    // Testing
+    // Testing Dependencies
     testImplementation(libs.junit)
+
+    // MockK for mocking in unit tests
+    testImplementation("io.mockk:mockk:1.13.8")
+    testImplementation("io.mockk:mockk-android:1.13.8")
+
+    // Coroutines testing
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+
+    // AndroidX Test dependencies
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
+    testImplementation("androidx.test.ext:junit:1.1.5")
+    testImplementation("androidx.test:core:1.5.0")
+
+    // Compose UI testing dependencies
+    testImplementation("androidx.compose.ui:ui-test-junit4:1.5.4")
+    testImplementation("androidx.compose.ui:ui-test-manifest:1.5.4")
+
+    // Instrumented tests
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.5.4")
+
+    // MockK for Android instrumented tests
+    androidTestImplementation("io.mockk:mockk-android:1.13.8")
+
+    // Coroutines testing for Android tests
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+
+    // AndroidX Test runner and rules
+    androidTestImplementation("androidx.test:runner:1.5.2")
+    androidTestImplementation("androidx.test:rules:1.5.0")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+
+    // Debug dependencies
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+    debugImplementation("androidx.compose.ui:ui-test-manifest:1.5.4")
 
     implementation("androidx.appcompat:appcompat:1.6.1")
 }
